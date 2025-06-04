@@ -1,0 +1,4 @@
+{
+  "MONGO_DB_URI": "mongodb+srv://bienson260104:admin123@cluster0.elpznar.mongodb.net/tiktok_clone_db?retryWrites=true&w=majority&appName=Cluster0",
+  "SERVER_PORT": "8080"
+}

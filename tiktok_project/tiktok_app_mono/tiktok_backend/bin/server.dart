@@ -1,5 +1,6 @@
 // tiktok_backend/bin/server.dart
 import 'dart:io';
+import 'dart:convert';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
@@ -16,33 +17,69 @@ import 'package:tiktok_backend/src/features/comments/comment_routes.dart' show c
 const _corsHeaders = {
   'Access-Control-Allow-Origin': '*', 
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Origin, Content-Type, Authorization, X-Requested-With', 
+  'Access-Control-Allow-Headers': 'Origin, Content-Type, Authorization, X-Requested-With, Accept', 
   'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Max-Age': '86400',
 };
 
 Middleware corsMiddleware() {
   return (Handler innerHandler) {
     return (Request request) async {
+      // Handle preflight OPTIONS requests
       if (request.method == 'OPTIONS') {
+        print('[CORS] Handling OPTIONS preflight request for ${request.url}');
         return Response(204, headers: _corsHeaders); 
       }
+      
+      // Process normal requests and add CORS headers
       final response = await innerHandler(request);
       return response.change(headers: {...response.headers, ..._corsHeaders});
     };
   };
 }
-// --- Kết thúc Middleware CORS ---
 
+// Enhanced logging middleware
+Middleware enhancedLoggingMiddleware() {
+  return (Handler innerHandler) {
+    return (Request request) async {
+      final startTime = DateTime.now();
+      final timestamp = startTime.toIso8601String();
+      
+      print('[${timestamp}] ${request.method} ${request.url}');
+      if (request.url.queryParameters.isNotEmpty) {
+        print('[Server] Query params: ${request.url.queryParameters}');
+      }
+      
+      try {
+        final response = await innerHandler(request);
+        final duration = DateTime.now().difference(startTime);
+        
+        print('[Server] ${request.method} ${request.url.path} - ${response.statusCode} (${duration.inMilliseconds}ms)');
+        return response;
+      } catch (e, stackTrace) {
+        final duration = DateTime.now().difference(startTime);
+        print('[Server] ERROR ${request.method} ${request.url.path} - Exception after ${duration.inMilliseconds}ms: $e');
+        print('[Server] StackTrace: $stackTrace');
+        
+        return Response.internalServerError(
+          body: '{"error": "Internal server error", "timestamp": "$timestamp"}',
+          headers: {'Content-Type': 'application/json', ..._corsHeaders}
+        );
+      }
+    };
+  };
+}
 
 Future<void> main() async {
-  print('[Server] Main function started. Attempting to initialize...');
+  print('[Server] 🚀 TikTok Backend Server Starting...');
+  print('[Server] Timestamp: ${DateTime.now().toIso8601String()}');
+  
   try {
-    print("[Server] Initializing server configuration by loading config.json...");
-    // Đảm bảo bạn gọi đúng hàm loadConfig nếu đã đổi tên từ loadEnv
-    // (phiên bản EnvConfig mới nhất của chúng ta dùng config.json và loadConfig)
+    print("[Server] Loading configuration from config.json...");
     await EnvConfig.loadConfig(); 
-    print("[Server] Configuration loaded.");
+    print("[Server] ✅ Configuration loaded successfully.");
     
+    // Log masked MongoDB URI for security
     String safeMongoUriToLog = EnvConfig.mongoDbUri;
     try {
       Uri parsedUri = Uri.parse(EnvConfig.mongoDbUri);
@@ -50,70 +87,214 @@ Future<void> main() async {
         safeMongoUriToLog = parsedUri.replace(userInfo: 'USER:PASS_HIDDEN').toString();
       }
     } catch (_) { /* ignore parsing error for logging */ }
-    print("[Server] MONGO_DB_URI (masked for logging): $safeMongoUriToLog");
-    print("[Server] SERVER_PORT from EnvConfig: ${EnvConfig.serverPort}");
+    print("[Server] MongoDB URI (masked): $safeMongoUriToLog");
+    
+    // QUAN TRỌNG: Cố định port 8080 thay vì dùng từ config
+    const int fixedPort = 8080;
+    print("[Server] 🔧 OVERRIDING port from config (${EnvConfig.serverPort}) to fixed port: $fixedPort");
 
-    print("[Server] Connecting to MongoDB...");
+    print("[Server] 🔗 Connecting to MongoDB...");
     await DatabaseService.connect();
-    print("[Server] MongoDB connection process completed successfully.");
+    print("[Server] ✅ MongoDB connection established successfully.");
 
-  } catch (e) {
-    print('[Server] FATAL: Failed to initialize server (EnvConfig or DatabaseService): $e');
-    print('[Server] Server not starting.');
+  } catch (e, stackTrace) {
+    print('[Server] ❌ FATAL: Failed to initialize server configuration or database');
+    print('[Server] Error: $e');
+    print('[Server] StackTrace: $stackTrace');
+    print('[Server] 🛑 Server startup aborted.');
     exit(1); 
   }
 
+  // Create main application router
   final appRouter = Router();
 
-  // --- PHỤC VỤ FILE TĨNH TỪ THƯ MỤC UPLOADS ---
+  // --- ROOT ENDPOINT FOR API INFO ---
+  appRouter.get('/', (Request request) {
+    final serverInfo = {
+      'message': 'TikTok Backend API Server',
+      'version': '1.0.0',
+      'status': 'running',
+      'timestamp': DateTime.now().toIso8601String(),
+      'endpoints': {
+        'health': 'GET /health',
+        'users': {
+          'login': 'POST /api/users/login',
+          'register': 'POST /api/users/register',
+        },
+        'videos': {
+          'feed': 'GET /api/videos/feed',
+          'upload': 'POST /api/videos/upload',
+          'like': 'POST /api/videos/{videoId}/like',
+          'save': 'POST /api/videos/{videoId}/save',
+          'debug': 'GET /api/videos/debug/info'
+        },
+        'static': 'GET /uploads/{filename}'
+      }
+    };
+    return Response.ok(
+      jsonEncode(serverInfo),
+      headers: {'Content-Type': 'application/json'}
+    );
+  });
+
+  // --- HEALTH CHECK ENDPOINT ---
+  appRouter.get('/health', (Request request) {
+    print('[Server] Health check requested');
+    final healthInfo = {
+      'status': 'healthy',
+      'timestamp': DateTime.now().toIso8601String(),
+      'database': 'connected',
+      'uptime': 'running'
+    };
+    return Response.ok(
+      jsonEncode(healthInfo),
+      headers: {'Content-Type': 'application/json'}
+    );
+  });
+
+  // --- SERVE STATIC FILES FROM UPLOADS DIRECTORY ---
   final uploadsDirPath = p.join(Directory.current.path, 'uploads');
-  print('[Server] Attempting to serve static files from: $uploadsDirPath');
+  print('[Server] 📁 Setting up static file serving from: $uploadsDirPath');
+  
+  // Ensure uploads directory exists
+  final uploadsDir = Directory(uploadsDirPath);
+  if (!await uploadsDir.exists()) {
+    await uploadsDir.create(recursive: true);
+    print('[Server] ✅ Created uploads directory: $uploadsDirPath');
+  }
+  
   final staticFileHandler = createStaticHandler(
     uploadsDirPath, 
     defaultDocument: null, 
-    serveFilesOutsidePath: false, 
+    serveFilesOutsidePath: false,
   );
   appRouter.mount('/uploads/', staticFileHandler);
-  print("[Server] Static file handler for '/uploads/' mounted.");
+  print("[Server] ✅ Static file handler mounted at '/uploads/'");
 
-
+  // --- LEGACY HELLO ENDPOINT ---
   appRouter.get('/hello', (Request request) {
-    print('[Server] Received request for /hello');
-    return Response.ok('Hello from Backend, connected to MongoDB!');
+    print('[Server] Hello endpoint accessed');
+    return Response.ok(
+      '{"message": "Hello from TikTok Backend! Connected to MongoDB successfully.", "timestamp": "${DateTime.now().toIso8601String()}"}',
+      headers: {'Content-Type': 'application/json'}
+    );
   });
 
+  // --- MOUNT API ROUTES ---
+  
   // Mount User routes
   try {
-    appRouter.mount('/api/users', createUserRoutes()); 
-    print("[Server] User API routes mounted successfully at /api/users");
-  } catch (e) {
-     print('[Server] WARNING: Could not mount UserApi routes. Ensure user_routes.dart and createUserRoutes() are correct. Error: $e');
+    final userRouter = createUserRoutes();
+    appRouter.mount('/api/users', userRouter); 
+    print("[Server] ✅ User API routes mounted at '/api/users'");
+  } catch (e, stackTrace) {
+     print('[Server] ⚠️  WARNING: Could not mount User API routes');
+     print('[Server] Error: $e');
+     print('[Server] Please ensure user_routes.dart and createUserRoutes() are implemented correctly');
   }
 
   // Mount Video routes
   try {
-    appRouter.mount('/api/videos', createVideoRoutes());
-    print("[Server] Video API routes mounted successfully at /api/videos");
-  } catch (e) {
-     print('[Server] WARNING: Could not mount VideoApi routes. Ensure video_routes.dart and createVideoRoutes() are correct. Error: $e');
+    final videoRouter = createVideoRoutes();
+    appRouter.mount('/api/videos', videoRouter);
+    print("[Server] ✅ Video API routes mounted at '/api/videos'");
+  } catch (e, stackTrace) {
+     print('[Server] ⚠️  WARNING: Could not mount Video API routes');
+     print('[Server] Error: $e');
+     print('[Server] Please ensure video_routes.dart and createVideoRoutes() are implemented correctly');
   }
 
-  // **BỔ SUNG MOUNT COMMENT ROUTES Ở ĐÂY**
+  // Mount Comment routes (optional)
   try {
-    appRouter.mount('/api/comments', createCommentRoutes()); 
-    print("[Server] Comment API routes mounted successfully at /api/comments");
-  } catch (e) {
-     print('[Server] WARNING: Could not mount Comment routes. Ensure comment_routes.dart and createCommentRoutes() are correct. Error: $e');
+    final commentRouter = createCommentRoutes(); 
+    appRouter.mount('/api/comments', commentRouter);
+    print("[Server] ✅ Comment API routes mounted at '/api/comments'");
+  } catch (e, stackTrace) {
+     print('[Server] ⚠️  WARNING: Could not mount Comment API routes');
+     print('[Server] Error: $e');
+     print('[Server] Comment routes are optional. Continuing without them...');
   }
 
-  // Pipeline xử lý request
+  // --- BUILD REQUEST PROCESSING PIPELINE ---
   final handler = const Pipeline()
-      .addMiddleware(corsMiddleware()) 
-      .addMiddleware(logRequests())    
-      .addHandler(appRouter);
+      .addMiddleware(enhancedLoggingMiddleware())    // Enhanced logging first
+      .addMiddleware(corsMiddleware())               // CORS handling
+      .addHandler(appRouter);                       // Main router
 
-  final port = EnvConfig.serverPort;
-  final server = await shelf_io.serve(handler, InternetAddress.anyIPv4, port);
+  // --- START SERVER WITH FIXED PORT ---
+  const int serverPort = 8080;  // CỨNG CỐ ĐỊNH PORT 8080
+  const String serverHost = 'localhost';  // Có thể thay bằng '0.0.0.0' để accept từ mọi interface
 
-  print('🚀 Server listening on port ${server.port} at http://localhost:${server.port}');
+  try {
+    // Try to start server on fixed port
+    final server = await shelf_io.serve(handler, InternetAddress.anyIPv4, serverPort);
+    
+    print('');
+    print('🎉 =====================================');
+    print('🚀 TikTok Backend Server STARTED!');
+    print('🎉 =====================================');
+    print('📍 Host: ${server.address.address}');
+    print('🔌 Port: ${server.port}');
+    print('🌐 Server URL: http://$serverHost:${server.port}');
+    print('');
+    print('📊 Available Endpoints:');
+    print('   • API Info: http://$serverHost:${server.port}/');
+    print('   • Health Check: http://$serverHost:${server.port}/health');
+    print('   • User Login: http://$serverHost:${server.port}/api/users/login');
+    print('   • Video Feed: http://$serverHost:${server.port}/api/videos/feed');
+    print('   • Video Debug: http://$serverHost:${server.port}/api/videos/debug/info');
+    print('   • Static Files: http://$serverHost:${server.port}/uploads/');
+    print('');
+    print('✅ Server is ready to accept connections...');
+    print('💡 Frontend should connect to: http://$serverHost:${server.port}');
+    print('🛑 Press Ctrl+C to stop the server');
+    print('=====================================');
+    print('');
+
+    // Graceful shutdown handling
+    ProcessSignal.sigint.watch().listen((signal) async {
+      print('\n[Server] 🛑 Received shutdown signal (SIGINT)');
+      print('[Server] 🔄 Shutting down gracefully...');
+      
+      try {
+        await server.close();
+        print('[Server] ✅ HTTP server stopped');
+        
+        await DatabaseService.close();
+        print('[Server] ✅ Database connection closed');
+        
+        print('[Server] 👋 Server shutdown completed successfully');
+        exit(0);
+      } catch (e) {
+        print('[Server] ❌ Error during shutdown: $e');
+        exit(1);
+      }
+    });
+
+  } catch (e) {
+    print('');
+    print('[Server] ❌ FATAL: Failed to start server on port $serverPort');
+    print('[Server] Error: $e');
+    
+    if (e.toString().contains('Address already in use') || 
+        e.toString().contains('bind failed')) {
+      print('');
+      print('[Server] 💡 Port $serverPort is already in use!');
+      print('[Server] Solutions:');
+      print('   1. Stop any other server running on port $serverPort');
+      print('   2. Find and kill the process:');
+      print('      • macOS/Linux: lsof -ti:$serverPort | xargs kill -9');
+      print('      • Windows: netstat -ano | findstr :$serverPort');
+      print('   3. Then restart this server');
+      print('');
+    }
+    
+    try {
+      await DatabaseService.close();
+    } catch (_) {}
+    
+    exit(1);
+  }
 }
+
+// Import required for jsonEncode

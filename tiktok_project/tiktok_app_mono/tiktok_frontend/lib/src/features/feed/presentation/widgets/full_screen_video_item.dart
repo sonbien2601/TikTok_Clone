@@ -1,7 +1,9 @@
 // tiktok_frontend/lib/src/features/feed/presentation/widgets/full_screen_video_item.dart
+// Thêm import mới cho comment bottom sheet
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:tiktok_frontend/src/features/feed/domain/models/video_post_model.dart';
+import 'comment_bottom_sheet.dart'; // Import comment bottom sheet
 
 class FullScreenVideoItem extends StatefulWidget {
   final VideoPost videoPost;
@@ -10,9 +12,6 @@ class FullScreenVideoItem extends StatefulWidget {
   final VoidCallback onDispose; 
   final VoidCallback onLikeButtonPressed; 
   final VoidCallback onSaveButtonPressed; 
-  // final VoidCallback onCommentButtonPressed; 
-  // final VoidCallback onShareButtonPressed; 
-
 
   const FullScreenVideoItem({
     super.key,
@@ -22,8 +21,6 @@ class FullScreenVideoItem extends StatefulWidget {
     required this.onDispose,
     required this.onLikeButtonPressed,
     required this.onSaveButtonPressed,
-    // required this.onCommentButtonPressed,
-    // required this.onShareButtonPressed,
   });
 
   @override
@@ -37,11 +34,15 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
   bool _showControlsOverlay = false; 
   bool _isBuffering = false;
   bool _hasError = false;
+  
+  // Local state for comments count
+  late int _localCommentsCount;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _localCommentsCount = widget.videoPost.commentsCount;
     print("[FullScreenVideoItem: ${widget.videoPost.id}] initState. URL: ${widget.videoPost.videoUrl}");
     _initializeVideoPlayer();
   }
@@ -119,6 +120,12 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
         setState(() {});
       }
     }
+    // Update local comments count if changed
+    if (widget.videoPost.commentsCount != oldWidget.videoPost.commentsCount) {
+      setState(() {
+        _localCommentsCount = widget.videoPost.commentsCount;
+      });
+    }
   }
   
   @override
@@ -150,6 +157,35 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     });
     Future.delayed(const Duration(seconds: 1), () { 
       if (mounted && _showControlsOverlay) setState(() => _showControlsOverlay = false);
+    });
+  }
+
+  void _showComments() {
+    // Pause video when showing comments
+    if (_isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+      _videoPlayerController!.pause();
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CommentBottomSheet(
+        videoId: widget.videoPost.id,
+        initialCommentsCount: _localCommentsCount,
+        onCommentsCountChanged: (newCount) {
+          if (mounted) {
+            setState(() {
+              _localCommentsCount = newCount;
+            });
+          }
+        },
+      ),
+    ).then((_) {
+      // Resume video when comments are closed (if still active)
+      if (widget.isActive && _isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+        _videoPlayerController!.play();
+      }
     });
   }
 
@@ -186,7 +222,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                 children: [
                   Text("Following", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16, fontWeight: FontWeight.w500)),
                   const SizedBox(width: 12),
-                  Container(height: 12, width: 1, color: Colors.white.withOpacity(0.7)), // VerticalDivider không hiển thị tốt trong Row không có chiều cao cố định
+                  Container(height: 12, width: 1, color: Colors.white.withOpacity(0.7)),
                   const SizedBox(width: 12),
                   const Text("For You", style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
                 ],
@@ -231,11 +267,11 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                           const SizedBox(height: 25), 
                           _buildInteractionButton(icon: widget.videoPost.isLikedByCurrentUser ? Icons.favorite_rounded : Icons.favorite_border_outlined, label: widget.videoPost.likesCount.toString(), onPressed: widget.onLikeButtonPressed, iconColor: widget.videoPost.isLikedByCurrentUser ? Colors.redAccent[400] : Colors.white),
                           const SizedBox(height: 20),
-                          _buildInteractionButton(icon: Icons.chat_bubble_outline_rounded, label: widget.videoPost.commentsCount.toString(), onPressed: () { print("Comment button tapped for video ${widget.videoPost.id}"); /* TODO: widget.onCommentButtonPressed(); */ }), // SỬA ICON Ở ĐÂY
+                          _buildInteractionButton(icon: Icons.chat_bubble_outline_rounded, label: _localCommentsCount.toString(), onPressed: _showComments),
                           const SizedBox(height: 20),
                           _buildInteractionButton(icon: widget.videoPost.isSavedByCurrentUser ? Icons.bookmark_rounded : Icons.bookmark_border_outlined, label: "Save", onPressed: widget.onSaveButtonPressed, iconColor: widget.videoPost.isSavedByCurrentUser ? Colors.amberAccent[400] : Colors.white),
                           const SizedBox(height: 20),
-                          _buildInteractionButton(icon: Icons.reply_rounded, label: widget.videoPost.sharesCount.toString(), onPressed: () { print("Share button tapped"); /* TODO: widget.onShareButtonPressed(); */ }),
+                          _buildInteractionButton(icon: Icons.reply_rounded, label: widget.videoPost.sharesCount.toString(), onPressed: () { print("Share button tapped"); }),
                           const SizedBox(height: 20), 
                         ],
                       ),

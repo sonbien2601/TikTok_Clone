@@ -9,11 +9,9 @@ class UserFrontend {
   final String username;
   final String email;
   final bool isAdmin;
-  // Bạn có thể thêm các trường khác nếu backend trả về
   final String? dateOfBirth; 
   final String? gender;
   final List<String> interests;
-
 
   UserFrontend({
     required this.id,
@@ -31,9 +29,9 @@ class UserFrontend {
       username: json['username'] as String? ?? 'N/A_Username',
       email: json['email'] as String? ?? 'N/A_Email',
       isAdmin: json['isAdmin'] as bool? ?? false,
-      dateOfBirth: json['dateOfBirth'] as String?, // Lấy từ JSON nếu có
-      gender: json['gender'] as String?,         // Lấy từ JSON nếu có
-      interests: List<String>.from(json['interests'] as List? ?? []), // Lấy từ JSON nếu có
+      dateOfBirth: json['dateOfBirth'] as String?,
+      gender: json['gender'] as String?,
+      interests: List<String>.from(json['interests'] as List? ?? []),
     );
   }
 
@@ -47,19 +45,34 @@ class AuthService extends ChangeNotifier {
   bool _isAuthenticated = false;
   UserFrontend? _currentUser;
 
+  // Cố định backend host và port
+  static const String _backendHost = 'localhost';
+  static const String _backendPort = '8080';
+  static const String _apiPath = '/api/users';
+
   String get _baseUrl {
-    const String backendPort = "8080";
-    const String apiPath = "/api/users";
     if (kIsWeb) {
-      return 'http://localhost:$backendPort$apiPath';
+      // Web: luôn dùng localhost:8080
+      return 'http://$_backendHost:$_backendPort$_apiPath';
     } else {
       try {
-        if (Platform.isAndroid) return 'http://10.0.2.2:$backendPort$apiPath';
-        if (Platform.isIOS) return 'http://localhost:$backendPort$apiPath';
-      } catch (e) { print("[AuthService] Error checking platform: $e");}
-      return 'http://localhost:$backendPort$apiPath';
+        if (Platform.isAndroid) {
+          // Android emulator: 10.0.2.2 maps to host localhost
+          return 'http://10.0.2.2:$_backendPort$_apiPath';
+        } else if (Platform.isIOS) {
+          // iOS simulator: có thể dùng localhost
+          return 'http://$_backendHost:$_backendPort$_apiPath';
+        }
+      } catch (e) { 
+        print("[AuthService] Error checking platform: $e");
+      }
+      // Fallback cho desktop hoặc platform khác
+      return 'http://$_backendHost:$_backendPort$_apiPath';
     }
   }
+
+  // Getter để debug URL hiện tại
+  String get currentBaseUrl => _baseUrl;
 
   bool get isAuthenticated => _isAuthenticated;
   UserFrontend? get currentUser => _currentUser;
@@ -90,33 +103,50 @@ class AuthService extends ChangeNotifier {
   
   Future<void> login(String identifierValue, String password) async {
     final targetUrl = Uri.parse('$_baseUrl/login');
-    print('[Frontend AuthService] Attempting login with Identifier: "$identifierValue" to $targetUrl');
+    print('[AuthService] Attempting login with Identifier: "$identifierValue" to $targetUrl');
+    print('[AuthService] Using base URL: $_baseUrl');
     
     try {
       final response = await http.post(
         targetUrl,
-        headers: <String, String>{'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode(<String, String>{'identifier': identifierValue, 'password': password}),
-      );
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(<String, String>{
+          'identifier': identifierValue, 
+          'password': password
+        }),
+      ).timeout(const Duration(seconds: 10));
 
-      print('[Frontend AuthService] Login Response status: ${response.statusCode}');
+      print('[AuthService] Login Response status: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
-        if (responseData is Map<String, dynamic> && responseData.containsKey('user') && responseData['user'] is Map<String, dynamic>) {
-          _updateAuthState(true, responseData['user'] as Map<String, dynamic>); // Bỏ ? ở cuối vì đã kiểm tra
+        if (responseData is Map<String, dynamic> && 
+            responseData.containsKey('user') && 
+            responseData['user'] is Map<String, dynamic>) {
+          _updateAuthState(true, responseData['user'] as Map<String, dynamic>);
         } else {
           _updateAuthState(false, null);
           throw Exception('Login response missing or invalid user data.');
         }
       } else {
         String errorMessage = 'Failed to login. Status: ${response.statusCode}';
-        try { final errorData = jsonDecode(response.body); errorMessage = errorData['error'] ?? errorMessage; } catch (_) {}
+        try { 
+          final errorData = jsonDecode(response.body); 
+          errorMessage = errorData['error'] ?? errorMessage; 
+        } catch (_) {}
         _updateAuthState(false, null); 
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[Frontend AuthService] Login error: $e');
+      print('[AuthService] Login error: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        print('[AuthService] ❌ Cannot connect to backend server at $_baseUrl');
+        print('[AuthService] 💡 Please ensure backend server is running on port $_backendPort');
+      }
       _updateAuthState(false, null); 
       rethrow; 
     }
@@ -127,39 +157,69 @@ class AuthService extends ChangeNotifier {
     DateTime? dateOfBirth, String? gender, List<String> interests,
   ) async {
     final targetUrl = Uri.parse('$_baseUrl/register');
-    print('[Frontend AuthService] Attempting register for Username: "$username" to $targetUrl with DOB: ${dateOfBirth?.toIso8601String()}');
+    print('[AuthService] Attempting register for Username: "$username" to $targetUrl');
+    print('[AuthService] Using base URL: $_baseUrl');
     
     try {
       final response = await http.post(
         targetUrl,
-        headers: <String, String>{'Content-Type': 'application/json; charset=UTF-8'},
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
         body: jsonEncode(<String, dynamic>{
-          'username': username, 'email': email, 'password': password,
+          'username': username, 
+          'email': email, 
+          'password': password,
           'dateOfBirth': dateOfBirth?.toIso8601String(),
-          'gender': gender, 'interests': interests,
+          'gender': gender, 
+          'interests': interests,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
-      print('[Frontend AuthService] Register Response status: ${response.statusCode}');
+      print('[AuthService] Register Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('[Frontend AuthService] Registration successful (backend).');
+        print('[AuthService] Registration successful (backend).');
         return true; 
       } else {
         String errorMessage = 'Failed to register. Status: ${response.statusCode}';
-        try { final errorData = jsonDecode(response.body); errorMessage = errorData['error'] ?? errorMessage; } catch (_) {}
+        try { 
+          final errorData = jsonDecode(response.body); 
+          errorMessage = errorData['error'] ?? errorMessage; 
+        } catch (_) {}
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[Frontend AuthService] Register error: $e');
+      print('[AuthService] Register error: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        print('[AuthService] ❌ Cannot connect to backend server at $_baseUrl');
+        print('[AuthService] 💡 Please ensure backend server is running on port $_backendPort');
+      }
       rethrow; 
     }
   }
   
   Future<void> logout() async {
-    print('[Frontend AuthService] Logging out...');
+    print('[AuthService] Logging out...');
     await Future.delayed(const Duration(milliseconds: 100)); 
     _updateAuthState(false, null);
-    print('[Frontend AuthService] User logged out.');
+    print('[AuthService] User logged out.');
+  }
+
+  // Method để test connection
+  Future<bool> testConnection() async {
+    try {
+      final healthUrl = Uri.parse('http://$_backendHost:$_backendPort/health');
+      print('[AuthService] Testing connection to $healthUrl');
+      
+      final response = await http.get(healthUrl).timeout(const Duration(seconds: 5));
+      print('[AuthService] Health check response: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('[AuthService] Connection test failed: $e');
+      return false;
+    }
   }
 }

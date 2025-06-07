@@ -252,52 +252,48 @@ class VideoController {
     }
   }
 
-  // --- HÀM LIKE/UNLIKE VIDEO ---
- // Sửa signature từ:
-// static Future<Response> toggleLikeVideoHandler(Request request, String videoId)
-// Thành:
-static Future<Response> toggleLikeVideoHandler(Request request) async {
-  // Lấy videoId từ path segments hoặc query parameters
-  String? videoId;
-  // Ví dụ: /api/videos/:videoId/like => pathSegments = [api, videos, {videoId}, like]
-  final segments = request.url.pathSegments;
-  if (segments.length >= 3 && segments[1] == 'videos') {
-    videoId = segments[2];
-  } else {
-    videoId = request.url.queryParameters['videoId'];
-  }
-  
-  print('[VideoController] toggleLikeVideo for videoId: $videoId');
-  
-  if (videoId == null || videoId.isEmpty) {
-    return Response(400, body: jsonEncode({'error': 'Video ID is required'}));
-  }
+  // --- HÀM LIKE/UNLIKE VIDEO (ĐƯỢC SỬA HOÀN TOÀN) ---
+static Future<Response> toggleLikeVideoHandler(Request request, String videoId, String userIdString) async {
+  print('[VideoController] toggleLikeVideo called with videoId: $videoId, userId: $userIdString');
   
   try {
-    final requestBody = await request.readAsString();
-    if (requestBody.isEmpty) {
-      return Response(400, body: jsonEncode({'error': 'Missing userId in request body'}));
+    // Validate inputs
+    if (videoId.isEmpty) {
+      return Response(400, 
+        body: jsonEncode({'error': 'Video ID cannot be empty'}),
+        headers: {'Content-Type': 'application/json'}
+      );
     }
     
-    final payload = jsonDecode(requestBody);
-    final userIdString = payload['userId'] as String?;
-    if (userIdString == null) {
-      return Response(400, body: jsonEncode({'error': 'userId is required'}));
+    if (userIdString.isEmpty) {
+      return Response(400, 
+        body: jsonEncode({'error': 'User ID cannot be empty'}),
+        headers: {'Content-Type': 'application/json'}
+      );
     }
     
+    // Convert to ObjectIds
     ObjectId videoObjectId; 
     ObjectId userObjectId;
     try {
         videoObjectId = ObjectId.fromHexString(videoId);
         userObjectId = ObjectId.fromHexString(userIdString);
     } catch (e) { 
-      return Response(400, body: jsonEncode({'error': 'Invalid videoId or userId format'})); 
+      print('[VideoController] Invalid ObjectId format. VideoId: $videoId, UserId: $userIdString');
+      return Response(400, 
+        body: jsonEncode({'error': 'Invalid videoId or userId format: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      ); 
     }
 
     final videosCollection = DatabaseService.db.collection('videos');
     final video = await videosCollection.findOne(where.id(videoObjectId));
     if (video == null) {
-      return Response(404, body: jsonEncode({'error': 'Video not found'}));
+      print('[VideoController] Video not found for id: $videoId');
+      return Response(404, 
+        body: jsonEncode({'error': 'Video not found'}),
+        headers: {'Content-Type': 'application/json'}
+      );
     }
 
     List<ObjectId> likesList = (video['likes'] as List?)?.whereType<ObjectId>().toList() ?? [];
@@ -306,11 +302,14 @@ static Future<Response> toggleLikeVideoHandler(Request request) async {
     if (likesList.contains(userObjectId)) {
         likesList.remove(userObjectId); 
         isCurrentlyLiked = false;
+        print('[VideoController] User unliked the video');
     } else {
         likesList.add(userObjectId); 
         isCurrentlyLiked = true;
+        print('[VideoController] User liked the video');
     }
     
+    // Update database
     final updateResult = await videosCollection.updateOne(
         where.id(videoObjectId),
         modify.set('likes', likesList).set('likesCount', likesList.length)
@@ -320,167 +319,254 @@ static Future<Response> toggleLikeVideoHandler(Request request) async {
         // Lấy lại thông tin video mới nhất để trả về
         final updatedVideo = await videosCollection.findOne(where.id(videoObjectId));
         if (updatedVideo == null) {
-          return Response(404, body: jsonEncode({'error': 'Video not found after update'}));
+          return Response(404, 
+            body: jsonEncode({'error': 'Video not found after update'}),
+            headers: {'Content-Type': 'application/json'}
+          );
         }
 
-        // Convert ObjectIds thành Strings
-        updatedVideo['_id'] = (updatedVideo['_id'] as ObjectId).toHexString();
-        updatedVideo['userId'] = (updatedVideo['userId'] as ObjectId).toHexString();
-        updatedVideo['likes'] = (updatedVideo['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
-        updatedVideo['saves'] = (updatedVideo['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+        // Convert ObjectIds thành Strings cho response
+        final responseVideo = Map<String, dynamic>.from(updatedVideo);
+        responseVideo['_id'] = (updatedVideo['_id'] as ObjectId).toHexString();
+        responseVideo['userId'] = (updatedVideo['userId'] as ObjectId).toHexString();
+        responseVideo['likes'] = (updatedVideo['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+        responseVideo['saves'] = (updatedVideo['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
         
         // Thêm user info
-        updatedVideo['user'] = {
+        responseVideo['user'] = {
           'username': updatedVideo['username'] ?? 'Unknown User',
           'avatarUrl': updatedVideo['userAvatarUrl']
         };
-        updatedVideo.remove('username');
-        updatedVideo.remove('userAvatarUrl');
+        responseVideo.remove('username');
+        responseVideo.remove('userAvatarUrl');
 
+        print('[VideoController] Like toggle successful. New likes count: ${likesList.length}');
         return Response.ok(jsonEncode({
             'message': isCurrentlyLiked ? 'Video liked' : 'Video unliked', 
             'isLikedByCurrentUser': isCurrentlyLiked, 
             'likesCount': likesList.length,
-            'video': updatedVideo
+            'video': responseVideo
             }), headers: {'Content-Type': 'application/json'});
     } else {
         print('[VideoController] Failed to update like status: ${updateResult.writeError?.errmsg}');
-        return Response.internalServerError(body: jsonEncode({'error': 'Failed to update like status'}));
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Failed to update like status'}),
+          headers: {'Content-Type': 'application/json'}
+        );
     }
   } catch (e, s) {
       print('[VideoController.toggleLikeVideoHandler] Error: $e\n$s');
-      return Response.internalServerError(body: jsonEncode({'error': 'An unexpected error occurred'}));
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
   }
 }
 
-// --- HÀM SAVE/UNSAVE VIDEO ---
-static Future<Response> toggleSaveVideoHandler(Request request) async {
-  // Lấy videoId từ path segments hoặc query parameters
-  String? videoId;
-  final segments = request.url.pathSegments;
-  if (segments.length >= 3 && segments[1] == 'videos') {
-    videoId = segments[2];
-  } else {
-    videoId = request.url.queryParameters['videoId'];
-  }
-  
-  print('[VideoController] toggleSaveVideo for videoId: $videoId');
-  
-  if (videoId == null || videoId.isEmpty) {
-    return Response(400, body: jsonEncode({'error': 'Video ID is required'}));
-  }
+// --- HÀM SAVE/UNSAVE VIDEO (ĐƯỢC SỬA HOÀN TOÀN) ---
+static Future<Response> toggleSaveVideoHandler(Request request, String videoId, String userIdString) async {
+  print('[VideoController] toggleSaveVideo called with videoId: $videoId, userId: $userIdString');
   
   try {
-      final requestBody = await request.readAsString();
-      if (requestBody.isEmpty) {
-        return Response(400, body: jsonEncode({'error': 'Missing userId'}));
-      }
-      
-      final payload = jsonDecode(requestBody);
-      final userIdString = payload['userId'] as String?;
-      if (userIdString == null) {
-        return Response(400, body: jsonEncode({'error': 'userId is required'}));
-      }
-      
-      ObjectId videoObjectId; 
-      ObjectId userObjectId;
-      try {
-          videoObjectId = ObjectId.fromHexString(videoId);
-          userObjectId = ObjectId.fromHexString(userIdString);
-      } catch (e) { 
-        return Response(400, body: jsonEncode({'error': 'Invalid videoId or userId format'})); 
-      }
-
-      final videosCollection = DatabaseService.db.collection('videos');
-      final usersCollection = DatabaseService.db.collection('users');
-
-      final video = await videosCollection.findOne(where.id(videoObjectId));
-      if (video == null) {
-        return Response(404, body: jsonEncode({'error': 'Video not found'}));
-      }
-      
-      final user = await usersCollection.findOne(where.id(userObjectId));
-      if (user == null) {
-        return Response(404, body: jsonEncode({'error': 'User not found'}));
-      }
-
-      List<ObjectId> videoSaves = (video['saves'] as List?)?.whereType<ObjectId>().toList() ?? [];
-      List<ObjectId> userSavedVideos = (user['savedVideos'] as List?)?.whereType<ObjectId>().toList() ?? [];
-      bool isCurrentlySaved;
-
-      if (videoSaves.contains(userObjectId)) { 
-          videoSaves.remove(userObjectId); 
-          userSavedVideos.remove(videoObjectId); 
-          isCurrentlySaved = false;
-      } else { 
-          videoSaves.add(userObjectId); 
-          userSavedVideos.add(videoObjectId); 
-          isCurrentlySaved = true;
-      }
-      
-      final videoUpdateResult = await videosCollection.updateOne(
-        where.id(videoObjectId), 
-        modify.set('saves', videoSaves)
-      ); 
-      final userUpdateResult = await usersCollection.updateOne(
-        where.id(userObjectId), 
-        modify.set('savedVideos', userSavedVideos)
+    // Validate inputs
+    if (videoId.isEmpty) {
+      return Response(400, 
+        body: jsonEncode({'error': 'Video ID cannot be empty'}),
+        headers: {'Content-Type': 'application/json'}
       );
+    }
+    
+    if (userIdString.isEmpty) {
+      return Response(400, 
+        body: jsonEncode({'error': 'User ID cannot be empty'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+    
+    // Convert to ObjectIds
+    ObjectId videoObjectId; 
+    ObjectId userObjectId;
+    try {
+        videoObjectId = ObjectId.fromHexString(videoId);
+        userObjectId = ObjectId.fromHexString(userIdString);
+    } catch (e) { 
+      print('[VideoController] Invalid ObjectId format. VideoId: $videoId, UserId: $userIdString');
+      return Response(400, 
+        body: jsonEncode({'error': 'Invalid videoId or userId format: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      ); 
+    }
 
-      if (videoUpdateResult.isSuccess && userUpdateResult.isSuccess) {
-          return Response.ok(jsonEncode({
-            'message': isCurrentlySaved ? 'Video saved' : 'Video unsaved', 
-            'isSavedByCurrentUser': isCurrentlySaved
-          }), headers: {'Content-Type': 'application/json'});
-      } else {
-          print('[VideoController] Failed to update save status. VideoUpdate: ${videoUpdateResult.isSuccess}, UserUpdate: ${userUpdateResult.isSuccess}');
-          return Response.internalServerError(body: jsonEncode({'error': 'Failed to update save status'}));
-      }
+    final videosCollection = DatabaseService.db.collection('videos');
+    final usersCollection = DatabaseService.db.collection('users');
+
+    final video = await videosCollection.findOne(where.id(videoObjectId));
+    if (video == null) {
+      print('[VideoController] Video not found for id: $videoId');
+      return Response(404, 
+        body: jsonEncode({'error': 'Video not found'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+    
+    final user = await usersCollection.findOne(where.id(userObjectId));
+    if (user == null) {
+      print('[VideoController] User not found for id: $userIdString');
+      return Response(404, 
+        body: jsonEncode({'error': 'User not found'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    List<ObjectId> videoSaves = (video['saves'] as List?)?.whereType<ObjectId>().toList() ?? [];
+    List<ObjectId> userSavedVideos = (user['savedVideos'] as List?)?.whereType<ObjectId>().toList() ?? [];
+    bool isCurrentlySaved;
+
+    if (videoSaves.contains(userObjectId)) { 
+        videoSaves.remove(userObjectId); 
+        userSavedVideos.remove(videoObjectId); 
+        isCurrentlySaved = false;
+        print('[VideoController] User unsaved the video');
+    } else { 
+        videoSaves.add(userObjectId); 
+        userSavedVideos.add(videoObjectId); 
+        isCurrentlySaved = true;
+        print('[VideoController] User saved the video');
+    }
+    
+    // Update both collections
+    final videoUpdateResult = await videosCollection.updateOne(
+      where.id(videoObjectId), 
+      modify.set('saves', videoSaves)
+    ); 
+    final userUpdateResult = await usersCollection.updateOne(
+      where.id(userObjectId), 
+      modify.set('savedVideos', userSavedVideos)
+    );
+
+    if (videoUpdateResult.isSuccess && userUpdateResult.isSuccess) {
+        // Lấy lại thông tin video để trả về
+        final updatedVideo = await videosCollection.findOne(where.id(videoObjectId));
+        if (updatedVideo == null) {
+          return Response(404, 
+            body: jsonEncode({'error': 'Video not found after update'}),
+            headers: {'Content-Type': 'application/json'}
+          );
+        }
+
+        // Convert ObjectIds thành Strings cho response
+        final responseVideo = Map<String, dynamic>.from(updatedVideo);
+        responseVideo['_id'] = (updatedVideo['_id'] as ObjectId).toHexString();
+        responseVideo['userId'] = (updatedVideo['userId'] as ObjectId).toHexString();
+        responseVideo['likes'] = (updatedVideo['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+        responseVideo['saves'] = (updatedVideo['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+        
+        // Thêm user info
+        responseVideo['user'] = {
+          'username': updatedVideo['username'] ?? 'Unknown User',
+          'avatarUrl': updatedVideo['userAvatarUrl']
+        };
+        responseVideo.remove('username');
+        responseVideo.remove('userAvatarUrl');
+
+        print('[VideoController] Save toggle successful. New saves count: ${videoSaves.length}');
+        return Response.ok(jsonEncode({
+          'message': isCurrentlySaved ? 'Video saved' : 'Video unsaved', 
+          'isSavedByCurrentUser': isCurrentlySaved,
+          'savesCount': videoSaves.length,
+          'video': responseVideo
+        }), headers: {'Content-Type': 'application/json'});
+    } else {
+        print('[VideoController] Failed to update save status. VideoUpdate: ${videoUpdateResult.isSuccess}, UserUpdate: ${userUpdateResult.isSuccess}');
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Failed to update save status'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+    }
   } catch (e, s) {
       print('[VideoController.toggleSaveVideoHandler] Error: $e\n$s');
-      return Response.internalServerError(body: jsonEncode({'error': 'An unexpected error occurred'}));
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
   }
 }
 
-  // --- HELPER METHODS ---
-  static Future<List<int>> _readAllBytes(Stream<List<int>> stream) async {
-    final List<int> bytes = [];
-    await for (final chunk in stream) {
-      bytes.addAll(chunk);
-    }
-    return bytes;
-  }
-
+  // --- CÁC HÀM HELPER ---
+  
+  /// Parse content-disposition header để lấy name và filename
   static Map<String, String> _parseContentDisposition(String contentDisposition) {
-    final Map<String, String> params = {};
+    Map<String, String> params = {};
     final parts = contentDisposition.split(';');
     
-    for (int i = 0; i < parts.length; i++) { 
-      final part = parts[i].trim();
-      if (i == 0 && part.toLowerCase() != 'form-data' && !part.contains('=')) { 
-        continue;
-      }
-      final equalIndex = part.indexOf('=');
-      if (equalIndex != -1) {
-        final key = part.substring(0, equalIndex).trim();
-        String value = part.substring(equalIndex + 1).trim();
-        if (value.startsWith('"') && value.endsWith('"')) {
-          value = value.substring(1, value.length - 1);
+    for (final part in parts) {
+      final trimmedPart = part.trim();
+      if (trimmedPart.contains('=')) {
+        final keyValue = trimmedPart.split('=');
+        if (keyValue.length == 2) {
+          String key = keyValue[0].trim();
+          String value = keyValue[1].trim();
+          
+          // Remove quotes from value if present
+          if (value.startsWith('"') && value.endsWith('"')) {
+            value = value.substring(1, value.length - 1);
+          }
+          
+          params[key] = value;
         }
-        params[key] = value;
       }
     }
+    
     return params;
   }
 
-  static List<String> _extractHashtags(String text) {
-    if (text.isEmpty) return [];
-    final RegExp hashtagRegExp = RegExp(r"#(\w+)");
-    final Iterable<RegExpMatch> matches = hashtagRegExp.allMatches(text);
-    return matches
-        .map((match) => match.group(1)!)
-        .where((tag) => tag.isNotEmpty)
-        .toSet() 
-        .toList();
+  /// Đọc tất cả bytes từ một MimeMultipart stream
+   static Future<List<int>> _readAllBytes(Stream<List<int>> part) async {
+    final List<int> bytes = <int>[];
+    await for (final chunk in part) {
+      bytes.addAll(chunk);
+    }
+    print('[VideoController._readAllBytes] Read ${bytes.length} bytes from multipart stream');
+    return bytes;
+  }
+
+  /// Extract hashtags từ description
+  static List<String> _extractHashtags(String description) {
+    final hashtagRegex = RegExp(r'#\w+');
+    final matches = hashtagRegex.allMatches(description);
+    return matches.map((match) => match.group(0)!).toList();
+  }
+}
+
+// --- CÁC HÀM EXTENSION TIỆN ÍCH ---
+
+extension VideoDocumentExtension on Map<String, dynamic> {
+  /// Convert video document để trả về cho client
+  Map<String, dynamic> toClientFormat() {
+    final clientDoc = Map<String, dynamic>.from(this);
+    
+    // Convert ObjectIds thành Strings
+    if (this['_id'] is ObjectId) {
+      clientDoc['_id'] = (this['_id'] as ObjectId).toHexString();
+    }
+    if (this['userId'] is ObjectId) {
+      clientDoc['userId'] = (this['userId'] as ObjectId).toHexString();
+    }
+    
+    // Convert likes và saves arrays
+    clientDoc['likes'] = (this['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+    clientDoc['saves'] = (this['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+    
+    // Thêm user info từ denormalized data
+    clientDoc['user'] = {
+      'username': this['username'] ?? 'Unknown User',
+      'avatarUrl': this['userAvatarUrl']
+    };
+    
+    // Remove denormalized fields
+    clientDoc.remove('username');
+    clientDoc.remove('userAvatarUrl');
+    
+    return clientDoc;
   }
 }

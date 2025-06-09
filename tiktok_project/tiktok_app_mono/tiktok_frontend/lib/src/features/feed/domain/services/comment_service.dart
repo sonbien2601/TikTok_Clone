@@ -232,105 +232,134 @@ class CommentService {
     }
   }
 
-  // Delete a comment
-  Future<void> deleteComment(String commentId, String userId) async {
-    // Try different HTTP methods and URL formats
-    List<Map<String, dynamic>> requestsToTry = [
-      {
-        'method': 'DELETE',
-        'url': '$_apiBaseUrl/$commentId',
-      },
-      {
-        'method': 'DELETE', 
-        'url': '$_apiBaseUrl/comment/$commentId',
-      },
-      {
-        'method': 'POST',
-        'url': '$_apiBaseUrl/$commentId/delete',
-      },
-      {
-        'method': 'POST',
-        'url': '$_apiBaseUrl/delete/$commentId',
-      },
-      {
-        'method': 'DELETE',
-        'url': 'http://${_effectiveBackendHost}:$_backendPort/api/comments/$commentId',
-      },
-    ];
+  // Edit a comment - UPDATED URL PATTERN
+  Future<CommentModel> editComment(String commentId, String userId, String newText) async {
+    final url = Uri.parse('$_apiBaseUrl/edit/$commentId');  // EXPLICIT PATTERN
+    print('[CommentService] Editing comment $commentId by user $userId at $url');
     
-    Exception? lastError;
-    
-    for (var requestConfig in requestsToTry) {
-      try {
-        final url = Uri.parse(requestConfig['url']);
-        final method = requestConfig['method'];
-        print('[CommentService] Trying $method $url');
-        
-        http.Response response;
-        
-        if (method == 'DELETE') {
-          response = await http.delete(
-            url,
-            headers: {
-              'Content-Type': 'application/json; charset=UTF-8',
-              'Accept': 'application/json',
-            },
-            body: jsonEncode({
-              'userId': userId,
-            }),
-          ).timeout(const Duration(seconds: 10));
-        } else {
-          // POST method
-          response = await http.post(
-            url,
-            headers: {
-              'Content-Type': 'application/json; charset=UTF-8',
-              'Accept': 'application/json',
-            },
-            body: jsonEncode({
-              'userId': userId,
-            }),
-          ).timeout(const Duration(seconds: 10));
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'text': newText,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      print('[CommentService] Edit Comment Response Status: ${response.statusCode}');
+      print('[CommentService] Edit Comment Response Body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        // Parse response với error handling
+        dynamic responseData;
+        try {
+          responseData = jsonDecode(response.body);
+        } catch (e) {
+          print('[CommentService] JSON decode error for edit comment: $e');
+          throw Exception('Invalid JSON response: $e');
         }
 
-        print('[CommentService] $method Response Status: ${response.statusCode} for URL: $url');
-        
-        if (response.statusCode == 200) {
-          print('[CommentService] Comment deleted successfully with $method $url');
-          return; // Success!
-        } else if (response.statusCode != 404 && response.statusCode != 405) {
-          // Not a 404 or 405 (Method Not Allowed), might be different error
-          String errorMessage = 'Failed to delete comment. Status: ${response.statusCode}';
-          try { 
-            final errorData = jsonDecode(response.body); 
-            errorMessage = errorData['error'] ?? errorMessage; 
-          } catch(_) {}
-          
-          print('[CommentService] Delete comment failed with $method $url: $errorMessage');
-          throw Exception(errorMessage);
+        if (responseData is! Map<String, dynamic>) {
+          throw Exception('Response is not a JSON object');
         }
+
+        final Map<String, dynamic> responseMap = responseData as Map<String, dynamic>;
         
-        // 404 or 405 - try next URL/method
-        print('[CommentService] $method $url returned ${response.statusCode}, trying next...');
+        Map<String, dynamic> commentData;
         
-      } catch (e) {
-        print('[CommentService] Error with ${requestConfig['method']} ${requestConfig['url']}: $e');
-        lastError = e is Exception ? e : Exception(e.toString());
-        
-        if (!e.toString().contains('404') && 
-            !e.toString().contains('405') && 
-            !e.toString().contains('Failed to delete comment')) {
-          // Non-404/405 error, probably worth throwing immediately
-          rethrow;
+        // XỬ LÝ CẢ 2 FORMAT cho edit comment
+        if (responseMap.containsKey('comment')) {
+          // NEW FORMAT: {comment: {...}}
+          print('[CommentService] Edit comment: Detected new format (wrapped in comment field)');
+          final rawCommentData = responseMap['comment'];
+          if (rawCommentData is! Map<String, dynamic>) {
+            throw Exception('Comment data is not a JSON object');
+          }
+          commentData = rawCommentData;
+        } else if (responseMap.containsKey('_id')) {
+          // OLD FORMAT: Comment object trực tiếp
+          print('[CommentService] Edit comment: Detected old format (comment object directly)');
+          commentData = responseMap;
+        } else {
+          throw Exception('Invalid response format - missing comment data');
         }
+
+        // Đảm bảo các field bắt buộc tồn tại
+        final Map<String, dynamic> safeCommentData = Map<String, dynamic>.from(commentData);
+        if (!safeCommentData.containsKey('likesCount')) safeCommentData['likesCount'] = 0;
+        if (!safeCommentData.containsKey('likes')) safeCommentData['likes'] = <String>[];
+        if (!safeCommentData.containsKey('repliesCount')) safeCommentData['repliesCount'] = 0;
+        if (!safeCommentData.containsKey('updatedAt')) safeCommentData['updatedAt'] = safeCommentData['createdAt'];
+
+        print('[CommentService] Creating CommentModel from edited data: $safeCommentData');
+        return CommentModel.fromJson(safeCommentData);
+      } else {
+        String errorMessage = 'Failed to edit comment. Status: ${response.statusCode}';
+        try { 
+          final errorData = jsonDecode(response.body); 
+          errorMessage = errorData['error'] ?? errorMessage; 
+        } catch(_) {}
+        
+        print('[CommentService] Edit comment failed: $errorMessage');
+        throw Exception(errorMessage);
       }
+    } catch (e) {
+      print('[CommentService] Error editing comment: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
+        throw Exception('Không thể kết nối đến server');
+      }
+      rethrow;
     }
+  }
+
+  // Delete a comment - UPDATED URL PATTERN
+  Future<void> deleteComment(String commentId, String userId) async {
+    final url = Uri.parse('$_apiBaseUrl/delete/$commentId');  // EXPLICIT PATTERN
+    print('[CommentService] Deleting comment $commentId by user $userId at $url');
     
-    // If we get here, all attempts failed
-    print('[CommentService] All delete attempts failed');
-    
-    // For now, show a user-friendly message
-    throw Exception('Tính năng xóa comment chưa được hỗ trợ. Vui lòng thử lại sau.');
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'userId': userId,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      print('[CommentService] Delete Response Status: ${response.statusCode}');
+      print('[CommentService] Delete Response Body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        print('[CommentService] Comment deleted successfully');
+        return;
+      } else {
+        String errorMessage = 'Failed to delete comment. Status: ${response.statusCode}';
+        try { 
+          final errorData = jsonDecode(response.body); 
+          errorMessage = errorData['error'] ?? errorMessage; 
+        } catch(_) {}
+        
+        print('[CommentService] Delete comment failed: $errorMessage');
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      print('[CommentService] Error deleting comment: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
+        throw Exception('Không thể kết nối đến server');
+      }
+      rethrow;
+    }
   }
 
   // Test connection

@@ -229,6 +229,121 @@ class CommentController {
     }
   }
 
+  // Edit comment - NEW METHOD
+  static Future<Response> editCommentHandler(Request request, String commentId, String userIdString, String newText) async {
+    print('[CommentController] Editing comment: $commentId by user: $userIdString');
+    print('[CommentController] New text: "$newText"');
+    
+    try {
+      // Validate input
+      final textValidation = Comment.validateText(newText);
+      if (textValidation != null) {
+        return Response(400, 
+          body: jsonEncode({'error': textValidation}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      // Convert IDs
+      ObjectId commentObjectId; 
+      ObjectId userObjectId;
+      try {
+        commentObjectId = ObjectId.fromHexString(commentId);
+        userObjectId = ObjectId.fromHexString(userIdString);
+      } catch (e) {
+        return Response(400, 
+          body: jsonEncode({'error': 'Invalid commentId or userId format'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      final commentsCollection = DatabaseService.db.collection('comments');
+      
+      // Find the comment
+      final commentDoc = await commentsCollection.findOne(where.id(commentObjectId));
+      if (commentDoc == null) {
+        return Response(404, 
+          body: jsonEncode({'error': 'Comment not found'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      final comment = Comment.fromMap(commentDoc);
+      
+      // Check if user owns the comment
+      if (comment.userId != userObjectId) {
+        return Response(403, 
+          body: jsonEncode({'error': 'You can only edit your own comments'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      // Update the comment
+      final updateResult = await commentsCollection.updateOne(
+        where.id(commentObjectId),
+        modify
+          .set('text', newText.trim())
+          .set('updatedAt', DateTime.now().toIso8601String())
+      );
+      
+      if (updateResult.isSuccess) {
+        // Get the updated comment
+        final updatedCommentDoc = await commentsCollection.findOne(where.id(commentObjectId));
+        if (updatedCommentDoc == null) {
+          return Response(404, 
+            body: jsonEncode({'error': 'Comment not found after update'}),
+            headers: {'Content-Type': 'application/json'}
+          );
+        }
+
+        // Format response
+        final formattedComment = <String, dynamic>{
+          '_id': (updatedCommentDoc['_id'] as ObjectId).toHexString(),
+          'videoId': (updatedCommentDoc['videoId'] as ObjectId).toHexString(),
+          'userId': (updatedCommentDoc['userId'] as ObjectId).toHexString(),
+          'username': updatedCommentDoc['username'] as String? ?? 'Anonymous',
+          'text': updatedCommentDoc['text'] as String? ?? '',
+          'likesCount': updatedCommentDoc['likesCount'] as int? ?? 0,
+          'likes': _formatLikesArray(updatedCommentDoc['likes']),
+          'repliesCount': updatedCommentDoc['repliesCount'] as int? ?? 0,
+          'createdAt': updatedCommentDoc['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+          'updatedAt': updatedCommentDoc['updatedAt'] as String? ?? DateTime.now().toIso8601String(),
+        };
+
+        // Add optional fields
+        if (updatedCommentDoc['userAvatarUrl'] != null) {
+          formattedComment['userAvatarUrl'] = updatedCommentDoc['userAvatarUrl'] as String;
+        }
+        
+        if (updatedCommentDoc['parentCommentId'] != null) {
+          formattedComment['parentCommentId'] = (updatedCommentDoc['parentCommentId'] as ObjectId).toHexString();
+        }
+        
+        print('[CommentController] Comment edited successfully');
+        
+        return Response.ok(
+          jsonEncode({
+            'message': 'Comment updated successfully',
+            'comment': formattedComment
+          }), 
+          headers: {'Content-Type': 'application/json'}
+        );
+      } else {
+        print('[CommentController] Failed to update comment: ${updateResult.writeError?.errmsg}');
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Failed to update comment'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+    } catch (e, s) {
+      print('[CommentController.editCommentHandler] Error: $e\n$s');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'An unexpected error occurred while editing comment: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+  }
+
   // Helper method to format likes array consistently
   static List<String> _formatLikesArray(dynamic likesData) {
     if (likesData == null) return <String>[];

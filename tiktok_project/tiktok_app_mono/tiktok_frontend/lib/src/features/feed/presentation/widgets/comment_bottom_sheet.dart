@@ -41,6 +41,11 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
   bool _isLoadingMore = false;
   int _commentsCount = 0;
 
+  // Track deleting comments
+  final Set<String> _deletingComments = {};
+  // Track editing comments
+  final Set<String> _editingComments = {};
+
   @override
   void initState() {
     super.initState();
@@ -212,6 +217,73 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     }
   }
 
+  Future<void> _editComment(CommentModel comment, String newText) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.currentUser == null) return;
+
+    // Check if user owns the comment
+    if (comment.userId != authService.currentUser!.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn chỉ có thể chỉnh sửa comment của mình!'))
+      );
+      return;
+    }
+
+    // Prevent multiple edit requests for the same comment
+    if (_editingComments.contains(comment.id)) {
+      print('[CommentBottomSheet] Edit already in progress for comment: ${comment.id}');
+      return;
+    }
+
+    print('[CommentBottomSheet] Starting edit process for comment: ${comment.id}');
+    
+    setState(() {
+      _editingComments.add(comment.id);
+    });
+
+    try {
+      final updatedComment = await _commentService.editComment(
+        comment.id, 
+        authService.currentUser!.id, 
+        newText
+      );
+      
+      if (mounted) {
+        setState(() {
+          // Find and replace the comment in the list
+          final index = _comments.indexWhere((c) => c.id == comment.id);
+          if (index != -1) {
+            _comments[index] = updatedComment;
+          }
+          _editingComments.remove(comment.id);
+        });
+        
+        print('[CommentBottomSheet] Comment edited successfully: ${comment.id}');
+      }
+    } catch (e) {
+      print('[CommentBottomSheet] Error editing comment: $e');
+      if (mounted) {
+        setState(() {
+          _editingComments.remove(comment.id);
+        });
+        
+        // Show more specific error messages
+        String errorMessage = 'Lỗi khi chỉnh sửa comment';
+        if (e.toString().contains('Connection refused') || e.toString().contains('Failed host lookup')) {
+          errorMessage = 'Không thể kết nối đến server';
+        } else if (e.toString().contains('404')) {
+          errorMessage = 'Không tìm thấy comment để chỉnh sửa';
+        } else if (e.toString().contains('403')) {
+          errorMessage = 'Bạn không có quyền chỉnh sửa comment này';
+        } else if (e.toString().contains('401')) {
+          errorMessage = 'Vui lòng đăng nhập lại';
+        }
+        
+        throw Exception(errorMessage); // Re-throw to be handled by EditCommentDialog
+      }
+    }
+  }
+
   Future<void> _deleteComment(CommentModel comment) async {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) return;
@@ -224,27 +296,17 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       return;
     }
 
-    // Show confirmation dialog
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xóa comment'),
-        content: const Text('Bạn có chắc muốn xóa comment này không?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Hủy'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
-    );
+    // Prevent multiple delete requests for the same comment
+    if (_deletingComments.contains(comment.id)) {
+      print('[CommentBottomSheet] Delete already in progress for comment: ${comment.id}');
+      return;
+    }
 
-    if (shouldDelete != true) return;
+    print('[CommentBottomSheet] Starting delete process for comment: ${comment.id}');
+    
+    setState(() {
+      _deletingComments.add(comment.id);
+    });
 
     try {
       await _commentService.deleteComment(comment.id, authService.currentUser!.id);
@@ -252,7 +314,8 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       if (mounted) {
         setState(() {
           _comments.removeWhere((c) => c.id == comment.id);
-          _commentsCount -= 1;
+          _commentsCount = (_commentsCount - 1).clamp(0, double.infinity).toInt();
+          _deletingComments.remove(comment.id);
         });
         
         // Update parent widget
@@ -260,19 +323,54 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Comment đã được xóa!'),
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Comment đã được xóa!'),
+              ],
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
         );
+        
+        print('[CommentBottomSheet] Comment deleted successfully: ${comment.id}');
       }
     } catch (e) {
       print('[CommentBottomSheet] Error deleting comment: $e');
       if (mounted) {
+        setState(() {
+          _deletingComments.remove(comment.id);
+        });
+        
+        // Show more specific error messages
+        String errorMessage = 'Lỗi khi xóa comment';
+        if (e.toString().contains('Connection refused') || e.toString().contains('Failed host lookup')) {
+          errorMessage = 'Không thể kết nối đến server';
+        } else if (e.toString().contains('404')) {
+          errorMessage = 'Không tìm thấy comment để xóa';
+        } else if (e.toString().contains('403')) {
+          errorMessage = 'Bạn không có quyền xóa comment này';
+        } else if (e.toString().contains('401')) {
+          errorMessage = 'Vui lòng đăng nhập lại';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi khi xóa comment: ${e.toString()}'),
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text(errorMessage)),
+              ],
+            ),
             backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Thử lại',
+              textColor: Colors.white,
+              onPressed: () => _deleteComment(comment),
+            ),
           ),
         );
       }
@@ -431,9 +529,47 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         }
         
         final comment = _comments[index];
-        return CommentItemWidget(
-          comment: comment,
-          onDelete: () => _deleteComment(comment),
+        final isDeleting = _deletingComments.contains(comment.id);
+        final isEditing = _editingComments.contains(comment.id);
+        
+        return AnimatedOpacity(
+          opacity: isDeleting || isEditing ? 0.5 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          child: Stack(
+            children: [
+              CommentItemWidget(
+                comment: comment,
+                onDelete: isDeleting ? null : () => _deleteComment(comment),
+                onEdit: isEditing ? null : (newText) => _editComment(comment, newText),
+              ),
+              if (isDeleting || isEditing)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.white.withOpacity(0.7),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            isDeleting ? 'Deleting...' : 'Editing...',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );

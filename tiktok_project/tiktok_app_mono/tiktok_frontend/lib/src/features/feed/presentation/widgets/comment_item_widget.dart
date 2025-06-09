@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/feed/domain/models/comment_model.dart';
+import 'edit_comment_dialog.dart';
 
 class CommentItemWidget extends StatelessWidget {
   final CommentModel comment;
   final VoidCallback? onDelete;
   final VoidCallback? onReply;
   final VoidCallback? onLike;
+  final Function(String)? onEdit;
 
   const CommentItemWidget({
     super.key,
@@ -16,6 +18,7 @@ class CommentItemWidget extends StatelessWidget {
     this.onDelete,
     this.onReply,
     this.onLike,
+    this.onEdit,
   });
 
   @override
@@ -26,7 +29,7 @@ class CommentItemWidget extends StatelessWidget {
     final isLiked = comment.isLikedByUser(currentUser?.id);
 
     return InkWell(
-      onLongPress: isOwnComment ? _showOptionsMenu : null,
+      onLongPress: isOwnComment ? () => _showOptionsBottomSheet(context) : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -58,10 +61,22 @@ class CommentItemWidget extends StatelessWidget {
                         fontSize: 12,
                       ),
                     ),
+                    // Show edited indicator if comment was edited
+                    if (_isEdited()) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '(edited)',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     if (isOwnComment)
                       InkWell(
-                        onTap: _showOptionsMenu,
+                        onTap: () => _showOptionsBottomSheet(context),
                         child: Padding(
                           padding: const EdgeInsets.all(4),
                           child: Icon(
@@ -162,6 +177,18 @@ class CommentItemWidget extends StatelessWidget {
     );
   }
 
+  bool _isEdited() {
+    try {
+      final createdAt = comment.createdAt;
+      final updatedAt = comment.updatedAt;
+      
+      // Consider edited if updated time is more than 1 minute after created time
+      return updatedAt.difference(createdAt).inMinutes > 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Widget _buildUserAvatar() {
     return Container(
       width: 32,
@@ -192,11 +219,159 @@ class CommentItemWidget extends StatelessWidget {
     );
   }
 
-  void _showOptionsMenu() {
-    // This will be called from the parent widget's context
-    if (onDelete != null) {
-      onDelete!();
-    }
+  void _showOptionsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Title
+              Text(
+                'Comment options',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Edit option - ONLY show if onEdit callback is provided
+              if (onEdit != null)
+                ListTile(
+                  leading: Icon(
+                    Icons.edit_outlined,
+                    color: Colors.blue.shade600,
+                  ),
+                  title: Text(
+                    'Edit comment',
+                    style: TextStyle(
+                      color: Colors.blue.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEditDialog(context);
+                  },
+                ),
+              
+              // Delete option
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                ),
+                title: const Text(
+                  'Delete comment',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirmation(context);
+                },
+              ),
+              
+              // Cancel
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Bottom padding for safe area
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditDialog(BuildContext context) {
+    if (onEdit == null) return;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return EditCommentDialog(
+          initialText: comment.text,
+          onSave: (newText) async {
+            await onEdit!(newText);
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Comment'),
+          content: const Text(
+            'Are you sure you want to delete this comment? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                if (onDelete != null) {
+                  onDelete!();
+                }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text(
+                'Delete',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _formatCount(int count) {

@@ -164,9 +164,9 @@ class CommentService {
     }
   }
 
-  // Reply to a comment
+  // Reply to a comment - FIXED URL
   Future<CommentModel> replyToComment(String commentId, String userId, String text) async {
-    final url = Uri.parse('$_apiBaseUrl/$commentId/reply');
+    final url = Uri.parse('$_apiBaseUrl/reply/$commentId'); // CHANGED FROM /$commentId/reply
     print('[CommentService] Replying to comment $commentId by user $userId');
     
     try {
@@ -197,9 +197,9 @@ class CommentService {
     }
   }
 
-  // Toggle like on comment
+  // Toggle like on comment - FIXED URL
   Future<CommentModel> toggleLikeComment(String commentId, String userId) async {
-    final url = Uri.parse('$_apiBaseUrl/$commentId/like');
+    final url = Uri.parse('$_apiBaseUrl/like/$commentId'); // CHANGED FROM /$commentId/like
     print('[CommentService] Toggling like on comment $commentId by user $userId');
     
     try {
@@ -229,9 +229,9 @@ class CommentService {
     }
   }
 
-  // Get replies for a comment
+  // Get replies for a comment - FIXED URL
   Future<CommentRepliesResponse> getCommentReplies(String commentId, {int page = 1, int limit = 10}) async {
-    final url = Uri.parse('$_apiBaseUrl/$commentId/replies?page=$page&limit=$limit');
+    final url = Uri.parse('$_apiBaseUrl/replies/$commentId?page=$page&limit=$limit'); // CHANGED FROM /$commentId/replies
     print('[CommentService] Fetching replies for comment $commentId from $url');
     
     try {

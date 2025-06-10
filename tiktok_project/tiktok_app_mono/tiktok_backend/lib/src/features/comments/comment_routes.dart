@@ -32,9 +32,9 @@ Router createCommentRoutes() {
       'availableRoutes': [
         'POST /api/comments/video/{videoId} - Add comment',
         'GET /api/comments/video/{videoId} - Get comments (with pagination)',
-        'POST /api/comments/{commentId}/reply - Reply to comment',
-        'POST /api/comments/{commentId}/like - Toggle like on comment',
-        'GET /api/comments/{commentId}/replies - Get replies for comment',
+        'POST /api/comments/like/{commentId} - Toggle like on comment',
+        'POST /api/comments/reply/{commentId} - Reply to comment',
+        'GET /api/comments/replies/{commentId} - Get replies for comment',
         'PUT /api/comments/edit/{commentId} - Edit comment',
         'DELETE /api/comments/delete/{commentId} - Delete comment',
         'GET /api/comments/debug/info - This debug endpoint'
@@ -42,9 +42,9 @@ Router createCommentRoutes() {
       'examples': [
         'POST /api/comments/video/683c24fffdf60af9cddfb22a',
         'GET /api/comments/video/683c24fffdf60af9cddfb22a?page=1&limit=20',
-        'POST /api/comments/683fcdf50b369f110bd6ac45/reply',
-        'POST /api/comments/683fcdf50b369f110bd6ac45/like',
-        'GET /api/comments/683fcdf50b369f110bd6ac45/replies?page=1&limit=10',
+        'POST /api/comments/like/683fcdf50b369f110bd6ac45',
+        'POST /api/comments/reply/683fcdf50b369f110bd6ac45',
+        'GET /api/comments/replies/683fcdf50b369f110bd6ac45?page=1&limit=10',
         'PUT /api/comments/edit/683fcdf50b369f110bd6ac45',
         'DELETE /api/comments/delete/683fcdf50b369f110bd6ac45'
       ],
@@ -56,7 +56,7 @@ Router createCommentRoutes() {
     }), headers: {'Content-Type': 'application/json'});
   });
 
-  // VIDEO ROUTES
+  // VIDEO ROUTES - MUST COME BEFORE GENERIC ROUTES
   router.post('/video/<videoId>', (Request request, String videoId) async {
     print('[CommentRoutes] Add comment route hit with videoId: $videoId');
 
@@ -143,8 +143,58 @@ Router createCommentRoutes() {
     }
   });
 
-  // REPLY ROUTES
-  router.post('/<commentId>/reply', (Request request, String commentId) async {
+  // LIKE COMMENT ROUTES - SPECIFIC PATH FIRST
+  router.post('/like/<commentId>', (Request request, String commentId) async {
+    print('[CommentRoutes] 🎯 LIKE COMMENT ROUTE HIT with commentId: $commentId');
+
+    if (commentId.isEmpty) {
+      return Response(400,
+          body: jsonEncode({
+            'error': 'Comment ID is required',
+            'receivedCommentId': commentId,
+          }),
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    try {
+      final requestBody = await request.readAsString();
+      print('[CommentRoutes] Like request body: $requestBody');
+      
+      Map<String, dynamic> payload = {};
+      
+      if (requestBody.isNotEmpty) {
+        try {
+          payload = jsonDecode(requestBody);
+        } catch (e) {
+          return Response(400,
+              body: jsonEncode({'error': 'Invalid JSON in request body: $e'}),
+              headers: {'Content-Type': 'application/json'});
+        }
+      }
+
+      final userIdString = payload['userId'] as String?;
+
+      if (userIdString == null || userIdString.isEmpty) {
+        return Response(400,
+            body: jsonEncode({'error': 'userId is required to like comment'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+
+      print('[CommentRoutes] Calling CommentController.toggleLikeCommentHandler');
+
+      return await CommentController.toggleLikeCommentHandler(request, commentId, userIdString);
+
+    } catch (e, stackTrace) {
+      print('[CommentRoutes] Error in like comment route: $e');
+      print('[CommentRoutes] StackTrace: $stackTrace');
+      return Response.internalServerError(
+          body: jsonEncode({'error': 'Internal server error: $e'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  });
+
+  // REPLY ROUTES - SPECIFIC PATH FIRST
+  router.post('/reply/<commentId>', (Request request, String commentId) async {
     print('[CommentRoutes] 🎯 REPLY ROUTE HIT with commentId: $commentId');
 
     if (commentId.isEmpty) {
@@ -200,58 +250,8 @@ Router createCommentRoutes() {
     }
   });
 
-  // LIKE COMMENT ROUTES
-  router.post('/<commentId>/like', (Request request, String commentId) async {
-    print('[CommentRoutes] 🎯 LIKE COMMENT ROUTE HIT with commentId: $commentId');
-
-    if (commentId.isEmpty) {
-      return Response(400,
-          body: jsonEncode({
-            'error': 'Comment ID is required',
-            'receivedCommentId': commentId,
-          }),
-          headers: {'Content-Type': 'application/json'});
-    }
-
-    try {
-      final requestBody = await request.readAsString();
-      print('[CommentRoutes] Like request body: $requestBody');
-      
-      Map<String, dynamic> payload = {};
-      
-      if (requestBody.isNotEmpty) {
-        try {
-          payload = jsonDecode(requestBody);
-        } catch (e) {
-          return Response(400,
-              body: jsonEncode({'error': 'Invalid JSON in request body: $e'}),
-              headers: {'Content-Type': 'application/json'});
-        }
-      }
-
-      final userIdString = payload['userId'] as String?;
-
-      if (userIdString == null || userIdString.isEmpty) {
-        return Response(400,
-            body: jsonEncode({'error': 'userId is required to like comment'}),
-            headers: {'Content-Type': 'application/json'});
-      }
-
-      print('[CommentRoutes] Calling CommentController.toggleLikeCommentHandler');
-
-      return await CommentController.toggleLikeCommentHandler(request, commentId, userIdString);
-
-    } catch (e, stackTrace) {
-      print('[CommentRoutes] Error in like comment route: $e');
-      print('[CommentRoutes] StackTrace: $stackTrace');
-      return Response.internalServerError(
-          body: jsonEncode({'error': 'Internal server error: $e'}),
-          headers: {'Content-Type': 'application/json'});
-    }
-  });
-
   // GET REPLIES ROUTES
-  router.get('/<commentId>/replies', (Request request, String commentId) async {
+  router.get('/replies/<commentId>', (Request request, String commentId) async {
     print('[CommentRoutes] Get replies route hit with commentId: $commentId');
 
     if (commentId.isEmpty) {
@@ -402,9 +402,9 @@ Router createCommentRoutes() {
         'availableRoutes': [
           'POST /api/comments/video/{videoId}',
           'GET /api/comments/video/{videoId}',
-          'POST /api/comments/{commentId}/reply',
-          'POST /api/comments/{commentId}/like',
-          'GET /api/comments/{commentId}/replies',
+          'POST /api/comments/like/{commentId}',
+          'POST /api/comments/reply/{commentId}',
+          'GET /api/comments/replies/{commentId}',
           'PUT /api/comments/edit/{commentId}',
           'DELETE /api/comments/delete/{commentId}'
         ],

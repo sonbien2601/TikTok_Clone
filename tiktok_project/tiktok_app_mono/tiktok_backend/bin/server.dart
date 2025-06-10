@@ -12,6 +12,7 @@ import 'package:tiktok_backend/src/features/users/user_routes.dart' show createU
 import 'package:tiktok_backend/src/features/videos/video_routes.dart' show createVideoRoutes; 
 // Giả sử bạn đã tạo file này và hàm createCommentRoutes
 import 'package:tiktok_backend/src/features/comments/comment_routes.dart' show createCommentRoutes; 
+import 'package:tiktok_backend/src/features/notifications/notification_routes.dart';
 
 // --- Middleware cho CORS ---
 const _corsHeaders = {
@@ -128,6 +129,21 @@ Future<void> main() async {
           'save': 'POST /api/videos/{videoId}/save',
           'debug': 'GET /api/videos/debug/info'
         },
+        'comments': {
+          'add': 'POST /api/comments/video/{videoId}',
+          'get': 'GET /api/comments/video/{videoId}',
+          'like': 'POST /api/comments/like/{commentId}',
+          'reply': 'POST /api/comments/reply/{commentId}',
+          'debug': 'GET /api/comments/debug/info'
+        },
+        'notifications': {
+          'get': 'GET /api/notifications/user/{userId}',
+          'unread': 'GET /api/notifications/user/{userId}/unread-count',
+          'markRead': 'PUT /api/notifications/{notificationId}/read',
+          'markAllRead': 'PUT /api/notifications/user/{userId}/read-all',
+          'delete': 'DELETE /api/notifications/{notificationId}',
+          'debug': 'GET /api/notifications/debug/info'
+        },
         'static': 'GET /uploads/{filename}'
       }
     };
@@ -204,7 +220,7 @@ Future<void> main() async {
      print('[Server] Please ensure video_routes.dart and createVideoRoutes() are implemented correctly');
   }
 
-  // Mount Comment routes (optional)
+  // Mount Comment routes
   try {
     final commentRouter = createCommentRoutes(); 
     appRouter.mount('/api/comments', commentRouter);
@@ -214,6 +230,18 @@ Future<void> main() async {
      print('[Server] Error: $e');
      print('[Server] Comment routes are optional. Continuing without them...');
   }
+
+  // Mount Notification routes
+  try {
+    final notificationRouter = createNotificationRoutes(); 
+    appRouter.mount('/api/notifications', notificationRouter);
+    print("[Server] ✅ Notification API routes mounted at '/api/notifications'");
+  } catch (e, stackTrace) {
+     print('[Server] ⚠️  WARNING: Could not mount Notification API routes');
+     print('[Server] Error: $e');
+     print('[Server] Notification routes are optional. Continuing without them...');
+  }
+  
 
   // --- BUILD REQUEST PROCESSING PIPELINE ---
   final handler = const Pipeline()
@@ -243,6 +271,8 @@ Future<void> main() async {
     print('   • User Login: http://$serverHost:${server.port}/api/users/login');
     print('   • Video Feed: http://$serverHost:${server.port}/api/videos/feed');
     print('   • Video Debug: http://$serverHost:${server.port}/api/videos/debug/info');
+    print('   • Comments Debug: http://$serverHost:${server.port}/api/comments/debug/info');
+    print('   • Notifications Debug: http://$serverHost:${server.port}/api/notifications/debug/info');
     print('   • Static Files: http://$serverHost:${server.port}/uploads/');
     print('');
     print('✅ Server is ready to accept connections...');

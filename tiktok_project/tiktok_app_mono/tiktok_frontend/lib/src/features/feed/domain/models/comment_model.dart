@@ -156,13 +156,53 @@ class CommentModel {
   // Check if comment is a reply
   bool get isReply => parentCommentId != null;
 
+  // Check if comment was edited
+  bool get isEdited {
+    try {
+      return updatedAt.difference(createdAt).inMinutes > 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Create a copy with updated fields
+  CommentModel copyWith({
+    String? id,
+    String? videoId,
+    String? userId,
+    String? username,
+    String? userAvatarUrl,
+    String? text,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    int? likesCount,
+    List<String>? likes,
+    String? parentCommentId,
+    int? repliesCount,
+  }) {
+    return CommentModel(
+      id: id ?? this.id,
+      videoId: videoId ?? this.videoId,
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      userAvatarUrl: userAvatarUrl ?? this.userAvatarUrl,
+      text: text ?? this.text,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      likesCount: likesCount ?? this.likesCount,
+      likes: likes ?? this.likes,
+      parentCommentId: parentCommentId ?? this.parentCommentId,
+      repliesCount: repliesCount ?? this.repliesCount,
+    );
+  }
+
   @override
   String toString() {
-    return 'CommentModel(id: $id, username: $username, text: $text, createdAt: $createdAt, likesCount: $likesCount)';
+    return 'CommentModel(id: $id, username: $username, text: $text, createdAt: $createdAt, likesCount: $likesCount, repliesCount: $repliesCount, isReply: $isReply)';
   }
 }
 
-// Pagination response model
+// Pagination response model for comments
 class CommentPaginationResponse {
   final List<CommentModel> comments;
   final CommentPagination pagination;
@@ -269,6 +309,77 @@ class CommentPaginationResponse {
   }
 }
 
+// Pagination response model for replies
+class CommentRepliesResponse {
+  final List<CommentModel> replies;
+  final CommentPagination pagination;
+
+  CommentRepliesResponse({
+    required this.replies,
+    required this.pagination,
+  });
+
+  factory CommentRepliesResponse.fromJson(Map<String, dynamic> json) {
+    try {
+      print('[CommentRepliesResponse] Parsing replies response JSON...');
+      
+      // Parse replies array
+      final repliesData = json['replies'];
+      List<CommentModel> repliesList = [];
+      
+      if (repliesData != null && repliesData is List) {
+        for (var item in repliesData) {
+          if (item is Map<String, dynamic>) {
+            try {
+              final reply = CommentModel.fromJson(item);
+              repliesList.add(reply);
+            } catch (e) {
+              print('[CommentRepliesResponse] Error parsing reply: $e');
+            }
+          }
+        }
+      }
+
+      // Parse pagination
+      final paginationData = json['pagination'];
+      CommentPagination pagination;
+      
+      if (paginationData != null && paginationData is Map<String, dynamic>) {
+        pagination = CommentPagination.fromJson(paginationData);
+      } else {
+        pagination = CommentPagination(
+          currentPage: 1,
+          totalPages: 1,
+          totalComments: repliesList.length,
+          limit: 10,
+          hasNextPage: false,
+          hasPrevPage: false,
+        );
+      }
+
+      return CommentRepliesResponse(
+        replies: repliesList,
+        pagination: pagination,
+      );
+    } catch (e, stackTrace) {
+      print('[CommentRepliesResponse] Error parsing JSON: $e');
+      print('[CommentRepliesResponse] Stack trace: $stackTrace');
+      
+      return CommentRepliesResponse(
+        replies: [],
+        pagination: CommentPagination(
+          currentPage: 1,
+          totalPages: 1,
+          totalComments: 0,
+          limit: 10,
+          hasNextPage: false,
+          hasPrevPage: false,
+        ),
+      );
+    }
+  }
+}
+
 class CommentPagination {
   final int currentPage;
   final int totalPages;
@@ -290,7 +401,7 @@ class CommentPagination {
     return CommentPagination(
       currentPage: json['currentPage'] as int? ?? 1,
       totalPages: json['totalPages'] as int? ?? 1,
-      totalComments: json['totalComments'] as int? ?? 0,
+      totalComments: json['totalComments'] as int? ?? json['totalReplies'] as int? ?? 0,
       limit: json['limit'] as int? ?? 20,
       hasNextPage: json['hasNextPage'] as bool? ?? false,
       hasPrevPage: json['hasPrevPage'] as bool? ?? false,

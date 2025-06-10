@@ -51,7 +51,6 @@ class CommentService {
       print('[CommentService] Raw Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
-        // Kiểm tra response body trước khi parse
         final String responseBody = response.body;
         print('[CommentService] Response body type: ${responseBody.runtimeType}');
         print('[CommentService] Response body length: ${responseBody.length}');
@@ -60,7 +59,6 @@ class CommentService {
           throw Exception('Empty response from server');
         }
 
-        // Parse JSON với error handling chi tiết
         dynamic jsonData;
         try {
           jsonData = jsonDecode(responseBody);
@@ -70,16 +68,16 @@ class CommentService {
           throw Exception('Invalid JSON response: $e');
         }
 
-        // XỬ LÝ CẢ 2 FORMAT: Array trực tiếp hoặc Object
+        // Handle both old and new formats
         if (jsonData is List) {
-          // OLD FORMAT: Backend trả về array trực tiếp
+          // OLD FORMAT: Backend returns array directly
           print('[CommentService] Detected old format (array), converting to new format');
           
           List<CommentModel> commentsList = [];
           for (var item in jsonData) {
             if (item is Map<String, dynamic>) {
               try {
-                // Thêm các field bị thiếu cho old format
+                // Add missing fields for old format
                 if (!item.containsKey('likesCount')) item['likesCount'] = 0;
                 if (!item.containsKey('likes')) item['likes'] = <String>[];
                 if (!item.containsKey('repliesCount')) item['repliesCount'] = 0;
@@ -89,12 +87,10 @@ class CommentService {
                 commentsList.add(comment);
               } catch (e) {
                 print('[CommentService] Error parsing comment item: $e');
-                // Continue với các comment khác
               }
             }
           }
           
-          // Tạo pagination mặc định cho old format
           final pagination = CommentPagination(
             currentPage: page,
             totalPages: 1,
@@ -110,19 +106,9 @@ class CommentService {
           );
           
         } else if (jsonData is Map<String, dynamic>) {
-          // NEW FORMAT: Backend trả về object với comments và pagination
+          // NEW FORMAT: Backend returns object with comments and pagination
           print('[CommentService] Detected new format (object)');
-          
-          final Map<String, dynamic> jsonMap = jsonData as Map<String, dynamic>;
-          
-          // Kiểm tra các field bắt buộc
-          if (!jsonMap.containsKey('comments')) {
-            print('[CommentService] Missing "comments" field in response');
-            throw Exception('Missing comments field in response');
-          }
-
-          // Parse response
-          return CommentPaginationResponse.fromJson(jsonMap);
+          return CommentPaginationResponse.fromJson(jsonData as Map<String, dynamic>);
         } else {
           print('[CommentService] Unknown response format: ${jsonData.runtimeType}');
           throw Exception('Unknown response format');
@@ -134,7 +120,6 @@ class CommentService {
       }
     } catch (e) {
       print('[CommentService] Error fetching comments: $e');
-      print('[CommentService] Error type: ${e.runtimeType}');
       
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
@@ -168,73 +153,131 @@ class CommentService {
       print('[CommentService] Add Comment Response Body: ${response.body}');
       
       if (response.statusCode == 200) {
-        // Parse response với error handling
-        dynamic responseData;
-        try {
-          responseData = jsonDecode(response.body);
-        } catch (e) {
-          print('[CommentService] JSON decode error for add comment: $e');
-          throw Exception('Invalid JSON response: $e');
-        }
-
-        if (responseData is! Map<String, dynamic>) {
-          throw Exception('Response is not a JSON object');
-        }
-
-        final Map<String, dynamic> responseMap = responseData as Map<String, dynamic>;
-        
-        Map<String, dynamic> commentData;
-        
-        // XỬ LÝ CẢ 2 FORMAT cho add comment
-        if (responseMap.containsKey('comment')) {
-          // NEW FORMAT: {comment: {...}}
-          print('[CommentService] Add comment: Detected new format (wrapped in comment field)');
-          final rawCommentData = responseMap['comment'];
-          if (rawCommentData is! Map<String, dynamic>) {
-            throw Exception('Comment data is not a JSON object');
-          }
-          commentData = rawCommentData;
-        } else if (responseMap.containsKey('_id')) {
-          // OLD FORMAT: Comment object trực tiếp
-          print('[CommentService] Add comment: Detected old format (comment object directly)');
-          commentData = responseMap;
-        } else {
-          throw Exception('Invalid response format - missing comment data');
-        }
-
-        // Đảm bảo các field bắt buộc tồn tại
-        final Map<String, dynamic> safeCommentData = Map<String, dynamic>.from(commentData);
-        if (!safeCommentData.containsKey('likesCount')) safeCommentData['likesCount'] = 0;
-        if (!safeCommentData.containsKey('likes')) safeCommentData['likes'] = <String>[];
-        if (!safeCommentData.containsKey('repliesCount')) safeCommentData['repliesCount'] = 0;
-        if (!safeCommentData.containsKey('updatedAt')) safeCommentData['updatedAt'] = safeCommentData['createdAt'];
-
-        print('[CommentService] Creating CommentModel from: $safeCommentData');
-        return CommentModel.fromJson(safeCommentData);
+        return _parseCommentResponse(response.body, 'add comment');
       } else {
-        String errorMessage = 'Failed to add comment. Status: ${response.statusCode}';
-        try { 
-          final errorData = jsonDecode(response.body); 
-          errorMessage = errorData['error'] ?? errorMessage; 
-        } catch(_) {}
-        
-        print('[CommentService] Add comment failed: $errorMessage');
-        throw Exception(errorMessage);
+        throw _parseErrorResponse(response, 'Failed to add comment');
       }
     } catch (e) {
       print('[CommentService] Error adding comment: $e');
-      if (e.toString().contains('Connection refused') || 
-          e.toString().contains('Failed host lookup')) {
-        print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
-        throw Exception('Không thể kết nối đến server');
-      }
+      _handleConnectionError(e);
       rethrow;
     }
   }
 
-  // Edit a comment - UPDATED URL PATTERN
+  // Reply to a comment
+  Future<CommentModel> replyToComment(String commentId, String userId, String text) async {
+    final url = Uri.parse('$_apiBaseUrl/$commentId/reply');
+    print('[CommentService] Replying to comment $commentId by user $userId');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'text': text,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      print('[CommentService] Reply Response Status: ${response.statusCode}');
+      print('[CommentService] Reply Response Body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return _parseCommentResponse(response.body, 'reply to comment');
+      } else {
+        throw _parseErrorResponse(response, 'Failed to reply to comment');
+      }
+    } catch (e) {
+      print('[CommentService] Error replying to comment: $e');
+      _handleConnectionError(e);
+      rethrow;
+    }
+  }
+
+  // Toggle like on comment
+  Future<CommentModel> toggleLikeComment(String commentId, String userId) async {
+    final url = Uri.parse('$_apiBaseUrl/$commentId/like');
+    print('[CommentService] Toggling like on comment $commentId by user $userId');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'userId': userId,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      print('[CommentService] Toggle Like Response Status: ${response.statusCode}');
+      print('[CommentService] Toggle Like Response Body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return _parseCommentResponse(response.body, 'toggle like comment');
+      } else {
+        throw _parseErrorResponse(response, 'Failed to toggle like on comment');
+      }
+    } catch (e) {
+      print('[CommentService] Error toggling like on comment: $e');
+      _handleConnectionError(e);
+      rethrow;
+    }
+  }
+
+  // Get replies for a comment
+  Future<CommentRepliesResponse> getCommentReplies(String commentId, {int page = 1, int limit = 10}) async {
+    final url = Uri.parse('$_apiBaseUrl/$commentId/replies?page=$page&limit=$limit');
+    print('[CommentService] Fetching replies for comment $commentId from $url');
+    
+    try {
+      final response = await http.get(
+        url, 
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      print('[CommentService] Get Replies Response Status: ${response.statusCode}');
+      print('[CommentService] Get Replies Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final String responseBody = response.body;
+        
+        if (responseBody.isEmpty) {
+          throw Exception('Empty response from server');
+        }
+
+        dynamic jsonData;
+        try {
+          jsonData = jsonDecode(responseBody);
+        } catch (e) {
+          throw Exception('Invalid JSON response: $e');
+        }
+
+        if (jsonData is! Map<String, dynamic>) {
+          throw Exception('Response is not a JSON object');
+        }
+
+        return CommentRepliesResponse.fromJson(jsonData);
+      } else {
+        throw _parseErrorResponse(response, 'Failed to load replies');
+      }
+    } catch (e) {
+      print('[CommentService] Error fetching replies: $e');
+      _handleConnectionError(e);
+      rethrow;
+    }
+  }
+
+  // Edit a comment
   Future<CommentModel> editComment(String commentId, String userId, String newText) async {
-    final url = Uri.parse('$_apiBaseUrl/edit/$commentId');  // EXPLICIT PATTERN
+    final url = Uri.parse('$_apiBaseUrl/edit/$commentId');
     print('[CommentService] Editing comment $commentId by user $userId at $url');
     
     try {
@@ -254,73 +297,20 @@ class CommentService {
       print('[CommentService] Edit Comment Response Body: ${response.body}');
       
       if (response.statusCode == 200) {
-        // Parse response với error handling
-        dynamic responseData;
-        try {
-          responseData = jsonDecode(response.body);
-        } catch (e) {
-          print('[CommentService] JSON decode error for edit comment: $e');
-          throw Exception('Invalid JSON response: $e');
-        }
-
-        if (responseData is! Map<String, dynamic>) {
-          throw Exception('Response is not a JSON object');
-        }
-
-        final Map<String, dynamic> responseMap = responseData as Map<String, dynamic>;
-        
-        Map<String, dynamic> commentData;
-        
-        // XỬ LÝ CẢ 2 FORMAT cho edit comment
-        if (responseMap.containsKey('comment')) {
-          // NEW FORMAT: {comment: {...}}
-          print('[CommentService] Edit comment: Detected new format (wrapped in comment field)');
-          final rawCommentData = responseMap['comment'];
-          if (rawCommentData is! Map<String, dynamic>) {
-            throw Exception('Comment data is not a JSON object');
-          }
-          commentData = rawCommentData;
-        } else if (responseMap.containsKey('_id')) {
-          // OLD FORMAT: Comment object trực tiếp
-          print('[CommentService] Edit comment: Detected old format (comment object directly)');
-          commentData = responseMap;
-        } else {
-          throw Exception('Invalid response format - missing comment data');
-        }
-
-        // Đảm bảo các field bắt buộc tồn tại
-        final Map<String, dynamic> safeCommentData = Map<String, dynamic>.from(commentData);
-        if (!safeCommentData.containsKey('likesCount')) safeCommentData['likesCount'] = 0;
-        if (!safeCommentData.containsKey('likes')) safeCommentData['likes'] = <String>[];
-        if (!safeCommentData.containsKey('repliesCount')) safeCommentData['repliesCount'] = 0;
-        if (!safeCommentData.containsKey('updatedAt')) safeCommentData['updatedAt'] = safeCommentData['createdAt'];
-
-        print('[CommentService] Creating CommentModel from edited data: $safeCommentData');
-        return CommentModel.fromJson(safeCommentData);
+        return _parseCommentResponse(response.body, 'edit comment');
       } else {
-        String errorMessage = 'Failed to edit comment. Status: ${response.statusCode}';
-        try { 
-          final errorData = jsonDecode(response.body); 
-          errorMessage = errorData['error'] ?? errorMessage; 
-        } catch(_) {}
-        
-        print('[CommentService] Edit comment failed: $errorMessage');
-        throw Exception(errorMessage);
+        throw _parseErrorResponse(response, 'Failed to edit comment');
       }
     } catch (e) {
       print('[CommentService] Error editing comment: $e');
-      if (e.toString().contains('Connection refused') || 
-          e.toString().contains('Failed host lookup')) {
-        print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
-        throw Exception('Không thể kết nối đến server');
-      }
+      _handleConnectionError(e);
       rethrow;
     }
   }
 
-  // Delete a comment - UPDATED URL PATTERN
+  // Delete a comment
   Future<void> deleteComment(String commentId, String userId) async {
-    final url = Uri.parse('$_apiBaseUrl/delete/$commentId');  // EXPLICIT PATTERN
+    final url = Uri.parse('$_apiBaseUrl/delete/$commentId');
     print('[CommentService] Deleting comment $commentId by user $userId at $url');
     
     try {
@@ -342,23 +332,75 @@ class CommentService {
         print('[CommentService] Comment deleted successfully');
         return;
       } else {
-        String errorMessage = 'Failed to delete comment. Status: ${response.statusCode}';
-        try { 
-          final errorData = jsonDecode(response.body); 
-          errorMessage = errorData['error'] ?? errorMessage; 
-        } catch(_) {}
-        
-        print('[CommentService] Delete comment failed: $errorMessage');
-        throw Exception(errorMessage);
+        throw _parseErrorResponse(response, 'Failed to delete comment');
       }
     } catch (e) {
       print('[CommentService] Error deleting comment: $e');
-      if (e.toString().contains('Connection refused') || 
-          e.toString().contains('Failed host lookup')) {
-        print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
-        throw Exception('Không thể kết nối đến server');
-      }
+      _handleConnectionError(e);
       rethrow;
+    }
+  }
+
+  // Helper method to parse comment response
+  CommentModel _parseCommentResponse(String responseBody, String operation) {
+    dynamic responseData;
+    try {
+      responseData = jsonDecode(responseBody);
+    } catch (e) {
+      throw Exception('Invalid JSON response for $operation: $e');
+    }
+
+    if (responseData is! Map<String, dynamic>) {
+      throw Exception('Response is not a JSON object for $operation');
+    }
+
+    final Map<String, dynamic> responseMap = responseData as Map<String, dynamic>;
+    
+    Map<String, dynamic> commentData;
+    
+    // Handle both formats
+    if (responseMap.containsKey('comment')) {
+      // NEW FORMAT: {comment: {...}}
+      final rawCommentData = responseMap['comment'];
+      if (rawCommentData is! Map<String, dynamic>) {
+        throw Exception('Comment data is not a JSON object for $operation');
+      }
+      commentData = rawCommentData;
+    } else if (responseMap.containsKey('_id')) {
+      // OLD FORMAT: Comment object directly
+      commentData = responseMap;
+    } else {
+      throw Exception('Invalid response format for $operation - missing comment data');
+    }
+
+    // Ensure required fields exist
+    final Map<String, dynamic> safeCommentData = Map<String, dynamic>.from(commentData);
+    if (!safeCommentData.containsKey('likesCount')) safeCommentData['likesCount'] = 0;
+    if (!safeCommentData.containsKey('likes')) safeCommentData['likes'] = <String>[];
+    if (!safeCommentData.containsKey('repliesCount')) safeCommentData['repliesCount'] = 0;
+    if (!safeCommentData.containsKey('updatedAt')) safeCommentData['updatedAt'] = safeCommentData['createdAt'];
+
+    return CommentModel.fromJson(safeCommentData);
+  }
+
+  // Helper method to parse error response
+  Exception _parseErrorResponse(http.Response response, String defaultMessage) {
+    String errorMessage = '$defaultMessage. Status: ${response.statusCode}';
+    try { 
+      final errorData = jsonDecode(response.body); 
+      errorMessage = errorData['error'] ?? errorMessage; 
+    } catch(_) {}
+    
+    print('[CommentService] Operation failed: $errorMessage');
+    return Exception(errorMessage);
+  }
+
+  // Helper method to handle connection errors
+  void _handleConnectionError(dynamic error) {
+    if (error.toString().contains('Connection refused') || 
+        error.toString().contains('Failed host lookup')) {
+      print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
+      throw Exception('Không thể kết nối đến server');
     }
   }
 

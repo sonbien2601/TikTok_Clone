@@ -8,13 +8,25 @@ class VideoUser {
 
   factory VideoUser.fromJson(Map<String, dynamic>? json) {
     if (json == null) {
-      // Trả về một giá trị mặc định an toàn nếu user data là null
+      print('[VideoUser] JSON is null, using default values');
       return VideoUser(username: 'Unknown User', avatarUrl: null);
     }
+    
+    print('[VideoUser] Parsing JSON: $json');
+    final username = json['username'] as String? ?? 'Unknown User';
+    final avatarUrl = json['avatarUrl'] as String?;
+    
+    print('[VideoUser] Parsed: username="$username", avatarUrl="$avatarUrl"');
+    
     return VideoUser(
-      username: json['username'] as String? ?? 'Unknown User',
-      avatarUrl: json['avatarUrl'] as String?,
+      username: username,
+      avatarUrl: avatarUrl,
     );
+  }
+
+  @override
+  String toString() {
+    return 'VideoUser(username: $username, avatarUrl: $avatarUrl)';
   }
 }
 
@@ -35,7 +47,6 @@ class VideoPost {
   List<String> saves; // Danh sách userId (dưới dạng String) đã save video này
   bool isSavedByCurrentUser; // User hiện tại có save video này không
 
-
   VideoPost({
     required this.id,
     required this.userId,
@@ -54,8 +65,11 @@ class VideoPost {
     this.isSavedByCurrentUser = false,
   });
 
-  // Sửa tên tham số từ currentActiveUserId thành currentUserId
   factory VideoPost.fromJson(Map<String, dynamic> json, String backendBaseFileUrl, {String? currentUserId}) {
+    print('[VideoPost] === Parsing video JSON ===');
+    print('[VideoPost] JSON keys: ${json.keys.toList()}');
+    print('[VideoPost] Raw JSON: $json');
+    
     String relativeVideoUrl = json['videoUrl'] as String? ?? '';
     String fullVideoUrl = relativeVideoUrl;
 
@@ -64,32 +78,61 @@ class VideoPost {
         backendBaseFileUrl.isNotEmpty) {
       fullVideoUrl = backendBaseFileUrl + relativeVideoUrl;
     } else if (relativeVideoUrl.isNotEmpty && !relativeVideoUrl.startsWith('http')) {
-      print("Warning: Relative videoUrl ('$relativeVideoUrl') does not start with '/' or 'http'. It might not be a valid URL for playback.");
+      print("[VideoPost] Warning: Relative videoUrl ('$relativeVideoUrl') does not start with '/' or 'http'");
     }
     
+    // FIXED: Parse user info - Ưu tiên 'user' field trước
+    VideoUser userInfo;
+    if (json.containsKey('user') && json['user'] != null) {
+      // NEW FORMAT: có field 'user'
+      print('[VideoPost] Found user field in JSON: ${json['user']}');
+      userInfo = VideoUser.fromJson(json['user'] as Map<String, dynamic>?);
+    } else {
+      // OLD FORMAT: thông tin user ở level root (fallback)
+      print('[VideoPost] No user field, checking root level fields');
+      print('[VideoPost] Root username: "${json['username']}"');
+      print('[VideoPost] Root userAvatarUrl: "${json['userAvatarUrl']}"');
+      
+      final Map<String, dynamic> userFromRoot = {
+        'username': json['username'],
+        'avatarUrl': json['userAvatarUrl'],
+      };
+      print('[VideoPost] User data from root: $userFromRoot');
+      userInfo = VideoUser.fromJson(userFromRoot);
+    }
+
+    print('[VideoPost] Final parsed user info: $userInfo');
+    
+    // Generate default audio name
     String defaultAudioName = 'Original Sound';
-    final userMapFromJson = json['user'] as Map<String, dynamic>?;
-    if (userMapFromJson != null && userMapFromJson['username'] != null) {
-        defaultAudioName = 'Original Sound - ${userMapFromJson['username']}';
+    if (userInfo.username.isNotEmpty && userInfo.username != 'Unknown User') {
+      defaultAudioName = 'Original Sound - ${userInfo.username}';
     }
 
-    List<String> likesList = List<String>.from(json['likes'] as List? ?? []);
+    // Parse likes and saves
+    List<String> likesList = [];
+    if (json['likes'] != null && json['likes'] is List) {
+      likesList = List<String>.from(json['likes'] as List);
+    }
+    
+    List<String> savesList = [];
+    if (json['saves'] != null && json['saves'] is List) {
+      savesList = List<String>.from(json['saves'] as List);
+    }
+
+    // Check if current user liked/saved
     bool likedByCurrentUser = false;
-    if (currentUserId != null && currentUserId.isNotEmpty) { // SỬA Ở ĐÂY
-        likedByCurrentUser = likesList.contains(currentUserId); // SỬA Ở ĐÂY
-    }
-
-    List<String> savesList = List<String>.from(json['saves'] as List? ?? []);
     bool savedByCurrentUser = false;
-    if (currentUserId != null && currentUserId.isNotEmpty) { // SỬA Ở ĐÂY
-        savedByCurrentUser = savesList.contains(currentUserId); // SỬA Ở ĐÂY
+    if (currentUserId != null && currentUserId.isNotEmpty) {
+        likedByCurrentUser = likesList.contains(currentUserId);
+        savedByCurrentUser = savesList.contains(currentUserId);
     }
 
-
-    return VideoPost(
+    // Parse other fields safely
+    final videoPost = VideoPost(
       id: json['_id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
       userId: json['userId'] as String? ?? '',
-      user: VideoUser.fromJson(userMapFromJson),
+      user: userInfo,
       description: json['description'] as String? ?? '',
       videoUrl: fullVideoUrl,
       audioName: json['audioName'] as String? ?? defaultAudioName,
@@ -103,5 +146,19 @@ class VideoPost {
       saves: savesList,
       isSavedByCurrentUser: savedByCurrentUser,
     );
+
+    print('[VideoPost] ✅ Created VideoPost:');
+    print('[VideoPost] - ID: ${videoPost.id}');
+    print('[VideoPost] - User: ${videoPost.user.username}');
+    print('[VideoPost] - Description: ${videoPost.description}');
+    print('[VideoPost] - VideoURL: ${videoPost.videoUrl}');
+    print('[VideoPost] ========================');
+    
+    return videoPost;
+  }
+
+  @override
+  String toString() {
+    return 'VideoPost(id: $id, user: $user, description: ${description.length > 20 ? description.substring(0, 20) + "..." : description})';
   }
 }

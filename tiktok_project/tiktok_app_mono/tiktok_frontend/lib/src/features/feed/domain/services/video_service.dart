@@ -48,7 +48,9 @@ class VideoService {
 
   Future<List<VideoPost>> getFeedVideos({int page = 1, int limit = 10, String? currentUserId}) async {
     final url = Uri.parse('$_apiBaseUrl/feed?page=$page&limit=$limit');
-    print('[VideoService] Fetching feed videos from $url for user: $currentUserId');
+    print('[VideoService] === FETCHING FEED VIDEOS ===');
+    print('[VideoService] URL: $url');
+    print('[VideoService] Current User ID: $currentUserId');
     print('[VideoService] Using API base URL: $_apiBaseUrl');
     
     try {
@@ -61,26 +63,57 @@ class VideoService {
       ).timeout(const Duration(seconds: 10));
 
       print('[VideoService] Feed Response Status: ${response.statusCode}');
-
+      
       if (response.statusCode == 200) {
+        print('[VideoService] Raw Response Body: ${response.body}');
+        
         final List<dynamic> jsonData = jsonDecode(response.body);
         if (jsonData.isEmpty) {
           print('[VideoService] Feed is empty from API.');
           return [];
         }
         
-        return jsonData.map((item) {
+        print('[VideoService] Processing ${jsonData.length} videos from API');
+        
+        final List<VideoPost> videos = [];
+        for (int i = 0; i < jsonData.length; i++) {
           try {
-            return VideoPost.fromJson(
-              item as Map<String, dynamic>, 
+            final item = jsonData[i] as Map<String, dynamic>;
+            print('[VideoService] === Processing video $i ===');
+            print('[VideoService] Video keys: ${item.keys.toList()}');
+            
+            // Log user-related fields specifically
+            if (item.containsKey('user')) {
+              print('[VideoService] Video $i has user field: ${item['user']}');
+            } else {
+              print('[VideoService] Video $i missing user field');
+              print('[VideoService] Available fields: username="${item['username']}", userAvatarUrl="${item['userAvatarUrl']}"');
+            }
+            
+            final video = VideoPost.fromJson(
+              item, 
               _backendBaseFileUrl, 
               currentUserId: currentUserId
             );
+            
+            print('[VideoService] ✅ Successfully parsed video $i: "${video.user.username}"');
+            videos.add(video);
           } catch(e, s) { 
-            print('[VideoService] Error parsing video item: $item. Error: $e\nStackTrace: $s');
-            return null; 
+            print('[VideoService] ❌ Error parsing video item $i: $e');
+            print('[VideoService] Stack trace: $s');
+            print('[VideoService] Problematic item: ${jsonData[i]}');
+            // Continue với video khác thay vì fail toàn bộ
           }
-        }).whereType<VideoPost>().toList(); 
+        }
+        
+        print('[VideoService] === FEED PARSING SUMMARY ===');
+        print('[VideoService] Successfully parsed ${videos.length} out of ${jsonData.length} videos');
+        for (int i = 0; i < videos.length; i++) {
+          print('[VideoService] Video $i: "${videos[i].user.username}" - "${videos[i].description}"');
+        }
+        print('[VideoService] ============================');
+        
+        return videos;
       } else {
         final errorMessage = 'Failed to load videos. Status: ${response.statusCode}';
         print('[VideoService] $errorMessage, Body: ${response.body}');
@@ -100,7 +133,6 @@ class VideoService {
   Future<Map<String, dynamic>> toggleLikeVideo(String videoId, String userId) async {
     final url = Uri.parse('$_apiBaseUrl/$videoId/like');
     print('[VideoService] Toggling like for videoId: $videoId by userId: $userId at $url');
-    print('[VideoService] Using API base URL: $_apiBaseUrl');
     
     try {
       final response = await http.post(
@@ -148,7 +180,6 @@ class VideoService {
   Future<Map<String, dynamic>> toggleSaveVideo(String videoId, String userId) async {
     final url = Uri.parse('$_apiBaseUrl/$videoId/save');
     print('[VideoService] Toggling save for videoId: $videoId by userId: $userId at $url');
-    print('[VideoService] Using API base URL: $_apiBaseUrl');
     
     try {
       final response = await http.post(
@@ -207,8 +238,4 @@ class VideoService {
       return false;
     }
   }
-
-  // TODO: Add comment-related methods
-  // Future<List<Comment>> getVideoComments(String videoId) async { ... }
-  // Future<Comment> addComment(String videoId, String userId, String text) async { ... }
 }

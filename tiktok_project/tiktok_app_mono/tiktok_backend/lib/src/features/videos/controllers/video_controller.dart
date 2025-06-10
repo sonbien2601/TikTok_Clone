@@ -127,32 +127,71 @@ class VideoController {
       final videosCollection = DatabaseService.db.collection('videos');
       final usersCollection = DatabaseService.db.collection('users');
       
-      // Lấy thông tin user để denormalize vào video document
-      final userDocForVideo = await usersCollection.findOne(where.id(userObjectId).fields(['username', 'avatarUrl']));
+      // FIXED: Lấy thông tin user để denormalize vào video document
+      print('[VideoController] Fetching user info for userId: $userObjectId');
+      final userDocForVideo = await usersCollection.findOne(where.id(userObjectId));
 
+      if (userDocForVideo == null) {
+        print('[VideoController] ❌ User not found for ID: $userObjectId');
+        // Cleanup file
+        if (await file.exists()) {
+          try {
+            await file.delete();
+            print('[VideoController] Cleaned up uploaded file due to missing user.');
+          } catch (e) {
+            print('[VideoController] Error deleting file: $e');
+          }
+        }
+        return Response(404, body: jsonEncode({'error': 'User not found. Please ensure you are logged in properly.'}));
+      }
+
+      final String username = userDocForVideo['username'] as String? ?? 'Unknown User';
+      final String? userAvatarUrl = userDocForVideo['avatarUrl'] as String?;
+
+      print('[VideoController] Found user: username="$username", avatarUrl="$userAvatarUrl"');
+
+      // Đảm bảo username không rỗng
+      if (username.isEmpty || username == 'Unknown User') {
+        print('[VideoController] ⚠️ Warning: Username is empty or Unknown User for userId: $userObjectId');
+        print('[VideoController] User document: $userDocForVideo');
+      }
+
+      // FIXED: Thêm username và userAvatarUrl vào video document
       final videoDocument = {
         'userId': userObjectId, 
-        'username': userDocForVideo?['username'] ?? 'Unknown User',
-        'userAvatarUrl': userDocForVideo?['avatarUrl'],
+        'username': username, // THÊM FIELD NÀY
+        'userAvatarUrl': userAvatarUrl, // THÊM FIELD NÀY
         'description': description,
         'videoUrl': '/uploads/$uniqueFileName', 
-        'likes': <ObjectId>[],          // Khởi tạo danh sách likes
-        'likesCount': 0,               // Khởi tạo số lượng likes
-        'commentsCount': 0,            // Khởi tạo số lượng comments
-        'sharesCount': 0,              // Khởi tạo số lượng shares
-        'saves': <ObjectId>[],         // Khởi tạo danh sách saves
+        'likes': <ObjectId>[],          
+        'likesCount': 0,               
+        'commentsCount': 0,            
+        'sharesCount': 0,              
+        'saves': <ObjectId>[],         
         'hashtags': _extractHashtags(description),
         'originalFileName': originalVideoFileName,
         'createdAt': DateTime.now().toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
       };
 
+      print('[VideoController] Video document to be inserted:');
+      print('[VideoController] - userId: $userObjectId');
+      print('[VideoController] - username: "$username"');
+      print('[VideoController] - userAvatarUrl: "$userAvatarUrl"');
+      print('[VideoController] - description: "$description"');
+
       final result = await videosCollection.insertOne(videoDocument);
       if (result.isSuccess) {
+        // Verify the inserted document
+        final insertedDoc = await videosCollection.findOne(where.id(result.id));
+        print('[VideoController] ✅ Inserted video with:');
+        print('[VideoController] - username: "${insertedDoc?['username']}"');
+        print('[VideoController] - userAvatarUrl: "${insertedDoc?['userAvatarUrl']}"');
+        
         videoDocument['_id'] = result.id.toHexString(); 
-        videoDocument['likes'] = []; // Trả về dạng empty array cho client
-        videoDocument['saves'] = []; // Trả về dạng empty array cho client
-        videoDocument['userId'] = userObjectId.toHexString(); // Convert ObjectId thành String
+        videoDocument['likes'] = []; 
+        videoDocument['saves'] = []; 
+        videoDocument['userId'] = userObjectId.toHexString(); 
         
         print('[VideoController] Video metadata saved to MongoDB. Doc ID: ${result.id.toHexString()}');
         return Response.ok(jsonEncode({
@@ -194,11 +233,12 @@ class VideoController {
     }
   }
 
-  // --- HÀM LẤY DANH SÁCH VIDEO CHO FEED ---
+  // --- HÀM LẤY DANH SÁCH VIDEO CHO FEED - FIXED ---
   static Future<Response> getFeedVideosHandler(Request request) async {
     print('[VideoController] Received request for feed videos.');
     try {
       final videosCollection = DatabaseService.db.collection('videos');
+      final usersCollection = DatabaseService.db.collection('users');
 
       final page = int.tryParse(request.url.queryParameters['page'] ?? '1') ?? 1;
       final limit = int.tryParse(request.url.queryParameters['limit'] ?? '10') ?? 10;
@@ -214,13 +254,62 @@ class VideoController {
       );
       
       final List<Map<String, dynamic>> videosWithUserInfo = [];
+      int videoIndex = 0;
+      
       await for (var videoDoc in videoDocsCursor) {
+        print('[VideoController] === Processing video $videoIndex ===');
+        print('[VideoController] Video ID: ${videoDoc['_id']}');
+        print('[VideoController] UserId in video: ${videoDoc['userId']}');
+        
         final Map<String, dynamic> videoWithUser = Map.from(videoDoc);
         
-        // Tạo object user từ thông tin đã denormalize
+        // Lấy thông tin user
+        String username = videoDoc['username'] as String? ?? '';
+        String? userAvatarUrl = videoDoc['userAvatarUrl'] as String?;
+        final ObjectId userId = videoDoc['userId'] as ObjectId;
+        
+        print('[VideoController] Initial username from video doc: "$username"');
+        print('[VideoController] Initial userAvatarUrl from video doc: "$userAvatarUrl"');
+        
+        // Nếu username bị thiếu hoặc là "Unknown User", fetch lại từ users collection
+        if (username.isEmpty || username == 'Unknown User' || username == 'null') {
+          print('[VideoController] ⚠️ Username invalid, fetching from users collection...');
+          
+          try {
+            final userDoc = await usersCollection.findOne(where.id(userId));
+            
+            if (userDoc != null) {
+              username = userDoc['username'] as String? ?? 'Unknown User';
+              userAvatarUrl = userDoc['avatarUrl'] as String?;
+              print('[VideoController] ✅ Fetched from users collection: username="$username"');
+              
+              // CẬP NHẬT LẠI VIDEO DOCUMENT để fix cho lần sau
+              await videosCollection.updateOne(
+                where.id(videoDoc['_id']),
+                modify.set('username', username).set('userAvatarUrl', userAvatarUrl)
+              );
+              print('[VideoController] Updated video document with correct username');
+            } else {
+              print('[VideoController] ❌ User document not found for userId: $userId');
+              username = 'Deleted User';
+            }
+          } catch (e) {
+            print('[VideoController] Error fetching user: $e');
+            username = 'Unknown User';
+          }
+        }
+        
+        // Đảm bảo username không null
+        if (username.isEmpty) {
+          username = 'Anonymous';
+        }
+        
+        print('[VideoController] Final username: "$username"');
+        
+        // Tạo object user
         videoWithUser['user'] = {
-          'username': videoDoc['username'] ?? 'Unknown User',
-          'avatarUrl': videoDoc['userAvatarUrl'] 
+          'username': username,
+          'avatarUrl': userAvatarUrl 
         };
         
         // Xóa các trường denormalized gốc
@@ -239,10 +328,19 @@ class VideoController {
         videoWithUser['likes'] = (videoDoc['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
         videoWithUser['saves'] = (videoDoc['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
         
+        print('[VideoController] ✅ Video $videoIndex processed with user: ${videoWithUser['user']}');
         videosWithUserInfo.add(videoWithUser);
+        videoIndex++;
       }
 
-      print('[VideoController] Returning ${videosWithUserInfo.length} videos for feed.');
+      print('[VideoController] === FEED SUMMARY ===');
+      print('[VideoController] Total videos processed: ${videosWithUserInfo.length}');
+      for (int i = 0; i < videosWithUserInfo.length; i++) {
+        final user = videosWithUserInfo[i]['user'] as Map<String, dynamic>;
+        print('[VideoController] Video $i username: "${user['username']}"');
+      }
+      print('[VideoController] =====================');
+      
       return Response.ok(jsonEncode(videosWithUserInfo), headers: {'Content-Type': 'application/json'});
 
     } catch (e, stackTrace) {
@@ -252,7 +350,7 @@ class VideoController {
     }
   }
 
-  // --- HÀM LIKE/UNLIKE VIDEO (ĐƯỢC SỬA HOÀN TOÀN) ---
+  // --- HÀM LIKE/UNLIKE VIDEO ---
 static Future<Response> toggleLikeVideoHandler(Request request, String videoId, String userIdString) async {
   print('[VideoController] toggleLikeVideo called with videoId: $videoId, userId: $userIdString');
   
@@ -363,7 +461,7 @@ static Future<Response> toggleLikeVideoHandler(Request request, String videoId, 
   }
 }
 
-// --- HÀM SAVE/UNSAVE VIDEO (ĐƯỢC SỬA HOÀN TOÀN) ---
+// --- HÀM SAVE/UNSAVE VIDEO ---
 static Future<Response> toggleSaveVideoHandler(Request request, String videoId, String userIdString) async {
   print('[VideoController] toggleSaveVideo called with videoId: $videoId, userId: $userIdString');
   

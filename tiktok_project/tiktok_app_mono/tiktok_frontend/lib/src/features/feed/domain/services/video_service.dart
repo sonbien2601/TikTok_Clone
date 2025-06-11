@@ -46,6 +46,31 @@ class VideoService {
   String get currentApiBaseUrl => _apiBaseUrl;
   String get currentFileBaseUrl => _backendBaseFileUrl;
 
+  // Get single video by ID
+  Future<VideoPost?> getVideoById(String videoId, {String? currentUserId}) async {
+    print('[VideoService] === FETCHING SINGLE VIDEO ===');
+    print('[VideoService] Video ID: $videoId');
+    print('[VideoService] Current User ID: $currentUserId');
+    
+    try {
+      // Since we don't have a specific endpoint for single video,
+      // we'll get from feed and filter (this is not optimal, but works for now)
+      final videos = await getFeedVideos(currentUserId: currentUserId, limit: 50);
+      final video = videos.where((v) => v.id == videoId).firstOrNull;
+      
+      if (video != null) {
+        print('[VideoService] ✅ Found video: "${video.user.username}" - "${video.description}"');
+      } else {
+        print('[VideoService] ❌ Video not found in feed');
+      }
+      
+      return video;
+    } catch (e) {
+      print('[VideoService] Error fetching single video: $e');
+      rethrow;
+    }
+  }
+
   Future<List<VideoPost>> getFeedVideos({int page = 1, int limit = 10, String? currentUserId}) async {
     final url = Uri.parse('$_apiBaseUrl/feed?page=$page&limit=$limit');
     print('[VideoService] === FETCHING FEED VIDEOS ===');
@@ -238,4 +263,9 @@ class VideoService {
       return false;
     }
   }
+}
+
+// Extension for null-safe firstOrNull
+extension ListExtension<T> on List<T> {
+  T? get firstOrNull => isEmpty ? null : first;
 }

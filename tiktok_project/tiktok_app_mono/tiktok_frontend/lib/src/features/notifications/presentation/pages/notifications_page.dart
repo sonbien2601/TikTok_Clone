@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/notifications/domain/models/notification_model.dart';
 import 'package:tiktok_frontend/src/features/notifications/domain/services/notification_service.dart';
+
 import '../widgets/notification_item_widget.dart';
 
 class NotificationsPage extends StatefulWidget {

@@ -10,19 +10,21 @@ class CommentBottomSheet extends StatefulWidget {
   final String videoId;
   final int initialCommentsCount;
   final Function(int)? onCommentsCountChanged;
+  final String? highlightCommentId; // Add highlight support
 
   const CommentBottomSheet({
     super.key,
     required this.videoId,
     required this.initialCommentsCount,
     this.onCommentsCountChanged,
+    this.highlightCommentId,
   });
 
   @override
-  State<CommentBottomSheet> createState() => _CommentBottomSheetState();
+  State<CommentBottomSheet> createState() => CommentBottomSheetState();
 }
 
-class _CommentBottomSheetState extends State<CommentBottomSheet> {
+class CommentBottomSheetState extends State<CommentBottomSheet> {
   final CommentService _commentService = CommentService();
   final TextEditingController _commentController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -45,11 +47,17 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
   final Set<String> _deletingComments = {};
   // Track editing comments
   final Set<String> _editingComments = {};
+  
+  // Highlight support
+  String? _highlightedCommentId;
+  bool _shouldScrollToHighlight = false;
 
   @override
   void initState() {
     super.initState();
     _commentsCount = widget.initialCommentsCount;
+    _highlightedCommentId = widget.highlightCommentId;
+    _shouldScrollToHighlight = widget.highlightCommentId != null;
     _loadComments();
     
     // Listen for scroll to load more comments
@@ -96,6 +104,11 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         
         // Update parent widget
         widget.onCommentsCountChanged?.call(_commentsCount);
+        
+        // Auto-scroll to highlighted comment if needed
+        if (_shouldScrollToHighlight && _highlightedCommentId != null) {
+          _scrollToHighlightedComment();
+        }
       }
     } catch (e) {
       print('[CommentBottomSheet] Error loading comments: $e');
@@ -107,6 +120,42 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         });
       }
     }
+  }
+  
+  void _scrollToHighlightedComment() {
+    if (_highlightedCommentId == null) return;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final index = _comments.indexWhere((c) => c.id == _highlightedCommentId);
+      if (index != -1 && _scrollController.hasClients) {
+        // Calculate approximate position (each comment item is roughly 120px)
+        final position = index * 120.0;
+        _scrollController.animateTo(
+          position.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        
+        // Clear highlight after a delay
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _highlightedCommentId = null;
+            });
+          }
+        });
+      }
+      _shouldScrollToHighlight = false;
+    });
+  }
+
+  // Public method to highlight a comment (can be called from outside)
+  void highlightComment(String commentId) {
+    setState(() {
+      _highlightedCommentId = commentId;
+      _shouldScrollToHighlight = true;
+    });
+    _scrollToHighlightedComment();
   }
 
   Future<void> _loadMoreComments() async {
@@ -535,40 +584,57 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         return AnimatedOpacity(
           opacity: isDeleting || isEditing ? 0.5 : 1.0,
           duration: const Duration(milliseconds: 200),
-          child: Stack(
-            children: [
-              CommentItemWidget(
-                comment: comment,
-                onDelete: isDeleting ? null : () => _deleteComment(comment),
-                onEdit: isEditing ? null : (newText) => _editComment(comment, newText),
-              ),
-              if (isDeleting || isEditing)
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.white.withOpacity(0.7),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            isDeleting ? 'Deleting...' : 'Editing...',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            decoration: BoxDecoration(
+              color: comment.id == _highlightedCommentId 
+                  ? Colors.blue.withOpacity(0.1)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: comment.id == _highlightedCommentId 
+                  ? Border.all(color: Colors.blue.withOpacity(0.3), width: 2)
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: comment.id == _highlightedCommentId 
+                      ? const EdgeInsets.all(8.0)
+                      : EdgeInsets.zero,
+                  child: CommentItemWidget(
+                    comment: comment,
+                    onDelete: isDeleting ? null : () => _deleteComment(comment),
+                    onEdit: isEditing ? null : (newText) => _editComment(comment, newText),
+                  ),
+                ),
+                if (isDeleting || isEditing)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.white.withOpacity(0.7),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Text(
+                              isDeleting ? 'Deleting...' : 'Editing...',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },

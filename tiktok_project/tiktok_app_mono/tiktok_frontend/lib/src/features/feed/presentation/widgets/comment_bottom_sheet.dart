@@ -24,11 +24,16 @@ class CommentBottomSheet extends StatefulWidget {
   State<CommentBottomSheet> createState() => CommentBottomSheetState();
 }
 
-class CommentBottomSheetState extends State<CommentBottomSheet> {
+class CommentBottomSheetState extends State<CommentBottomSheet> 
+    with SingleTickerProviderStateMixin {
   final CommentService _commentService = CommentService();
   final TextEditingController _commentController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
+  
+  // Animation controller for highlight effect
+  late AnimationController _highlightAnimationController;
+  late Animation<double> _highlightAnimation;
   
   List<CommentModel> _comments = [];
   bool _isLoading = false;
@@ -58,6 +63,24 @@ class CommentBottomSheetState extends State<CommentBottomSheet> {
     _commentsCount = widget.initialCommentsCount;
     _highlightedCommentId = widget.highlightCommentId;
     _shouldScrollToHighlight = widget.highlightCommentId != null;
+    
+    // Initialize animation controller
+    _highlightAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _highlightAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _highlightAnimationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    if (_highlightedCommentId != null) {
+      _highlightAnimationController.repeat(reverse: true);
+    }
+    
     _loadComments();
     
     // Listen for scroll to load more comments
@@ -69,6 +92,7 @@ class CommentBottomSheetState extends State<CommentBottomSheet> {
     _commentController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
+    _highlightAnimationController.dispose();
     super.dispose();
   }
 
@@ -141,6 +165,7 @@ class CommentBottomSheetState extends State<CommentBottomSheet> {
           if (mounted) {
             setState(() {
               _highlightedCommentId = null;
+              _highlightAnimationController.stop();
             });
           }
         });
@@ -155,6 +180,7 @@ class CommentBottomSheetState extends State<CommentBottomSheet> {
       _highlightedCommentId = commentId;
       _shouldScrollToHighlight = true;
     });
+    _highlightAnimationController.repeat(reverse: true);
     _scrollToHighlightedComment();
   }
 
@@ -440,66 +466,116 @@ class CommentBottomSheetState extends State<CommentBottomSheet> {
           topRight: Radius.circular(20),
         ),
       ),
-      child: Column(
+      child: Stack(
         children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Bình luận',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+          Column(
+            children: [
+              // Header với highlight indicator
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  // Highlight header nếu có comment được highlight
+                  color: _highlightedCommentId != null 
+                      ? Colors.blue.withOpacity(0.05)
+                      : Colors.white,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Bình luận',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              // Highlight indicator
+                              if (_highlightedCommentId != null) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Từ thông báo',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          // Show additional info when highlighting
+                          if (_highlightedCommentId != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Comment được đánh dấu sẽ có viền xanh',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue.shade600,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
+                    Text(
+                      '$_commentsCount',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                      iconSize: 24,
+                    ),
+                  ],
                 ),
-                Text(
-                  '$_commentsCount',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                  iconSize: 24,
-                ),
-              ],
-            ),
-          ),
-          
-          // Comments List
-          Expanded(
-            child: _buildCommentsList(),
-          ),
-          
-          // Comment Input
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 12,
-              bottom: 12 + keyboardHeight,
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.grey.shade200),
               ),
-            ),
-            child: _buildCommentInput(),
+              
+              // Comments List
+              Expanded(
+                child: _buildCommentsList(),
+              ),
+              
+              // Comment Input
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 12,
+                  bottom: 12 + keyboardHeight,
+                ),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade200),
+                  ),
+                ),
+                child: _buildCommentInput(),
+              ),
+            ],
           ),
+          // Floating action button for highlight
+          _buildHighlightFloatingButton(),
         ],
       ),
     );
@@ -580,61 +656,78 @@ class CommentBottomSheetState extends State<CommentBottomSheet> {
         final comment = _comments[index];
         final isDeleting = _deletingComments.contains(comment.id);
         final isEditing = _editingComments.contains(comment.id);
+        final isHighlighted = comment.id == _highlightedCommentId;
         
         return AnimatedOpacity(
           opacity: isDeleting || isEditing ? 0.5 : 1.0,
           duration: const Duration(milliseconds: 200),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            decoration: BoxDecoration(
-              color: comment.id == _highlightedCommentId 
-                  ? Colors.blue.withOpacity(0.1)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: comment.id == _highlightedCommentId 
-                  ? Border.all(color: Colors.blue.withOpacity(0.3), width: 2)
-                  : null,
-            ),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: comment.id == _highlightedCommentId 
-                      ? const EdgeInsets.all(8.0)
-                      : EdgeInsets.zero,
-                  child: CommentItemWidget(
-                    comment: comment,
-                    onDelete: isDeleting ? null : () => _deleteComment(comment),
-                    onEdit: isEditing ? null : (newText) => _editComment(comment, newText),
-                  ),
+          child: AnimatedBuilder(
+            animation: _highlightAnimation,
+            builder: (context, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: isHighlighted 
+                      ? Colors.blue.withOpacity(0.1 * _highlightAnimation.value)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: isHighlighted 
+                      ? Border.all(
+                          color: Colors.blue.withOpacity(0.3 + (0.2 * _highlightAnimation.value)), 
+                          width: 2
+                        )
+                      : null,
+                  boxShadow: isHighlighted
+                      ? [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.2 * _highlightAnimation.value),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : null,
                 ),
-                if (isDeleting || isEditing)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.white.withOpacity(0.7),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              isDeleting ? 'Deleting...' : 'Editing...',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
+                child: Stack(
+                  children: [
+                    Padding(
+                      padding: isHighlighted 
+                          ? const EdgeInsets.all(8.0)
+                          : EdgeInsets.zero,
+                      child: CommentItemWidget(
+                        comment: comment,
+                        onDelete: isDeleting ? null : () => _deleteComment(comment),
+                        onEdit: isEditing ? null : (newText) => _editComment(comment, newText),
                       ),
                     ),
-                  ),
-              ],
-            ),
+                    if (isDeleting || isEditing)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.white.withOpacity(0.7),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  isDeleting ? 'Deleting...' : 'Editing...',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },
@@ -692,6 +785,40 @@ class CommentBottomSheetState extends State<CommentBottomSheet> {
           },
         ),
       ],
+    );
+  }
+
+  // Floating action button for highlight
+  Widget _buildHighlightFloatingButton() {
+    if (_highlightedCommentId == null) return const SizedBox.shrink();
+    
+    return Positioned(
+      right: 16,
+      top: 80,
+      child: AnimatedOpacity(
+        opacity: _highlightedCommentId != null ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        child: FloatingActionButton.small(
+          onPressed: () {
+            // Scroll to highlighted comment again
+            final index = _comments.indexWhere((c) => c.id == _highlightedCommentId);
+            if (index != -1 && _scrollController.hasClients) {
+              _scrollController.animateTo(
+                index * 120.0,
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeInOut,
+              );
+            }
+          },
+          backgroundColor: Colors.blue,
+          child: const Icon(
+            Icons.my_location,
+            color: Colors.white,
+            size: 20,
+          ),
+          tooltip: 'Đi đến comment được highlight',
+        ),
+      ),
     );
   }
 }

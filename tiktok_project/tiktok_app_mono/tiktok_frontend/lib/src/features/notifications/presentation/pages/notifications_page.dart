@@ -164,45 +164,50 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _markAsRead(NotificationModel notification) async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    if (!authService.isAuthenticated || authService.currentUser == null) {
-      return;
+  print('[NotificationsPage] _markAsRead called for notification: ${notification.id}');
+  print('[NotificationsPage] Notification type: ${notification.type}');
+  print('[NotificationsPage] Related video ID: ${notification.relatedVideoId}');
+  print('[NotificationsPage] Has related video: ${notification.hasRelatedVideo}');
+  
+  final authService = Provider.of<AuthService>(context, listen: false);
+  if (!authService.isAuthenticated || authService.currentUser == null) {
+    return;
+  }
+
+  if (notification.isRead || _markingAsRead.contains(notification.id)) {
+    return;
+  }
+
+  setState(() {
+    _markingAsRead.add(notification.id);
+  });
+
+  try {
+    final newUnreadCount = await _notificationService.markNotificationAsRead(
+      notification.id,
+      authService.currentUser!.id,
+    );
+
+    if (mounted) {
+      setState(() {
+        // Update notification in list
+        final index = _notifications.indexWhere((n) => n.id == notification.id);
+        if (index != -1) {
+          _notifications[index] = _notifications[index].copyWith(isRead: true);
+        }
+        _unreadCount = newUnreadCount;
+        _markingAsRead.remove(notification.id);
+      });
     }
-
-    if (notification.isRead || _markingAsRead.contains(notification.id)) {
-      return;
-    }
-
-    setState(() {
-      _markingAsRead.add(notification.id);
-    });
-
-    try {
-      final newUnreadCount = await _notificationService.markNotificationAsRead(
-        notification.id,
-        authService.currentUser!.id,
-      );
-
-      if (mounted) {
-        setState(() {
-          // Update notification in list
-          final index = _notifications.indexWhere((n) => n.id == notification.id);
-          if (index != -1) {
-            _notifications[index] = _notifications[index].copyWith(isRead: true);
-          }
-          _unreadCount = newUnreadCount;
-          _markingAsRead.remove(notification.id);
-        });
-      }
-    } catch (e) {
-      print('[NotificationsPage] Error marking notification as read: $e');
-      if (mounted) {
-        setState(() {
-          _markingAsRead.remove(notification.id);
-        });
-      }
+  } catch (e) {
+    print('[NotificationsPage] Error marking notification as read: $e');
+    if (mounted) {
+      setState(() {
+        _markingAsRead.remove(notification.id);
+      });
     }
   }
+}
 
   Future<void> _markAllAsRead() async {
     final authService = Provider.of<AuthService>(context, listen: false);

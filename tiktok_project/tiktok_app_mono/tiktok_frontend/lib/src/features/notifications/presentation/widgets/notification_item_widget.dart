@@ -1,6 +1,7 @@
 // tiktok_frontend/lib/src/features/notifications/presentation/widgets/notification_item_widget.dart
 import 'package:flutter/material.dart';
 import 'package:tiktok_frontend/src/features/notifications/domain/models/notification_model.dart';
+import 'package:tiktok_frontend/src/features/video_detail/presentation/pages/video_detail_page.dart';
 
 class NotificationItemWidget extends StatelessWidget {
   final NotificationModel notification;
@@ -14,10 +15,61 @@ class NotificationItemWidget extends StatelessWidget {
     this.onDelete,
   });
 
+  void _handleNotificationTap(BuildContext context) {
+    print('[NotificationItemWidget] Notification tapped!');
+    print('[NotificationItemWidget] Related Video ID: ${notification.relatedVideoId}');
+    print('[NotificationItemWidget] Related Comment ID: ${notification.relatedCommentId}');
+    
+    // Call the original onTap if provided (for marking as read)
+    if (onTap != null) {
+      print('[NotificationItemWidget] Calling onTap callback for marking as read');
+      onTap!();
+    }
+    
+    // Navigate to video if relatedVideoId exists
+    if (notification.relatedVideoId != null && notification.relatedVideoId!.isNotEmpty) {
+      print('[NotificationItemWidget] Navigating to video: ${notification.relatedVideoId}');
+      print('[NotificationItemWidget] With highlight comment: ${notification.relatedCommentId}');
+      
+      try {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VideoDetailPage(
+              videoId: notification.relatedVideoId!,
+              highlightCommentId: notification.relatedCommentId,
+            ),
+          ),
+        );
+        print('[NotificationItemWidget] Navigation initiated successfully');
+      } catch (e) {
+        print('[NotificationItemWidget] Navigation error: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi điều hướng: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } else {
+      print('[NotificationItemWidget] No relatedVideoId found');
+      // Show message if no video is associated
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không có video liên quan đến thông báo này'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        print('[NotificationItemWidget] InkWell tapped, calling _handleNotificationTap');
+        _handleNotificationTap(context);
+      },
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -103,7 +155,7 @@ class NotificationItemWidget extends StatelessWidget {
                     ],
                   ),
                   
-                  // Related content indicator
+                  // Related content indicator with navigation hint
                   if (notification.hasRelatedVideo || notification.hasRelatedComment) ...[
                     const SizedBox(height: 8),
                     Container(
@@ -129,7 +181,51 @@ class NotificationItemWidget extends StatelessWidget {
                               color: Colors.grey.shade600,
                             ),
                           ),
+                          if (notification.hasRelatedVideo) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 10,
+                              color: Colors.grey.shade500,
+                            ),
+                          ],
                         ],
+                      ),
+                    ),
+                  ],
+                  
+                  // Navigation hint for video notifications
+                  if (notification.hasRelatedVideo) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.touch_app,
+                          size: 12,
+                          color: Colors.blue.shade600,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Nhấn để xem video',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.blue.shade600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  
+                  // Debug info (remove in production)
+                  if (notification.relatedVideoId != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Video ID: ${notification.relatedVideoId}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade500,
+                        fontFamily: 'monospace',
                       ),
                     ),
                   ],

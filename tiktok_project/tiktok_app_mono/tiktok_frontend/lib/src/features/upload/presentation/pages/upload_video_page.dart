@@ -22,17 +22,38 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
   final TextEditingController _descriptionController = TextEditingController();
   bool _isLoading = false;
 
+  // CẤU HÌNH IP CHO ANDROID THẬT
+  static const String _backendPort = "8080";
+  static const String _realDeviceIP = '10.21.12.255'; // IP thực của máy tính
+  static const String _apiPath = "/api/videos/upload";
+
+  // Hàm kiểm tra xem có phải Android emulator không
+  bool _isAndroidEmulator() {
+    try {
+      return Platform.environment.containsKey('ANDROID_EMULATOR') ||
+             Platform.environment['ANDROID_EMULATOR'] == 'true';
+    } catch (e) {
+      print("[UploadPage] Cannot determine if emulator, assuming real device: $e");
+      return false;
+    }
+  }
+
   String get _uploadUrl {
-    const String backendPort = "8080";
-    const String apiPath = "/api/videos/upload"; // Endpoint backend của bạn
     if (kIsWeb) {
-      return 'http://localhost:$backendPort$apiPath';
+      return 'http://localhost:$_backendPort$_apiPath';
     } else {
       try {
-        if (Platform.isAndroid) return 'http://10.0.2.2:$backendPort$apiPath';
-        if (Platform.isIOS) return 'http://localhost:$backendPort$apiPath';
-      } catch (e) { print("[UploadPage] Error checking platform for URL: $e");}
-      return 'http://localhost:$backendPort$apiPath';
+        if (Platform.isAndroid) {
+          // KIỂM TRA XEM CÓ PHẢI ANDROID EMULATOR KHÔNG
+          final host = _isAndroidEmulator() ? '10.0.2.2' : _realDeviceIP;
+          return 'http://$host:$_backendPort$_apiPath';
+        } else if (Platform.isIOS) {
+          return 'http://$_realDeviceIP:$_backendPort$_apiPath';
+        }
+      } catch (e) { 
+        print("[UploadPage] Error checking platform for URL: $e");
+      }
+      return 'http://localhost:$_backendPort$_apiPath';
     }
   }
 
@@ -119,6 +140,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
     request.fields['description'] = _descriptionController.text;
     request.fields['userId'] = userIdToUpload;
 
+    print('[UploadPage] Upload URL: $_uploadUrl');
+    print('[UploadPage] Platform info: ${kIsWeb ? "Web" : Platform.operatingSystem}, isEmulator: ${!kIsWeb ? _isAndroidEmulator() : "N/A"}');
+
     if (kIsWeb && _selectedPlatformFile!.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
         'videoFile', 
@@ -178,8 +202,13 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
     } catch (e) {
       print('[UploadPage] Error uploading video: $e');
       if (mounted) {
+        String errorMessage = 'Lỗi khi upload video: $e';
+        if (e.toString().contains('Connection refused') || 
+            e.toString().contains('Failed host lookup')) {
+          errorMessage = 'Không thể kết nối đến server. Kiểm tra kết nối mạng.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi upload video: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -219,6 +248,44 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Debug info for connection
+            if (!kIsWeb) ...[
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Debug Info:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Platform: ${Platform.operatingSystem}',
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                    ),
+                    Text(
+                      'Is Emulator: ${_isAndroidEmulator()}',
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                    ),
+                    Text(
+                      'Upload URL: $_uploadUrl',
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
             ElevatedButton.icon(
               onPressed: _pickVideo,
               icon: const Icon(Icons.video_library_outlined),

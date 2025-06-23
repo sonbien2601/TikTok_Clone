@@ -6,29 +6,38 @@ import 'package:http/http.dart' as http;
 import 'package:tiktok_frontend/src/features/feed/domain/models/video_post_model.dart';
 
 class VideoService {
-  // Cố định backend host và port
+  // CẤU HÌNH IP CHO ANDROID THẬT
   static const String _backendHost = 'localhost';
   static const String _backendPort = '8080';
+  static const String _realDeviceIP = '10.21.12.255'; // IP thực của máy tính
   static const String _apiPath = '/api/videos';
 
   String get _effectiveBackendHost {
     if (kIsWeb) {
-      // Web: luôn dùng localhost
       return _backendHost;
     } else {
       try {
         if (Platform.isAndroid) {
-          // Android emulator: 10.0.2.2 maps to host localhost
-          return '10.0.2.2';
+          // KIỂM TRA XEM CÓ PHẢI ANDROID EMULATOR KHÔNG
+          return _isAndroidEmulator() ? '10.0.2.2' : _realDeviceIP;
         } else if (Platform.isIOS) {
-          // iOS simulator: có thể dùng localhost
-          return _backendHost;
+          return _realDeviceIP; // iOS có thể dùng IP thực
         }
       } catch (e) { 
         print("[VideoService] Error checking platform for host: $e");
       }
-      // Fallback cho desktop hoặc platform khác
       return _backendHost;
+    }
+  }
+
+  // Hàm kiểm tra xem có phải Android emulator không
+  bool _isAndroidEmulator() {
+    try {
+      return Platform.environment.containsKey('ANDROID_EMULATOR') ||
+             Platform.environment['ANDROID_EMULATOR'] == 'true';
+    } catch (e) {
+      print("[VideoService] Cannot determine if emulator, assuming real device: $e");
+      return false;
     }
   }
 
@@ -51,6 +60,7 @@ class VideoService {
     print('[VideoService] === FETCHING SINGLE VIDEO ===');
     print('[VideoService] Video ID: $videoId');
     print('[VideoService] Current User ID: $currentUserId');
+    print('[VideoService] Using API base URL: $_apiBaseUrl');
     
     try {
       // Since we don't have a specific endpoint for single video,
@@ -77,6 +87,7 @@ class VideoService {
     print('[VideoService] URL: $url');
     print('[VideoService] Current User ID: $currentUserId');
     print('[VideoService] Using API base URL: $_apiBaseUrl');
+    print('[VideoService] Platform info: ${kIsWeb ? "Web" : Platform.operatingSystem}, isEmulator: ${!kIsWeb ? _isAndroidEmulator() : "N/A"}');
     
     try {
       final response = await http.get(
@@ -150,6 +161,7 @@ class VideoService {
           e.toString().contains('Failed host lookup')) {
         print('[VideoService] ❌ Cannot connect to backend server at $_apiBaseUrl');
         print('[VideoService] 💡 Please ensure backend server is running on port $_backendPort');
+        print('[VideoService] 💡 Current target IP: $_effectiveBackendHost');
       }
       throw Exception('Could not connect to server: $e');
     }

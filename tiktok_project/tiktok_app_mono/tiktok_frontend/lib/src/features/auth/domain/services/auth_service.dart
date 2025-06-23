@@ -1,10 +1,13 @@
+// Cập nhật AuthService để sử dụng auto-detection
 // tiktok_frontend/lib/src/features/auth/domain/services/auth_service.dart
+
 import 'dart:convert';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb, ChangeNotifier;
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
+import 'package:tiktok_frontend/src/core/config/network_config.dart'; // Import NetworkConfig
 
 class UserFrontend {
+  // ... (giữ nguyên UserFrontend class)
   final String id;
   final String username;
   final String email;
@@ -37,7 +40,7 @@ class UserFrontend {
 
   @override
   String toString() {
-    return 'UserFrontend(id: $id, username: $username, email: $email, isAdmin: $isAdmin, dob: $dateOfBirth, gender: $gender, interests: $interests)';
+    return 'UserFrontend(id: $id, username: $username, email: $email, isAdmin: $isAdmin)';
   }
 }
 
@@ -45,66 +48,42 @@ class AuthService extends ChangeNotifier {
   bool _isAuthenticated = false;
   UserFrontend? _currentUser;
 
-  // Cố định backend host và port
-  static const String _backendHost = 'localhost';
-  static const String _backendPort = '8080';
-  static const String _apiPath = '/api/users';
-
-  String get _baseUrl {
-    if (kIsWeb) {
-      // Web: luôn dùng localhost:8080
-      return 'http://$_backendHost:$_backendPort$_apiPath';
-    } else {
-      try {
-        if (Platform.isAndroid) {
-          // Android emulator: 10.0.2.2 maps to host localhost
-          return 'http://10.0.2.2:$_backendPort$_apiPath';
-        } else if (Platform.isIOS) {
-          // iOS simulator: có thể dùng localhost
-          return 'http://$_backendHost:$_backendPort$_apiPath';
-        }
-      } catch (e) { 
-        print("[AuthService] Error checking platform: $e");
-      }
-      // Fallback cho desktop hoặc platform khác
-      return 'http://$_backendHost:$_backendPort$_apiPath';
-    }
-  }
-
-  // Getter để debug URL hiện tại
-  String get currentBaseUrl => _baseUrl;
-
   bool get isAuthenticated => _isAuthenticated;
   UserFrontend? get currentUser => _currentUser;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
 
+  // Getter để debug URL hiện tại
+  Future<String> get currentBaseUrl => NetworkConfig.getBaseUrl('/api/users');
+
   void _updateAuthState(bool isAuthenticated, Map<String, dynamic>? userDataFromApi) {
-    print('[AuthService] _updateAuthState called. Target isAuthenticated: $isAuthenticated, hasUserData: ${userDataFromApi != null}');
+    print('[AuthService] _updateAuthState called. Target isAuthenticated: $isAuthenticated');
     this._isAuthenticated = isAuthenticated;
     if (isAuthenticated && userDataFromApi != null) {
       try {
         this._currentUser = UserFrontend.fromJson(userDataFromApi);
         print('[AuthService] User data parsed. User: ${this._currentUser}');
       } catch (e) {
-        print('[AuthService] Error parsing user data in _updateAuthState: $e. User will be null.');
+        print('[AuthService] Error parsing user data: $e');
         this._currentUser = null;
         this._isAuthenticated = false; 
       }
     } else {
       this._currentUser = null;
       if (isAuthenticated && userDataFromApi == null) {
-          print('[AuthService] Auth reported success but no user data. Setting isAuthenticated to false.');
-          this._isAuthenticated = false;
+        print('[AuthService] Auth reported success but no user data.');
+        this._isAuthenticated = false;
       }
     }
     notifyListeners();
-    print('[AuthService] notifyListeners called. New state: isAuthenticated: ${this._isAuthenticated}, currentUser: ${_currentUser?.username}');
   }
   
   Future<void> login(String identifierValue, String password) async {
-    final targetUrl = Uri.parse('$_baseUrl/login');
-    print('[AuthService] Attempting login with Identifier: "$identifierValue" to $targetUrl');
-    print('[AuthService] Using base URL: $_baseUrl');
+    // AUTO-DETECT IP và tạo URL
+    final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+    final targetUrl = Uri.parse('$baseUrl/login');
+    
+    print('[AuthService] Auto-detected backend URL: $baseUrl');
+    print('[AuthService] Attempting login to: $targetUrl');
     
     try {
       final response = await http.post(
@@ -144,8 +123,10 @@ class AuthService extends ChangeNotifier {
       print('[AuthService] Login error: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
-        print('[AuthService] ❌ Cannot connect to backend server at $_baseUrl');
-        print('[AuthService] 💡 Please ensure backend server is running on port $_backendPort');
+        // Clear cache và thử lại với IP khác
+        NetworkConfig.clearCache();
+        print('[AuthService] ❌ Connection failed, cleared IP cache');
+        print('[AuthService] 💡 Next login attempt will try to find new IP');
       }
       _updateAuthState(false, null); 
       rethrow; 
@@ -156,9 +137,11 @@ class AuthService extends ChangeNotifier {
     String username, String email, String password,
     DateTime? dateOfBirth, String? gender, List<String> interests,
   ) async {
-    final targetUrl = Uri.parse('$_baseUrl/register');
-    print('[AuthService] Attempting register for Username: "$username" to $targetUrl');
-    print('[AuthService] Using base URL: $_baseUrl');
+    // AUTO-DETECT IP và tạo URL
+    final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+    final targetUrl = Uri.parse('$baseUrl/register');
+    
+    print('[AuthService] Auto-detected backend URL for register: $baseUrl');
     
     try {
       final response = await http.post(
@@ -180,7 +163,7 @@ class AuthService extends ChangeNotifier {
       print('[AuthService] Register Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('[AuthService] Registration successful (backend).');
+        print('[AuthService] Registration successful.');
         return true; 
       } else {
         String errorMessage = 'Failed to register. Status: ${response.statusCode}';
@@ -194,8 +177,8 @@ class AuthService extends ChangeNotifier {
       print('[AuthService] Register error: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
-        print('[AuthService] ❌ Cannot connect to backend server at $_baseUrl');
-        print('[AuthService] 💡 Please ensure backend server is running on port $_backendPort');
+        NetworkConfig.clearCache();
+        print('[AuthService] ❌ Connection failed during register, cleared IP cache');
       }
       rethrow; 
     }
@@ -211,7 +194,8 @@ class AuthService extends ChangeNotifier {
   // Method để test connection
   Future<bool> testConnection() async {
     try {
-      final healthUrl = Uri.parse('http://$_backendHost:$_backendPort/health');
+      final fileBaseUrl = await NetworkConfig.getFileBaseUrl();
+      final healthUrl = Uri.parse('$fileBaseUrl/health');
       print('[AuthService] Testing connection to $healthUrl');
       
       final response = await http.get(healthUrl).timeout(const Duration(seconds: 5));
@@ -221,5 +205,11 @@ class AuthService extends ChangeNotifier {
       print('[AuthService] Connection test failed: $e');
       return false;
     }
+  }
+
+  // Force refresh IP cache
+  void refreshNetworkConfig() {
+    NetworkConfig.clearCache();
+    print('[AuthService] Network configuration refreshed');
   }
 }

@@ -6,9 +6,10 @@ import 'package:http/http.dart' as http;
 import '../models/comment_model.dart';
 
 class CommentService {
-  // Cố định backend host và port
+  // CẤU HÌNH IP CHO ANDROID THẬT
   static const String _backendHost = 'localhost';
   static const String _backendPort = '8080';
+  static const String _realDeviceIP = '10.21.12.255'; // IP thực của máy tính
   static const String _apiPath = '/api/comments';
 
   String get _effectiveBackendHost {
@@ -17,14 +18,26 @@ class CommentService {
     } else {
       try {
         if (Platform.isAndroid) {
-          return '10.0.2.2';
+          // KIỂM TRA XEM CÓ PHẢI ANDROID EMULATOR KHÔNG
+          return _isAndroidEmulator() ? '10.0.2.2' : _realDeviceIP;
         } else if (Platform.isIOS) {
-          return _backendHost;
+          return _realDeviceIP;
         }
       } catch (e) { 
         print("[CommentService] Error checking platform for host: $e");
       }
       return _backendHost;
+    }
+  }
+
+  // Hàm kiểm tra xem có phải Android emulator không
+  bool _isAndroidEmulator() {
+    try {
+      return Platform.environment.containsKey('ANDROID_EMULATOR') ||
+             Platform.environment['ANDROID_EMULATOR'] == 'true';
+    } catch (e) {
+      print("[CommentService] Cannot determine if emulator, assuming real device: $e");
+      return false;
     }
   }
 
@@ -37,6 +50,7 @@ class CommentService {
   Future<CommentPaginationResponse> getVideoComments(String videoId, {int page = 1, int limit = 20}) async {
     final url = Uri.parse('$_apiBaseUrl/video/$videoId?page=$page&limit=$limit');
     print('[CommentService] Fetching comments from $url');
+    print('[CommentService] Platform info: ${kIsWeb ? "Web" : Platform.operatingSystem}, isEmulator: ${!kIsWeb ? _isAndroidEmulator() : "N/A"}');
     
     try {
       final response = await http.get(
@@ -124,6 +138,7 @@ class CommentService {
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
         print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
+        print('[CommentService] 💡 Current target IP: $_effectiveBackendHost');
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
       }
       
@@ -400,6 +415,7 @@ class CommentService {
     if (error.toString().contains('Connection refused') || 
         error.toString().contains('Failed host lookup')) {
       print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
+      print('[CommentService] 💡 Current target IP: $_effectiveBackendHost');
       throw Exception('Không thể kết nối đến server');
     }
   }

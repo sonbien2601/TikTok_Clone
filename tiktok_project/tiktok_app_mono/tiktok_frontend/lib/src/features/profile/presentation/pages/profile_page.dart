@@ -5,6 +5,9 @@ import 'package:tiktok_frontend/src/features/admin/presentation/pages/admin_dash
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:tiktok_frontend/src/features/notifications/domain/services/notification_service.dart';
+import 'package:tiktok_frontend/src/features/profile/presentation/pages/edit_profile_page.dart';
+import 'package:tiktok_frontend/src/features/profile/presentation/pages/liked_videos_page.dart';
+import 'package:tiktok_frontend/src/features/profile/presentation/pages/saved_videos_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -62,6 +65,120 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
+  void _navigateToEditProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EditProfilePage()),
+    ).then((_) {
+      // Refresh the page when returning to reflect any changes
+      if (mounted) {
+        setState(() {});
+        // Reload unread count in case profile update affects notifications
+        _loadUnreadCount();
+      }
+    });
+  }
+
+  void _navigateToLikedVideos() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LikedVideosPage()),
+    );
+  }
+
+  void _navigateToSavedVideos() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SavedVideosPage()),
+    );
+  }
+
+  void _navigateToMyVideos() {
+    // TODO: Implement MyVideosPage
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.white),
+            SizedBox(width: 8),
+            Text('Chức năng "Video của tôi" sẽ được thêm trong phiên bản tiếp theo'),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _navigateToSettings() {
+    // TODO: Implement SettingsPage
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.settings, color: Colors.white),
+            SizedBox(width: 8),
+            Text('Trang cài đặt sẽ được phát triển trong tương lai'),
+          ],
+        ),
+        backgroundColor: Colors.grey,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _handleLogout() async {
+    // Show confirmation dialog
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Đăng xuất'),
+          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout == true) {
+      print('[ProfilePage] Logout confirmed by user.');
+      try {
+        await context.read<AuthService>().logout();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã đăng xuất thành công'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        print('[ProfilePage] Error during logout: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi khi đăng xuất: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Sử dụng context.watch để widget này rebuild khi authService thay đổi
@@ -72,7 +189,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(currentUser?.username ?? 'Profile'),
+        title: Row(
+          children: [
+            const Icon(Icons.person_outline),
+            const SizedBox(width: 8),
+            Text(currentUser?.username ?? 'Profile'),
+          ],
+        ),
         actions: [
           // Notification icon with badge
           Stack(
@@ -126,147 +249,226 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () { /* TODO: Navigate to settings */ },
+            onPressed: _navigateToSettings,
+            tooltip: 'Cài đặt',
           ),
           IconButton( 
             icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () async {
-              print('[ProfilePage] Logout button pressed.');
-              await context.read<AuthService>().logout();
-            },
+            tooltip: 'Đăng xuất',
+            onPressed: _handleLogout,
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch, 
-          children: [
-            // Profile header
-            Center(
-              child: Column(
-                children: [
-                  // Avatar
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                        width: 3,
-                      ),
-                    ),
-                    child: const CircleAvatar(
-                      radius: 47,
-                      child: Icon(Icons.person, size: 50),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Username
-                  Text(
-                    currentUser?.username ?? 'User Name Placeholder', 
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Email
-                  Text(
-                    currentUser?.email ?? '@username_or_email_placeholder',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  
-                  // Additional info
-                  if (currentUser?.dateOfBirth != null) 
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.cake, size: 16, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Text(
-                            currentUser!.dateOfBirth!, 
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await _loadUnreadCount();
+          // Có thể thêm refresh other data ở đây
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch, 
+            children: [
+              // Profile header
+              Center(
+                child: Column(
+                  children: [
+                    // Avatar with edit button
+                    Stack(
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).primaryColor.withOpacity(0.3),
+                              width: 3,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const CircleAvatar(
+                            radius: 47,
+                            backgroundColor: Colors.white,
+                            child: Icon(Icons.person, size: 50, color: Colors.grey),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: IconButton(
+                              onPressed: _navigateToEditProfile,
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(
+                                minWidth: 28,
+                                minHeight: 28,
+                              ),
+                              tooltip: 'Chỉnh sửa hồ sơ',
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Username
+                    Text(
+                      currentUser?.username ?? 'Tên người dùng', 
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Email
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        currentUser?.email ?? 'email@example.com',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.grey[700],
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  
-                  if (currentUser?.gender != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Row(
+                    
+                    // Additional info row
+                    if (currentUser?.dateOfBirth != null || currentUser?.gender != null) ...[
+                      const SizedBox(height: 12),
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            currentUser!.gender == 'male' ? Icons.male : 
-                            currentUser.gender == 'female' ? Icons.female : Icons.person,
-                            size: 16, 
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            currentUser.gender!.toUpperCase(), 
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          if (currentUser?.dateOfBirth != null) ...[
+                            Icon(Icons.cake, size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Text(
+                              currentUser!.dateOfBirth!, 
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                          if (currentUser?.dateOfBirth != null && currentUser?.gender != null) ...[
+                            const SizedBox(width: 16),
+                            Container(
+                              width: 1,
+                              height: 12,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(width: 16),
+                          ],
+                          if (currentUser?.gender != null) ...[
+                            Icon(
+                              currentUser!.gender == 'male' ? Icons.male : 
+                              currentUser.gender == 'female' ? Icons.female : Icons.person,
+                              size: 16, 
                               color: Colors.grey[600],
                             ),
-                          ),
+                            const SizedBox(width: 4),
+                            Text(
+                              currentUser.gender!.toUpperCase(), 
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
-                    ),
-                  
-                  if (currentUser?.interests.isNotEmpty ?? false)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Wrap(
+                    ],
+                    
+                    // Interests chips
+                    if (currentUser?.interests.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 16),
+                      Wrap(
                         spacing: 8,
-                        runSpacing: 4,
+                        runSpacing: 8,
                         alignment: WrapAlignment.center,
                         children: currentUser!.interests.map((interest) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
+                              gradient: LinearGradient(
+                                colors: [
+                                  Theme.of(context).primaryColor.withOpacity(0.1),
+                                  Theme.of(context).primaryColor.withOpacity(0.05),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: Theme.of(context).primaryColor.withOpacity(0.3),
                               ),
                             ),
-                            child: Text(
-                              interest,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.favorite,
+                                  size: 14,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  interest,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).primaryColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           );
                         }).toList(),
                       ),
-                    ),
-                ],
+                    ],
+                  ],
+                ),
               ),
-            ),
-            
-            const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 16),
-            
-            // Menu options
-            Expanded(
-              child: ListView(
+              
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              
+              // Menu options
+              Column(
                 children: [
+                  // Personal section
+                  _buildSectionHeader('Cá nhân'),
+                  const SizedBox(height: 8),
+                  
+                  // Edit Profile
+                  _buildMenuTile(
+                    context,
+                    icon: Icons.edit_outlined,
+                    title: 'Chỉnh sửa hồ sơ',
+                    subtitle: 'Cập nhật thông tin cá nhân',
+                    onTap: _navigateToEditProfile,
+                    iconColor: Colors.blue.shade600,
+                  ),
+                  
                   // Notifications
                   _buildMenuTile(
                     context,
@@ -293,16 +495,14 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           )
                         : null,
+                    iconColor: Colors.orange.shade600,
                   ),
                   
-                  // Edit Profile
-                  _buildMenuTile(
-                    context,
-                    icon: Icons.edit_outlined,
-                    title: 'Chỉnh sửa hồ sơ',
-                    subtitle: 'Cập nhật thông tin cá nhân',
-                    onTap: () { /* TODO: Navigate to edit profile screen */ },
-                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Video content section
+                  _buildSectionHeader('Nội dung video'),
+                  const SizedBox(height: 8),
                   
                   // Liked Videos
                   _buildMenuTile(
@@ -310,7 +510,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.favorite_border_outlined,
                     title: 'Video đã thích',
                     subtitle: 'Xem các video bạn đã thích',
-                    onTap: () { /* TODO: Navigate to liked videos */ },
+                    onTap: _navigateToLikedVideos,
+                    iconColor: Colors.red.shade600,
                   ),
                   
                   // Saved Videos
@@ -319,12 +520,25 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.bookmark_border_outlined,
                     title: 'Video đã lưu',
                     subtitle: 'Xem các video bạn đã lưu',
-                    onTap: () { /* TODO: Navigate to saved videos */ },
+                    onTap: _navigateToSavedVideos,
+                    iconColor: Colors.amber.shade600,
                   ),
                   
-                  // Admin Dashboard (only for admins)
+                  // My Videos
+                  _buildMenuTile(
+                    context,
+                    icon: Icons.video_library_outlined,
+                    title: 'Video của tôi',
+                    subtitle: 'Quản lý video đã đăng',
+                    onTap: _navigateToMyVideos,
+                    iconColor: Colors.blue.shade600,
+                  ),
+                  
+                  // Admin section (only for admins)
                   if (authService.isAdmin) ...[
-                    const Divider(),
+                    const SizedBox(height: 24),
+                    _buildSectionHeader('Quản trị'),
+                    const SizedBox(height: 8),
                     _buildMenuTile(
                       context,
                       icon: Icons.admin_panel_settings_outlined,
@@ -340,10 +554,47 @@ class _ProfilePageState extends State<ProfilePage> {
                       textColor: Colors.blueGrey[700],
                     ),
                   ],
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Logout button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _handleLogout,
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Đăng xuất'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey.shade700,
         ),
       ),
     );
@@ -360,18 +611,26 @@ class _ProfilePageState extends State<ProfilePage> {
     Color? textColor,
   }) {
     return Card(
-      elevation: 1,
+      elevation: 2,
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
-            color: (iconColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
+            gradient: LinearGradient(
+              colors: [
+                (iconColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
+                (iconColor ?? Theme.of(context).primaryColor).withOpacity(0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: (iconColor ?? Theme.of(context).primaryColor).withOpacity(0.2),
+            ),
           ),
           child: Icon(
             icon,
@@ -384,6 +643,7 @@ class _ProfilePageState extends State<ProfilePage> {
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: textColor,
+            fontSize: 16,
           ),
         ),
         subtitle: subtitle != null ? Text(
@@ -393,7 +653,11 @@ class _ProfilePageState extends State<ProfilePage> {
             color: Colors.grey[600],
           ),
         ) : null,
-        trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
+        trailing: trailing ?? Icon(
+          Icons.arrow_forward_ios, 
+          size: 16,
+          color: Colors.grey.shade400,
+        ),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         shape: RoundedRectangleBorder(

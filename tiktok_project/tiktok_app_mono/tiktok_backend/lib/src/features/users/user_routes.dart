@@ -1,52 +1,66 @@
 // tiktok_backend/lib/src/features/users/user_routes.dart
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
-import 'controllers/auth_controller.dart';    // Import AuthController
-import 'controllers/profile_controller.dart'; // Import ProfileController
+import 'controllers/auth_controller.dart';
+import 'controllers/profile_controller.dart';
 
-// Thay vì class UserApi, chúng ta có thể dùng một hàm để build router cho user
-// Hoặc bạn vẫn có thể giữ class UserApi và gọi các phương thức static từ controller
-
-// Cách 1: Dùng hàm để build router (đơn giản hơn)
 Router createUserRoutes() {
   final router = Router();
+
+  print('[UserRoutes] Creating user routes with profile features...');
 
   // Auth routes
   router.post('/register', AuthController.registerHandler);
   router.post('/login', AuthController.loginHandler);
 
-  // Profile routes
+  // Profile routes - Basic user info
   router.get('/<userId>', ProfileController.getUserProfileHandler);
-  // router.put('/<userId>', ProfileController.updateUserProfileHandler); // Ví dụ cho API cập nhật
+  router.put('/<userId>', ProfileController.updateUserProfileHandler);
 
-  // Route test (nếu bạn vẫn muốn giữ)
+  // Profile routes - User content
+  router.get('/<userId>/liked-videos', ProfileController.getLikedVideosHandler);
+  router.get('/<userId>/saved-videos', ProfileController.getSavedVideosHandler);
+  router.get('/<userId>/videos', ProfileController.getUserVideosHandler);
+
+  // Test route
   router.get('/test-user-api', (Request request) {
     print('[UserRoutes] /test-user-api route hit!');
-    return Response.ok('User API test route in new structure is working!');
+    return Response.ok('User API test route with profile features is working!');
   });
-  
+
+  // Debug route
+  router.get('/debug/routes', (Request request) {
+    return Response.ok('''
+User API Routes:
+- POST /api/users/register - Register new user
+- POST /api/users/login - Login user
+- GET /api/users/{userId} - Get user profile
+- PUT /api/users/{userId} - Update user profile
+- GET /api/users/{userId}/liked-videos - Get user's liked videos
+- GET /api/users/{userId}/saved-videos - Get user's saved videos  
+- GET /api/users/{userId}/videos - Get user's own videos
+- GET /api/users/test-user-api - Test route
+- GET /api/users/debug/routes - This debug info
+
+Example URLs:
+- GET /api/users/682ead1be4f819a1b0000000
+- PUT /api/users/682ead1be4f819a1b0000000
+- GET /api/users/682ead1be4f819a1b0000000/liked-videos?page=1&limit=20
+- GET /api/users/682ead1be4f819a1b0000000/saved-videos?page=1&limit=20
+- GET /api/users/682ead1be4f819a1b0000000/videos?page=1&limit=20
+''');
+  });
+
+  // CORS handlers
+  router.options('/<path|.*>', (Request request) async {
+    return Response.ok('', headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+      'Access-Control-Max-Age': '86400',
+    });
+  });
+
+  print('[UserRoutes] ✅ User routes created with profile features');
   return router;
 }
-
-/* // Cách 2: Vẫn dùng class UserApi (nếu bạn thích)
-class UserApi {
-  Router get router {
-    final router = Router();
-
-    // Auth routes
-    router.post('/register', AuthController.registerHandler);
-    router.post('/login', AuthController.loginHandler);
-
-    // Profile routes
-    router.get('/<userId>', ProfileController.getUserProfileHandler);
-
-    // Test route
-    router.get('/test-user-api', (Request request) {
-      print('[UserApi] /test-user-api route hit!');
-      return Response.ok('User API test route in UserApi class is working!');
-    });
-    
-    return router;
-  }
-}
-*/

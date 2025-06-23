@@ -133,6 +133,88 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshUserData() async {
+    if (!_isAuthenticated || _currentUser == null) {
+      print('[AuthService] Cannot refresh user data: not authenticated or no current user');
+      return;
+    }
+    
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final targetUrl = Uri.parse('$baseUrl/${_currentUser!.id}');
+      
+      print('[AuthService] Refreshing user data from: $targetUrl');
+      
+      final response = await http.get(
+        targetUrl,
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      print('[AuthService] Refresh User Data Response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if (responseData is Map<String, dynamic>) {
+          // Update current user with fresh data
+          _updateAuthState(true, responseData);
+          print('[AuthService] ✅ User data refreshed successfully');
+          print('[AuthService] Updated user: username="${_currentUser?.username}", interests=${_currentUser?.interests}');
+        } else {
+          print('[AuthService] ❌ Invalid user data format in refresh response');
+        }
+      } else {
+        print('[AuthService] ❌ Failed to refresh user data. Status: ${response.statusCode}');
+        print('[AuthService] Response body: ${response.body}');
+        
+        // Don't throw error for 404 as user might have been deleted
+        if (response.statusCode == 404) {
+          print('[AuthService] User not found, logging out...');
+          await logout();
+        }
+      }
+    } catch (e) {
+      print('[AuthService] ⚠️ Error refreshing user data: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        NetworkConfig.clearCache();
+        print('[AuthService] 🔄 Connection failed during refresh, cleared IP cache');
+      }
+      // Don't throw error to avoid breaking the UI
+      // The user can continue with cached data
+    }
+  }
+
+   Future<UserFrontend?> getFreshUserData() async {
+    if (!_isAuthenticated || _currentUser == null) return null;
+    
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final targetUrl = Uri.parse('$baseUrl/${_currentUser!.id}');
+      
+      final response = await http.get(
+        targetUrl,
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if (responseData is Map<String, dynamic>) {
+          return UserFrontend.fromJson(responseData);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('[AuthService] Error getting fresh user data: $e');
+      return null;
+    }
+  }
+
   Future<bool> register(
     String username, String email, String password,
     DateTime? dateOfBirth, String? gender, List<String> interests,

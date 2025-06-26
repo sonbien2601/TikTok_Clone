@@ -1,8 +1,11 @@
-// tiktok_frontend/lib/src/features/feed/presentation/widgets/full_screen_video_item.dart
+// tiktok_frontend/lib/src/features/feed/presentation/widgets/full_screen_video_item.dart - UPDATED WITH FOLLOW SYSTEM
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/feed/domain/models/video_post_model.dart';
-import 'comment_bottom_sheet.dart';
+import 'package:tiktok_frontend/src/features/feed/presentation/widgets/comment_bottom_sheet.dart';
+import 'package:tiktok_frontend/src/features/follow/presentation/widgets/follow_button_widget.dart';
+import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 
 class FullScreenVideoItem extends StatefulWidget {
   final VideoPost videoPost;
@@ -202,6 +205,17 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     });
   }
 
+  // NEW METHOD: Check if current user should see follow button
+  bool _shouldShowFollowButton() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.currentUser == null) {
+      return false;
+    }
+    
+    // Don't show follow button for own videos
+    return authService.currentUser!.id != widget.videoPost.user.id;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Debug username in build
@@ -333,7 +347,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                         mainAxisSize: MainAxisSize.min, 
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // User info row
+                          // User info row with follow button
                           Row(
                             children: [
                               // User avatar
@@ -353,21 +367,42 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      '@${widget.videoPost.user.username}', 
-                                      style: const TextStyle(
-                                        color: Colors.white, 
-                                        fontSize: 16, 
-                                        fontWeight: FontWeight.bold, 
-                                        shadows: <Shadow>[
-                                          Shadow(
-                                            offset: Offset(0.0, 1.0), 
-                                            blurRadius: 2.0, 
-                                            color: Colors.black54
-                                          )
-                                        ]
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '@${widget.videoPost.user.username}', 
+                                            style: const TextStyle(
+                                              color: Colors.white, 
+                                              fontSize: 16, 
+                                              fontWeight: FontWeight.bold, 
+                                              shadows: <Shadow>[
+                                                Shadow(
+                                                  offset: Offset(0.0, 1.0), 
+                                                  blurRadius: 2.0, 
+                                                  color: Colors.black54
+                                                )
+                                              ]
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        // NEW: Follow button
+                                        if (_shouldShowFollowButton()) ...[
+                                          const SizedBox(width: 8),
+                                          FollowButtonWidget(
+                                            targetUserId: widget.videoPost.user.id,
+                                            targetUsername: widget.videoPost.user.username,
+                                            initialIsFollowing: false, // TODO: Get actual follow status
+                                            initialFollowerCount: 0, // TODO: Get actual follower count
+                                            style: FollowButtonStyle.compact,
+                                            onFollowChanged: () {
+                                              // Handle follow state change if needed
+                                              print('[FullScreenVideoItem] Follow state changed for ${widget.videoPost.user.username}');
+                                            },
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                     // DEBUG: Hiển thị thông tin debug nếu username có vấn đề
                                     if (widget.videoPost.user.username == 'Unknown User' || widget.videoPost.user.username.isEmpty)

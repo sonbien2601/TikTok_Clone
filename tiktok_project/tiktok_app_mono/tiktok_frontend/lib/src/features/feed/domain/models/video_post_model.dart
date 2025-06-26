@@ -1,164 +1,284 @@
 // tiktok_frontend/lib/src/features/feed/domain/models/video_post_model.dart
-
-class VideoUser {
-  final String username;
-  final String? avatarUrl; 
-
-  VideoUser({required this.username, this.avatarUrl});
-
-  factory VideoUser.fromJson(Map<String, dynamic>? json) {
-    if (json == null) {
-      print('[VideoUser] JSON is null, using default values');
-      return VideoUser(username: 'Unknown User', avatarUrl: null);
-    }
-    
-    print('[VideoUser] Parsing JSON: $json');
-    final username = json['username'] as String? ?? 'Unknown User';
-    final avatarUrl = json['avatarUrl'] as String?;
-    
-    print('[VideoUser] Parsed: username="$username", avatarUrl="$avatarUrl"');
-    
-    return VideoUser(
-      username: username,
-      avatarUrl: avatarUrl,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'VideoUser(username: $username, avatarUrl: $avatarUrl)';
-  }
-}
+import 'video_user_model.dart'; // Import the fixed VideoUser model
+import 'package:flutter/foundation.dart';
 
 class VideoPost {
   final String id;
-  final String userId;
-  final VideoUser user; // Thông tin người đăng (đã được parse)
+  final VideoUser user;
   final String description;
-  final String videoUrl; // URL đầy đủ để truy cập video
-  final String? audioName; 
-  int likesCount; // Sẽ cập nhật được
+  final String videoUrl;
+  final String? thumbnailUrl;
+  final List<String> hashtags;
+  final String? audioName;
+  final int likesCount;
   final int commentsCount;
   final int sharesCount;
-  final List<String> hashtags;
+  final int viewsCount;
+  final bool isLikedByCurrentUser;
+  final bool isSavedByCurrentUser;
   final DateTime createdAt;
-  List<String> likes; // Danh sách userId (dưới dạng String) đã like video này
-  bool isLikedByCurrentUser; // User hiện tại có like video này không
-  List<String> saves; // Danh sách userId (dưới dạng String) đã save video này
-  bool isSavedByCurrentUser; // User hiện tại có save video này không
+  final DateTime? updatedAt;
 
   VideoPost({
     required this.id,
-    required this.userId,
     required this.user,
     required this.description,
     required this.videoUrl,
+    this.thumbnailUrl,
+    this.hashtags = const [],
     this.audioName,
     required this.likesCount,
     required this.commentsCount,
     required this.sharesCount,
-    required this.hashtags,
+    this.viewsCount = 0,
+    required this.isLikedByCurrentUser,
+    required this.isSavedByCurrentUser,
     required this.createdAt,
-    this.likes = const [],
-    this.isLikedByCurrentUser = false,
-    this.saves = const [],
-    this.isSavedByCurrentUser = false,
+    this.updatedAt,
   });
 
-  factory VideoPost.fromJson(Map<String, dynamic> json, String backendBaseFileUrl, {String? currentUserId}) {
-    print('[VideoPost] === Parsing video JSON ===');
-    print('[VideoPost] JSON keys: ${json.keys.toList()}');
-    print('[VideoPost] Raw JSON: $json');
-    
-    String relativeVideoUrl = json['videoUrl'] as String? ?? '';
-    String fullVideoUrl = relativeVideoUrl;
+  factory VideoPost.fromJson(
+    Map<String, dynamic> json,
+    String fileBaseUrl, {
+    String? currentUserId,
+  }) {
+    // Parse user data
+    final userData = json['user'] as Map<String, dynamic>? ?? {};
 
-    if (relativeVideoUrl.isNotEmpty && 
-        relativeVideoUrl.startsWith('/') && 
-        backendBaseFileUrl.isNotEmpty) {
-      fullVideoUrl = backendBaseFileUrl + relativeVideoUrl;
-    } else if (relativeVideoUrl.isNotEmpty && !relativeVideoUrl.startsWith('http')) {
-      print("[VideoPost] Warning: Relative videoUrl ('$relativeVideoUrl') does not start with '/' or 'http'");
-    }
-    
-    // FIXED: Parse user info - Ưu tiên 'user' field trước
-    VideoUser userInfo;
-    if (json.containsKey('user') && json['user'] != null) {
-      // NEW FORMAT: có field 'user'
-      print('[VideoPost] Found user field in JSON: ${json['user']}');
-      userInfo = VideoUser.fromJson(json['user'] as Map<String, dynamic>?);
-    } else {
-      // OLD FORMAT: thông tin user ở level root (fallback)
-      print('[VideoPost] No user field, checking root level fields');
-      print('[VideoPost] Root username: "${json['username']}"');
-      print('[VideoPost] Root userAvatarUrl: "${json['userAvatarUrl']}"');
-      
-      final Map<String, dynamic> userFromRoot = {
-        'username': json['username'],
-        'avatarUrl': json['userAvatarUrl'],
-      };
-      print('[VideoPost] User data from root: $userFromRoot');
-      userInfo = VideoUser.fromJson(userFromRoot);
+    // Extract user ID from different possible fields
+    String userId = '';
+    if (userData['id'] != null) {
+      userId = userData['id'].toString();
+    } else if (userData['_id'] != null) {
+      userId = userData['_id'].toString();
+    } else if (json['userId'] != null) {
+      userId = json['userId'].toString();
     }
 
-    print('[VideoPost] Final parsed user info: $userInfo');
-    
-    // Generate default audio name
-    String defaultAudioName = 'Original Sound';
-    if (userInfo.username.isNotEmpty && userInfo.username != 'Unknown User') {
-      defaultAudioName = 'Original Sound - ${userInfo.username}';
+    // Extract username safely
+    String username = 'Unknown User';
+    if (userData['username'] != null &&
+        userData['username'].toString().isNotEmpty) {
+      username = userData['username'].toString();
+    } else if (json['username'] != null &&
+        json['username'].toString().isNotEmpty) {
+      username = json['username'].toString();
     }
 
-    // Parse likes and saves
-    List<String> likesList = [];
-    if (json['likes'] != null && json['likes'] is List) {
-      likesList = List<String>.from(json['likes'] as List);
-    }
-    
-    List<String> savesList = [];
-    if (json['saves'] != null && json['saves'] is List) {
-      savesList = List<String>.from(json['saves'] as List);
-    }
-
-    // Check if current user liked/saved
-    bool likedByCurrentUser = false;
-    bool savedByCurrentUser = false;
-    if (currentUserId != null && currentUserId.isNotEmpty) {
-        likedByCurrentUser = likesList.contains(currentUserId);
-        savedByCurrentUser = savesList.contains(currentUserId);
-    }
-
-    // Parse other fields safely
-    final videoPost = VideoPost(
-      id: json['_id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      userId: json['userId'] as String? ?? '',
-      user: userInfo,
-      description: json['description'] as String? ?? '',
-      videoUrl: fullVideoUrl,
-      audioName: json['audioName'] as String? ?? defaultAudioName,
-      likesCount: json['likesCount'] as int? ?? 0,
-      commentsCount: json['commentsCount'] as int? ?? 0,
-      sharesCount: json['sharesCount'] as int? ?? 0,
-      hashtags: List<String>.from(json['hashtags'] as List? ?? []),
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
-      likes: likesList,
-      isLikedByCurrentUser: likedByCurrentUser,
-      saves: savesList,
-      isSavedByCurrentUser: savedByCurrentUser,
+    // Create VideoUser with all required fields
+    final videoUser = VideoUser(
+      id: userId,
+      username: username,
+      avatarUrl: userData['avatarUrl'] as String?,
+      bio: userData['bio'] as String?,
+      isVerified: userData['isVerified'] as bool? ?? false,
+      followersCount: userData['followersCount'] as int? ?? 0,
+      followingCount: userData['followingCount'] as int? ?? 0,
+      isFollowing: userData['isFollowing'] as bool? ?? false,
     );
 
-    print('[VideoPost] ✅ Created VideoPost:');
-    print('[VideoPost] - ID: ${videoPost.id}');
-    print('[VideoPost] - User: ${videoPost.user.username}');
-    print('[VideoPost] - Description: ${videoPost.description}');
-    print('[VideoPost] - VideoURL: ${videoPost.videoUrl}');
-    print('[VideoPost] ========================');
+    // Parse hashtags
+    List<String> hashtagsList = [];
+    if (json['hashtags'] is List) {
+      hashtagsList = List<String>.from(json['hashtags'] as List);
+    } else if (json['hashtags'] is String) {
+      final hashtagsStr = json['hashtags'] as String;
+      hashtagsList = hashtagsStr
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+
+    // Parse likes and check if current user liked
+    final likes = json['likes'] as List? ?? [];
+    bool isLikedByCurrentUser = false;
+    if (currentUserId != null) {
+      isLikedByCurrentUser = likes.contains(currentUserId);
+    }
+
+    // Parse saves and check if current user saved
+    final saves = json['saves'] as List? ?? [];
+    bool isSavedByCurrentUser = false;
+    if (currentUserId != null) {
+      isSavedByCurrentUser = saves.contains(currentUserId);
+    }
+
+    // Parse video URL - FIX DOUBLE SLASH ISSUE
+    String videoUrl = '';
+    if (json['videoUrl'] is String && (json['videoUrl'] as String).isNotEmpty) {
+      final rawVideoUrl = json['videoUrl'] as String;
+      if (rawVideoUrl.startsWith('http://') ||
+          rawVideoUrl.startsWith('https://')) {
+        videoUrl = rawVideoUrl;
+      } else {
+        // ENHANCED URL BUILDING TO PREVENT DOUBLE SLASHES
+        videoUrl = _buildCleanUrl(fileBaseUrl, rawVideoUrl);
+      }
+    }
+
+    // Parse thumbnail URL - FIX DOUBLE SLASH ISSUE
+    String? thumbnailUrl;
+    if (json['thumbnailUrl'] is String &&
+        (json['thumbnailUrl'] as String).isNotEmpty) {
+      final rawThumbnailUrl = json['thumbnailUrl'] as String;
+      if (rawThumbnailUrl.startsWith('http://') ||
+          rawThumbnailUrl.startsWith('https://')) {
+        thumbnailUrl = rawThumbnailUrl;
+      } else {
+        // ENHANCED URL BUILDING TO PREVENT DOUBLE SLASHES
+        thumbnailUrl = _buildCleanUrl(fileBaseUrl, rawThumbnailUrl);
+      }
+    }
+
+    return VideoPost(
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+      user: videoUser,
+      description: json['description'] as String? ?? '',
+      videoUrl: videoUrl,
+      thumbnailUrl: thumbnailUrl,
+      hashtags: hashtagsList,
+      audioName: json['audioName'] as String?,
+      likesCount: json['likesCount'] as int? ?? likes.length,
+      commentsCount: json['commentsCount'] as int? ?? 0,
+      sharesCount: json['sharesCount'] as int? ?? 0,
+      viewsCount: json['viewsCount'] as int? ?? 0,
+      isLikedByCurrentUser: isLikedByCurrentUser,
+      isSavedByCurrentUser: isSavedByCurrentUser,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'] as String? ?? '')
+          : null,
+    );
+  }
+
+  // ROBUST URL BUILDER TO PREVENT DOUBLE SLASHES
+  static String _buildCleanUrl(String baseUrl, String path) {
+    debugPrint('[VideoPost] _buildCleanUrl - Input baseUrl: "$baseUrl"');
+    debugPrint('[VideoPost] _buildCleanUrl - Input path: "$path"');
     
-    return videoPost;
+    try {
+      // Use Uri.resolve for proper URL building
+      final base = Uri.parse(baseUrl.endsWith('/') ? baseUrl : '$baseUrl/');
+      final pathToResolve = path.startsWith('/') ? path.substring(1) : path;
+      final resolved = base.resolve(pathToResolve);
+      final result = resolved.toString();
+      
+      debugPrint('[VideoPost] _buildCleanUrl - URI resolved result: "$result"');
+      return result;
+    } catch (e) {
+      debugPrint('[VideoPost] _buildCleanUrl - URI resolve failed: $e');
+      
+      // Fallback: Manual string manipulation
+      String result = '$baseUrl/$path';
+      
+      // Fix multiple slashes but preserve protocol
+      result = result.replaceAll(RegExp(r'(?<!:)//+'), '/');
+      
+      debugPrint('[VideoPost] _buildCleanUrl - Fallback result: "$result"');
+      return result;
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user': user.toJson(),
+      'description': description,
+      'videoUrl': videoUrl,
+      'thumbnailUrl': thumbnailUrl,
+      'hashtags': hashtags,
+      'audioName': audioName,
+      'likesCount': likesCount,
+      'commentsCount': commentsCount,
+      'sharesCount': sharesCount,
+      'viewsCount': viewsCount,
+      'isLikedByCurrentUser': isLikedByCurrentUser,
+      'isSavedByCurrentUser': isSavedByCurrentUser,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
+    };
+  }
+
+  VideoPost copyWith({
+    String? id,
+    VideoUser? user,
+    String? description,
+    String? videoUrl,
+    String? thumbnailUrl,
+    List<String>? hashtags,
+    String? audioName,
+    int? likesCount,
+    int? commentsCount,
+    int? sharesCount,
+    int? viewsCount,
+    bool? isLikedByCurrentUser,
+    bool? isSavedByCurrentUser,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return VideoPost(
+      id: id ?? this.id,
+      user: user ?? this.user,
+      description: description ?? this.description,
+      videoUrl: videoUrl ?? this.videoUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      hashtags: hashtags ?? this.hashtags,
+      audioName: audioName ?? this.audioName,
+      likesCount: likesCount ?? this.likesCount,
+      commentsCount: commentsCount ?? this.commentsCount,
+      sharesCount: sharesCount ?? this.sharesCount,
+      viewsCount: viewsCount ?? this.viewsCount,
+      isLikedByCurrentUser: isLikedByCurrentUser ?? this.isLikedByCurrentUser,
+      isSavedByCurrentUser: isSavedByCurrentUser ?? this.isSavedByCurrentUser,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  // Helper methods
+  String get formattedLikesCount => _formatCount(likesCount);
+  String get formattedCommentsCount => _formatCount(commentsCount);
+  String get formattedSharesCount => _formatCount(sharesCount);
+  String get formattedViewsCount => _formatCount(viewsCount);
+
+  String _formatCount(int count) {
+    if (count < 1000) {
+      return count.toString();
+    } else if (count < 1000000) {
+      return '${(count / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
+    } else {
+      return '${(count / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
+    }
+  }
+
+  String get relativeTime {
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m';
+    } else {
+      return 'now';
+    }
   }
 
   @override
   String toString() {
-    return 'VideoPost(id: $id, user: $user, description: ${description.length > 20 ? description.substring(0, 20) + "..." : description})';
+    return 'VideoPost(id: $id, user: ${user.username}, description: $description, likesCount: $likesCount)';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is VideoPost && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }

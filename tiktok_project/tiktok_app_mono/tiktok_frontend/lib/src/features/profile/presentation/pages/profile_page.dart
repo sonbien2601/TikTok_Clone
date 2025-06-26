@@ -1,4 +1,4 @@
-// tiktok_frontend/lib/src/features/profile/presentation/pages/profile_page.dart
+// tiktok_frontend/lib/src/features/profile/presentation/pages/profile_page.dart - UPDATED WITH FOLLOW SYSTEM
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; 
 import 'package:tiktok_frontend/src/features/admin/presentation/pages/admin_dashboard_page.dart';
@@ -8,6 +8,8 @@ import 'package:tiktok_frontend/src/features/notifications/domain/services/notif
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/edit_profile_page.dart';
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/liked_videos_page.dart';
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/saved_videos_page.dart';
+import 'package:tiktok_frontend/src/features/profile/presentation/pages/followers_page.dart';
+import 'package:tiktok_frontend/src/features/profile/presentation/pages/following_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -90,6 +92,41 @@ class _ProfilePageState extends State<ProfilePage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const SavedVideosPage()),
+    );
+  }
+
+  // NEW FOLLOW NAVIGATION METHODS
+  void _navigateToFollowers() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.currentUser == null) {
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FollowersPage(
+          userId: authService.currentUser!.id,
+          username: authService.currentUser!.username,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToFollowing() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.currentUser == null) {
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FollowingPage(
+          userId: authService.currentUser!.id,
+          username: authService.currentUser!.username,
+        ),
+      ),
     );
   }
 
@@ -355,6 +392,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     
+                    const SizedBox(height: 16),
+                    
+                    // NEW FOLLOW STATS ROW
+                    _buildFollowStatsRow(currentUser),
+                    
                     // Additional info row
                     if (currentUser?.dateOfBirth != null || currentUser?.gender != null) ...[
                       const SizedBox(height: 12),
@@ -500,6 +542,32 @@ class _ProfilePageState extends State<ProfilePage> {
                   
                   const SizedBox(height: 24),
                   
+                  // NEW SOCIAL SECTION
+                  _buildSectionHeader('Mạng xã hội'),
+                  const SizedBox(height: 8),
+                  
+                  // Followers
+                  _buildMenuTile(
+                    context,
+                    icon: Icons.people_outlined,
+                    title: 'Người theo dõi',
+                    subtitle: 'Xem ai đang theo dõi bạn',
+                    onTap: _navigateToFollowers,
+                    iconColor: Colors.blue.shade600,
+                  ),
+                  
+                  // Following
+                  _buildMenuTile(
+                    context,
+                    icon: Icons.person_search_outlined,
+                    title: 'Đang theo dõi',
+                    subtitle: 'Xem ai bạn đang theo dõi',
+                    onTap: _navigateToFollowing,
+                    iconColor: Colors.green.shade600,
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
                   // Video content section
                   _buildSectionHeader('Nội dung video'),
                   const SizedBox(height: 8),
@@ -586,6 +654,101 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // NEW METHOD: Build follow stats row
+  Widget _buildFollowStatsRow(UserFrontend? currentUser) {
+    // For now, we'll show placeholder values since the user model doesn't have follow counts yet
+    // These will be updated when the backend migration is complete
+    final followersCount = 0; // currentUser?.followersCount ?? 0;
+    final followingCount = 0; // currentUser?.followingCount ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.blue.shade50,
+            Colors.purple.shade50,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.blue.withOpacity(0.2),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Followers
+          InkWell(
+            onTap: _navigateToFollowers,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                children: [
+                  Text(
+                    _formatCount(followersCount),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Người theo dõi',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Divider
+          Container(
+            width: 1,
+            height: 30,
+            color: Colors.grey.shade300,
+          ),
+          
+          // Following
+          InkWell(
+            onTap: _navigateToFollowing,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                children: [
+                  Text(
+                    _formatCount(followingCount),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Đang theo dõi',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title) {
     return Align(
       alignment: Alignment.centerLeft,
@@ -665,5 +828,15 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  String _formatCount(int count) {
+    if (count < 1000) {
+      return count.toString();
+    } else if (count < 1000000) {
+      return '${(count / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
+    } else {
+      return '${(count / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
+    }
   }
 }

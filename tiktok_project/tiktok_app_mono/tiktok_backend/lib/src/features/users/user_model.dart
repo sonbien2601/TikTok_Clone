@@ -12,7 +12,13 @@ class User {
   final bool isAdmin;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final List<ObjectId> savedVideos; // << TRƯỜNG ĐÃ THÊM
+  final List<ObjectId> savedVideos;
+  
+  // NEW FOLLOW SYSTEM FIELDS
+  final List<ObjectId> following;     // Users this user is following
+  final List<ObjectId> followers;    // Users following this user
+  final int followingCount;          // Cached count for performance
+  final int followersCount;          // Cached count for performance
 
   User({
     this.id,
@@ -25,7 +31,12 @@ class User {
     this.isAdmin = false,
     DateTime? createdAt,
     DateTime? updatedAt,
-    this.savedVideos = const [], 
+    this.savedVideos = const [],
+    // NEW FOLLOW FIELDS WITH DEFAULTS
+    this.following = const [],
+    this.followers = const [],
+    this.followingCount = 0,
+    this.followersCount = 0,
   })  : this.createdAt = createdAt ?? DateTime.now(),
         this.updatedAt = updatedAt ?? DateTime.now();
 
@@ -40,7 +51,12 @@ class User {
       'isAdmin': isAdmin,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
-      'savedVideos': savedVideos.map((id) => id).toList(), 
+      'savedVideos': savedVideos.map((id) => id).toList(),
+      // NEW FOLLOW FIELDS IN MAP
+      'following': following.map((id) => id).toList(),
+      'followers': followers.map((id) => id).toList(),
+      'followingCount': followingCount,
+      'followersCount': followersCount,
     };
   }
 
@@ -60,6 +76,58 @@ class User {
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
       savedVideos: (map['savedVideos'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
+      // NEW FOLLOW FIELDS PARSING
+      following: (map['following'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
+      followers: (map['followers'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
+      followingCount: map['followingCount'] as int? ?? 0,
+      followersCount: map['followersCount'] as int? ?? 0,
+    );
+  }
+
+  // HELPER METHODS FOR FOLLOW SYSTEM
+  bool isFollowing(String userId) {
+    final userObjectId = ObjectId.fromHexString(userId);
+    return following.contains(userObjectId);
+  }
+
+  bool isFollowedBy(String userId) {
+    final userObjectId = ObjectId.fromHexString(userId);
+    return followers.contains(userObjectId);
+  }
+
+  User copyWith({
+    ObjectId? id,
+    String? username,
+    String? email,
+    String? passwordHash,
+    DateTime? dateOfBirth,
+    String? gender,
+    List<String>? interests,
+    bool? isAdmin,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    List<ObjectId>? savedVideos,
+    List<ObjectId>? following,
+    List<ObjectId>? followers,
+    int? followingCount,
+    int? followersCount,
+  }) {
+    return User(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      email: email ?? this.email,
+      passwordHash: passwordHash ?? this.passwordHash,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      gender: gender ?? this.gender,
+      interests: interests ?? this.interests,
+      isAdmin: isAdmin ?? this.isAdmin,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      savedVideos: savedVideos ?? this.savedVideos,
+      following: following ?? this.following,
+      followers: followers ?? this.followers,
+      followingCount: followingCount ?? this.followingCount,
+      followersCount: followersCount ?? this.followersCount,
     );
   }
 }

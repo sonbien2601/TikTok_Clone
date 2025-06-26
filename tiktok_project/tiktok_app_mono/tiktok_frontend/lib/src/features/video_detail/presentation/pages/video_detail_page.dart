@@ -32,13 +32,12 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   
   // Comments state
   final GlobalKey<CommentBottomSheetState> _commentSheetKey = GlobalKey<CommentBottomSheetState>();
-  bool _showComments = false;
   int _commentsCount = 0;
 
   @override
   void initState() {
     super.initState();
-    print('[VideoDetailPage] initState with videoId: ${widget.videoId}, highlightCommentId: ${widget.highlightCommentId}');
+    debugPrint('[VideoDetailPage] initState with videoId: ${widget.videoId}, highlightCommentId: ${widget.highlightCommentId}');
     _loadVideo();
   }
 
@@ -53,42 +52,48 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.id;
       
-      print('[VideoDetailPage] Loading video: ${widget.videoId}');
+      debugPrint('[VideoDetailPage] Loading video: ${widget.videoId}');
       
       final video = await _videoService.getVideoById(widget.videoId, currentUserId: currentUserId);
       
       if (video == null) {
-        setState(() {
-          _hasError = true;
-          _errorMessage = 'Video not found';
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = 'Video not found';
+            _isLoading = false;
+          });
+        }
         return;
       }
 
-      setState(() {
-        _videoPost = video;
-        _commentsCount = video.commentsCount;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _videoPost = video;
+          _commentsCount = video.commentsCount;
+          _isLoading = false;
+        });
+      }
 
       // Initialize video player
       await _initializeVideoPlayer();
       
       // Show comments immediately if we have a highlight comment
-      if (widget.highlightCommentId != null) {
+      if (widget.highlightCommentId != null && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _showCommentsWithHighlight();
         });
       }
 
     } catch (e) {
-      print('[VideoDetailPage] Error loading video: $e');
-      setState(() {
-        _hasError = true;
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      debugPrint('[VideoDetailPage] Error loading video: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -103,13 +108,14 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
       await _videoController!.initialize();
       await _videoController!.setLooping(true);
 
-      setState(() {
-        _isPlaying = true;
-      });
-
-      _videoController!.play();
+      if (mounted) {
+        setState(() {
+          _isPlaying = true;
+        });
+        _videoController!.play();
+      }
     } catch (e) {
-      print('[VideoDetailPage] Error initializing video player: $e');
+      debugPrint('[VideoDetailPage] Error initializing video player: $e');
     }
   }
 
@@ -128,7 +134,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   }
 
   void _showCommentsWithHighlight() {
-    print('[VideoDetailPage] Showing comments with highlight: ${widget.highlightCommentId}');
+    debugPrint('[VideoDetailPage] Showing comments with highlight: ${widget.highlightCommentId}');
     
     // Pause video when showing comments
     if (_videoController != null && _videoController!.value.isInitialized) {
@@ -137,10 +143,6 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         _isPlaying = false;
       });
     }
-
-    setState(() {
-      _showComments = true;
-    });
 
     // Show comment bottom sheet with highlight
     showModalBottomSheet(
@@ -161,10 +163,6 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         },
       ),
     ).then((_) {
-      setState(() {
-        _showComments = false;
-      });
-      
       // Resume video when comments are closed
       if (_videoController != null && _videoController!.value.isInitialized) {
         _videoController!.play();
@@ -176,7 +174,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   }
 
   void _showCommentsNormal() {
-    print('[VideoDetailPage] Showing comments without highlight');
+    debugPrint('[VideoDetailPage] Showing comments without highlight');
     
     // Pause video when showing comments
     if (_videoController != null && _videoController!.value.isInitialized) {
@@ -185,10 +183,6 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         _isPlaying = false;
       });
     }
-
-    setState(() {
-      _showComments = true;
-    });
 
     // Show comment bottom sheet without highlight
     showModalBottomSheet(
@@ -209,10 +203,6 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         },
       ),
     ).then((_) {
-      setState(() {
-        _showComments = false;
-      });
-      
       // Resume video when comments are closed
       if (_videoController != null && _videoController!.value.isInitialized) {
         _videoController!.play();
@@ -228,9 +218,11 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng đăng nhập để thích video!'))
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng đăng nhập để thích video!'))
+        );
+      }
       return;
     }
 
@@ -240,17 +232,24 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         authService.currentUser!.id,
       );
 
-      setState(() {
-        _videoPost = _videoPost!..isLikedByCurrentUser = result['isLikedByCurrentUser'] as bool? ?? false;
-        _videoPost = _videoPost!..likesCount = result['likesCount'] as int? ?? 0;
-      });
+      if (mounted) {
+        setState(() {
+          // Create a new VideoPost instance with updated values
+          _videoPost = _videoPost!.copyWith(
+            isLikedByCurrentUser: result.isLiked,
+            likesCount: result.likesCount,
+          );
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi khi thích video: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi thích video: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -259,9 +258,11 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng đăng nhập để lưu video!'))
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng đăng nhập để lưu video!'))
+        );
+      }
       return;
     }
 
@@ -271,23 +272,30 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         authService.currentUser!.id,
       );
 
-      setState(() {
-        _videoPost = _videoPost!..isSavedByCurrentUser = result['isSavedByCurrentUser'] as bool? ?? false;
-      });
+      if (mounted) {
+        setState(() {
+          // Create a new VideoPost instance with updated values
+          _videoPost = _videoPost!.copyWith(
+            isSavedByCurrentUser: result.isSaved,
+          );
+        });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message'] as String? ?? 'Đã cập nhật trạng thái lưu'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi khi lưu video: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi lưu video: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -329,9 +337,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.white),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Lỗi tải video',
-              style: const TextStyle(color: Colors.white, fontSize: 18),
+              style: TextStyle(color: Colors.white, fontSize: 18),
             ),
             const SizedBox(height: 8),
             Text(
@@ -363,7 +371,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         // Video player
         GestureDetector(
           onTap: _togglePlayPause,
-          child: Container(
+          child: SizedBox(
             width: double.infinity,
             height: double.infinity,
             child: _videoController != null && _videoController!.value.isInitialized
@@ -386,7 +394,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
           Center(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -411,9 +419,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
+                colors: const [
                   Colors.transparent,
-                  Colors.black.withOpacity(0.8),
+                  Colors.black54,
                 ],
               ),
             ),
@@ -485,19 +493,19 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.8),
+                              color: Colors.blue.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.chat_bubble,
                                   color: Colors.white,
                                   size: 16,
                                 ),
-                                const SizedBox(width: 4),
-                                const Text(
+                                SizedBox(width: 4),
+                                Text(
                                   'Comment được highlight',
                                   style: TextStyle(
                                     color: Colors.white,

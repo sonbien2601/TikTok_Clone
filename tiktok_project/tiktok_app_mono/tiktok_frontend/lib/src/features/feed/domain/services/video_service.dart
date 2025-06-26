@@ -1,283 +1,421 @@
 // tiktok_frontend/lib/src/features/feed/domain/services/video_service.dart
 import 'dart:convert';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import 'package:tiktok_frontend/src/features/feed/domain/models/video_post_model.dart';
 
-class VideoService {
-  // CẤU HÌNH IP CHO ANDROID THẬT
-  static const String _backendHost = 'localhost';
-  static const String _backendPort = '8080';
-  static const String _realDeviceIP = '10.21.12.255'; // IP thực của máy tính
-  static const String _apiPath = '/api/videos';
+// Response models
+class VideoFeedResponse {
+  final List<VideoPost> videos;
+  final VideoFeedPagination pagination;
 
-  String get _effectiveBackendHost {
-    if (kIsWeb) {
-      return _backendHost;
+  VideoFeedResponse({
+    required this.videos,
+    required this.pagination,
+  });
+
+  factory VideoFeedResponse.fromJson(dynamic json, String fileBaseUrl, {String? currentUserId}) {
+    // Handle case where API returns a List directly instead of an object with videos array
+    List<dynamic> videosData;
+    Map<String, dynamic> paginationData = {};
+
+    if (json is List) {
+      // API returns array directly: [video1, video2, ...]
+      videosData = json;
+      // Create default pagination when API returns array directly
+      paginationData = {
+        'currentPage': 1,
+        'totalPages': 1,
+        'totalVideos': videosData.length,
+        'limit': videosData.length,
+        'hasNextPage': false,
+        'hasPrevPage': false,
+      };
+    } else if (json is Map<String, dynamic>) {
+      // API returns object: {videos: [...], pagination: {...}}
+      videosData = json['videos'] as List? ?? [];
+      paginationData = json['pagination'] as Map<String, dynamic>? ?? {};
     } else {
-      try {
-        if (Platform.isAndroid) {
-          // KIỂM TRA XEM CÓ PHẢI ANDROID EMULATOR KHÔNG
-          return _isAndroidEmulator() ? '10.0.2.2' : _realDeviceIP;
-        } else if (Platform.isIOS) {
-          return _realDeviceIP; // iOS có thể dùng IP thực
+      // Fallback
+      videosData = [];
+    }
+
+    final videos = videosData
+        .map((videoData) => VideoPost.fromJson(
+              videoData as Map<String, dynamic>,
+              fileBaseUrl,
+              currentUserId: currentUserId,
+            ))
+        .toList();
+
+    return VideoFeedResponse(
+      videos: videos,
+      pagination: VideoFeedPagination.fromJson(paginationData),
+    );
+  }
+}
+
+class VideoFeedPagination {
+  final int currentPage;
+  final int totalPages;
+  final int totalVideos;
+  final int limit;
+  final bool hasNextPage;
+  final bool hasPrevPage;
+
+  VideoFeedPagination({
+    required this.currentPage,
+    required this.totalPages,
+    required this.totalVideos,
+    required this.limit,
+    required this.hasNextPage,
+    required this.hasPrevPage,
+  });
+
+  factory VideoFeedPagination.fromJson(Map<String, dynamic> json) {
+    return VideoFeedPagination(
+      currentPage: json['currentPage'] as int? ?? 1,
+      totalPages: json['totalPages'] as int? ?? 1,
+      totalVideos: json['totalVideos'] as int? ?? 0,
+      limit: json['limit'] as int? ?? 10,
+      hasNextPage: json['hasNextPage'] as bool? ?? false,
+      hasPrevPage: json['hasPrevPage'] as bool? ?? false,
+    );
+  }
+}
+
+class VideoLikeResponse {
+  final bool isLiked;
+  final int likesCount;
+  final String message;
+
+  VideoLikeResponse({
+    required this.isLiked,
+    required this.likesCount,
+    required this.message,
+  });
+
+  factory VideoLikeResponse.fromJson(Map<String, dynamic> json) {
+    return VideoLikeResponse(
+      isLiked: json['isLiked'] as bool? ?? false,
+      likesCount: json['likesCount'] as int? ?? 0,
+      message: json['message'] as String? ?? '',
+    );
+  }
+}
+
+class VideoSaveResponse {
+  final bool isSaved;
+  final String message;
+
+  VideoSaveResponse({
+    required this.isSaved,
+    required this.message,
+  });
+
+  factory VideoSaveResponse.fromJson(Map<String, dynamic> json) {
+    return VideoSaveResponse(
+      isSaved: json['isSaved'] as bool? ?? false,
+      message: json['message'] as String? ?? '',
+    );
+  }
+}
+
+class VideoService {
+  
+  // Get video feed with pagination
+  Future<VideoFeedResponse> getVideoFeed({
+    int page = 1,
+    int limit = 10,
+    String? currentUserId,
+  }) async {
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+      final url = Uri.parse('$baseUrl/feed?page=$page&limit=$limit');
+      
+      debugPrint('[VideoService] Getting video feed: page=$page, limit=$limit');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      debugPrint('[VideoService] Get Feed Response Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final fileBaseUrl = await NetworkConfig.getFileBaseUrl();
+        
+        // Debug log the response structure
+        debugPrint('[VideoService] Response type: ${responseData.runtimeType}');
+        if (responseData is Map) {
+          debugPrint('[VideoService] Response keys: ${responseData.keys}');
+        } else if (responseData is List) {
+          debugPrint('[VideoService] Response is List with ${responseData.length} items');
         }
-      } catch (e) { 
-        print("[VideoService] Error checking platform for host: $e");
-      }
-      return _backendHost;
-    }
-  }
-
-  // Hàm kiểm tra xem có phải Android emulator không
-  bool _isAndroidEmulator() {
-    try {
-      return Platform.environment.containsKey('ANDROID_EMULATOR') ||
-             Platform.environment['ANDROID_EMULATOR'] == 'true';
-    } catch (e) {
-      print("[VideoService] Cannot determine if emulator, assuming real device: $e");
-      return false;
-    }
-  }
-
-  String get _apiBaseUrl {
-    final host = _effectiveBackendHost;
-    return 'http://$host:$_backendPort$_apiPath';
-  }
-
-  String get _backendBaseFileUrl {
-    final host = _effectiveBackendHost;
-    return 'http://$host:$_backendPort';
-  }
-
-  // Getter để debug URL hiện tại
-  String get currentApiBaseUrl => _apiBaseUrl;
-  String get currentFileBaseUrl => _backendBaseFileUrl;
-
-  // Get single video by ID
-  Future<VideoPost?> getVideoById(String videoId, {String? currentUserId}) async {
-    print('[VideoService] === FETCHING SINGLE VIDEO ===');
-    print('[VideoService] Video ID: $videoId');
-    print('[VideoService] Current User ID: $currentUserId');
-    print('[VideoService] Using API base URL: $_apiBaseUrl');
-    
-    try {
-      // Since we don't have a specific endpoint for single video,
-      // we'll get from feed and filter (this is not optimal, but works for now)
-      final videos = await getFeedVideos(currentUserId: currentUserId, limit: 50);
-      final video = videos.where((v) => v.id == videoId).firstOrNull;
-      
-      if (video != null) {
-        print('[VideoService] ✅ Found video: "${video.user.username}" - "${video.description}"');
+        
+        return VideoFeedResponse.fromJson(
+          responseData,
+          fileBaseUrl,
+          currentUserId: currentUserId,
+        );
       } else {
-        print('[VideoService] ❌ Video not found in feed');
+        final errorMessage = 'Failed to get video feed. Status: ${response.statusCode}';
+        debugPrint('[VideoService] $errorMessage, Body: ${response.body}');
+        throw Exception(errorMessage);
       }
-      
-      return video;
     } catch (e) {
-      print('[VideoService] Error fetching single video: $e');
+      debugPrint('[VideoService] Error getting video feed: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
       rethrow;
     }
   }
 
-  Future<List<VideoPost>> getFeedVideos({int page = 1, int limit = 10, String? currentUserId}) async {
-    final url = Uri.parse('$_apiBaseUrl/feed?page=$page&limit=$limit');
-    print('[VideoService] === FETCHING FEED VIDEOS ===');
-    print('[VideoService] URL: $url');
-    print('[VideoService] Current User ID: $currentUserId');
-    print('[VideoService] Using API base URL: $_apiBaseUrl');
-    print('[VideoService] Platform info: ${kIsWeb ? "Web" : Platform.operatingSystem}, isEmulator: ${!kIsWeb ? _isAndroidEmulator() : "N/A"}');
-    
+  // Toggle like video
+  Future<VideoLikeResponse> toggleLikeVideo(String videoId, String userId) async {
     try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+      final url = Uri.parse('$baseUrl/$videoId/like');
+      
+      debugPrint('[VideoService] Toggling like for video: $videoId by user: $userId');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'userId': userId,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      debugPrint('[VideoService] Toggle Like Response Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        return VideoLikeResponse.fromJson(responseData);
+      } else {
+        final errorMessage = 'Failed to toggle like. Status: ${response.statusCode}';
+        debugPrint('[VideoService] $errorMessage, Body: ${response.body}');
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      debugPrint('[VideoService] Error toggling like: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
+      rethrow;
+    }
+  }
+
+  // Toggle save video
+  Future<VideoSaveResponse> toggleSaveVideo(String videoId, String userId) async {
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+      final url = Uri.parse('$baseUrl/$videoId/save');
+      
+      debugPrint('[VideoService] Toggling save for video: $videoId by user: $userId');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'userId': userId,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      debugPrint('[VideoService] Toggle Save Response Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        return VideoSaveResponse.fromJson(responseData);
+      } else {
+        final errorMessage = 'Failed to toggle save. Status: ${response.statusCode}';
+        debugPrint('[VideoService] $errorMessage, Body: ${response.body}');
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      debugPrint('[VideoService] Error toggling save: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
+      rethrow;
+    }
+  }
+
+  // Get video by ID
+  Future<VideoPost?> getVideoById(String videoId, {String? currentUserId}) async {
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+      final url = Uri.parse('$baseUrl/$videoId');
+      
+      debugPrint('[VideoService] Getting video by ID: $videoId');
+      
       final response = await http.get(
-        url, 
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
-
-      print('[VideoService] Feed Response Status: ${response.statusCode}');
-      
-      if (response.statusCode == 200) {
-        print('[VideoService] Raw Response Body: ${response.body}');
-        
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        if (jsonData.isEmpty) {
-          print('[VideoService] Feed is empty from API.');
-          return [];
-        }
-        
-        print('[VideoService] Processing ${jsonData.length} videos from API');
-        
-        final List<VideoPost> videos = [];
-        for (int i = 0; i < jsonData.length; i++) {
-          try {
-            final item = jsonData[i] as Map<String, dynamic>;
-            print('[VideoService] === Processing video $i ===');
-            print('[VideoService] Video keys: ${item.keys.toList()}');
-            
-            // Log user-related fields specifically
-            if (item.containsKey('user')) {
-              print('[VideoService] Video $i has user field: ${item['user']}');
-            } else {
-              print('[VideoService] Video $i missing user field');
-              print('[VideoService] Available fields: username="${item['username']}", userAvatarUrl="${item['userAvatarUrl']}"');
-            }
-            
-            final video = VideoPost.fromJson(
-              item, 
-              _backendBaseFileUrl, 
-              currentUserId: currentUserId
-            );
-            
-            print('[VideoService] ✅ Successfully parsed video $i: "${video.user.username}"');
-            videos.add(video);
-          } catch(e, s) { 
-            print('[VideoService] ❌ Error parsing video item $i: $e');
-            print('[VideoService] Stack trace: $s');
-            print('[VideoService] Problematic item: ${jsonData[i]}');
-            // Continue với video khác thay vì fail toàn bộ
-          }
-        }
-        
-        print('[VideoService] === FEED PARSING SUMMARY ===');
-        print('[VideoService] Successfully parsed ${videos.length} out of ${jsonData.length} videos');
-        for (int i = 0; i < videos.length; i++) {
-          print('[VideoService] Video $i: "${videos[i].user.username}" - "${videos[i].description}"');
-        }
-        print('[VideoService] ============================');
-        
-        return videos;
-      } else {
-        final errorMessage = 'Failed to load videos. Status: ${response.statusCode}';
-        print('[VideoService] $errorMessage, Body: ${response.body}');
-        throw Exception(errorMessage);
-      }
-    } catch (e) {
-      print('[VideoService] Error fetching videos: $e');
-      if (e.toString().contains('Connection refused') || 
-          e.toString().contains('Failed host lookup')) {
-        print('[VideoService] ❌ Cannot connect to backend server at $_apiBaseUrl');
-        print('[VideoService] 💡 Please ensure backend server is running on port $_backendPort');
-        print('[VideoService] 💡 Current target IP: $_effectiveBackendHost');
-      }
-      throw Exception('Could not connect to server: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>> toggleLikeVideo(String videoId, String userId) async {
-    final url = Uri.parse('$_apiBaseUrl/$videoId/like');
-    print('[VideoService] Toggling like for videoId: $videoId by userId: $userId at $url');
-    
-    try {
-      final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
         },
-        body: jsonEncode({'userId': userId}),
       ).timeout(const Duration(seconds: 10));
 
-      print('[VideoService] ToggleLike Response Status: ${response.statusCode}');
-      print('[VideoService] ToggleLike Response Body: ${response.body}');
+      debugPrint('[VideoService] Get Video Response Status: ${response.statusCode}');
       
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        print('[VideoService] Like toggle successful: $responseData');
-        return responseData;
-      } else if (response.statusCode == 404) {
-        throw Exception('Like endpoint not found. Please check your backend API routes.');
-      } else {
-        String errorMessage = 'Failed to toggle like. Status: ${response.statusCode}';
-        try { 
-          final errorData = jsonDecode(response.body); 
-          errorMessage = errorData['error'] ?? errorMessage; 
-        } catch(_) {}
+        final responseData = jsonDecode(response.body);
+        final fileBaseUrl = await NetworkConfig.getFileBaseUrl();
         
-        print('[VideoService] Like toggle failed: $errorMessage');
+        // Handle different response structures
+        Map<String, dynamic> videoData;
+        if (responseData is Map<String, dynamic> && responseData.containsKey('video')) {
+          videoData = responseData['video'] as Map<String, dynamic>;
+        } else if (responseData is Map<String, dynamic>) {
+          videoData = responseData;
+        } else {
+          throw Exception('Invalid video data structure');
+        }
+        
+        return VideoPost.fromJson(
+          videoData,
+          fileBaseUrl,
+          currentUserId: currentUserId,
+        );
+      } else if (response.statusCode == 404) {
+        debugPrint('[VideoService] Video not found: $videoId');
+        return null;
+      } else {
+        final errorMessage = 'Failed to get video. Status: ${response.statusCode}';
+        debugPrint('[VideoService] $errorMessage, Body: ${response.body}');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[VideoService] Error toggling like: $e');
+      debugPrint('[VideoService] Error getting video: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
-        print('[VideoService] ❌ Cannot connect to backend server at $_apiBaseUrl');
-        print('[VideoService] 💡 Please ensure backend server is running on port $_backendPort');
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
       }
-      if (e.toString().contains('404')) {
-        throw Exception('Like feature not implemented on server');
-      }
-      throw Exception('Network error: $e');
+      rethrow;
     }
   }
 
-  Future<Map<String, dynamic>> toggleSaveVideo(String videoId, String userId) async {
-    final url = Uri.parse('$_apiBaseUrl/$videoId/save');
-    print('[VideoService] Toggling save for videoId: $videoId by userId: $userId at $url');
-    
+  // Search videos
+  Future<VideoFeedResponse> searchVideos({
+    required String query,
+    int page = 1,
+    int limit = 10,
+    String? currentUserId,
+  }) async {
     try {
-      final response = await http.post(
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+      final url = Uri.parse('$baseUrl/search?q=${Uri.encodeComponent(query)}&page=$page&limit=$limit');
+      
+      debugPrint('[VideoService] Searching videos: query="$query", page=$page');
+      
+      final response = await http.get(
         url,
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
         },
-        body: jsonEncode({'userId': userId}),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 15));
 
-      print('[VideoService] ToggleSave Response Status: ${response.statusCode}');
-      print('[VideoService] ToggleSave Response Body: ${response.body}');
+      debugPrint('[VideoService] Search Response Status: ${response.statusCode}');
       
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        print('[VideoService] Save toggle successful: $responseData');
-        return responseData;
-      } else if (response.statusCode == 404) {
-        throw Exception('Save endpoint not found. Please check your backend API routes.');
-      } else {
-        String errorMessage = 'Failed to toggle save. Status: ${response.statusCode}';
-        try { 
-          final errorData = jsonDecode(response.body); 
-          errorMessage = errorData['error'] ?? errorMessage; 
-        } catch(_) {}
+        final responseData = jsonDecode(response.body);
+        final fileBaseUrl = await NetworkConfig.getFileBaseUrl();
         
-        print('[VideoService] Save toggle failed: $errorMessage');
+        return VideoFeedResponse.fromJson(
+          responseData,
+          fileBaseUrl,
+          currentUserId: currentUserId,
+        );
+      } else {
+        final errorMessage = 'Failed to search videos. Status: ${response.statusCode}';
+        debugPrint('[VideoService] $errorMessage, Body: ${response.body}');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[VideoService] Error toggling save: $e');
+      debugPrint('[VideoService] Error searching videos: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
-        print('[VideoService] ❌ Cannot connect to backend server at $_apiBaseUrl');
-        print('[VideoService] 💡 Please ensure backend server is running on port $_backendPort');
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
       }
-      if (e.toString().contains('404')) {
-        throw Exception('Save feature not implemented on server');
-      }
-      throw Exception('Network error: $e');
+      rethrow;
     }
   }
 
-  // Method để test connection
+  // Get trending videos
+  Future<VideoFeedResponse> getTrendingVideos({
+    int page = 1,
+    int limit = 10,
+    String? currentUserId,
+  }) async {
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+      final url = Uri.parse('$baseUrl/trending?page=$page&limit=$limit');
+      
+      debugPrint('[VideoService] Getting trending videos: page=$page');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      debugPrint('[VideoService] Trending Response Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final fileBaseUrl = await NetworkConfig.getFileBaseUrl();
+        
+        return VideoFeedResponse.fromJson(
+          responseData,
+          fileBaseUrl,
+          currentUserId: currentUserId,
+        );
+      } else {
+        final errorMessage = 'Failed to get trending videos. Status: ${response.statusCode}';
+        debugPrint('[VideoService] $errorMessage, Body: ${response.body}');
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      debugPrint('[VideoService] Error getting trending videos: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
+      rethrow;
+    }
+  }
+
+  // Test connection
   Future<bool> testConnection() async {
     try {
-      final healthUrl = Uri.parse('${_backendBaseFileUrl}/health');
-      print('[VideoService] Testing connection to $healthUrl');
+      final healthUrl = Uri.parse('${await NetworkConfig.getFileBaseUrl()}/health');
+      debugPrint('[VideoService] Testing connection to $healthUrl');
       
       final response = await http.get(healthUrl).timeout(const Duration(seconds: 5));
-      print('[VideoService] Health check response: ${response.statusCode}');
+      debugPrint('[VideoService] Health check response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
-      print('[VideoService] Connection test failed: $e');
+      debugPrint('[VideoService] Connection test failed: $e');
       return false;
     }
   }
-}
-
-// Extension for null-safe firstOrNull
-extension ListExtension<T> on List<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }

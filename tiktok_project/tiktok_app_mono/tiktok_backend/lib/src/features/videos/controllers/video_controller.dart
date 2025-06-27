@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_multipart/shelf_multipart.dart'; 
 import 'package:path/path.dart' as p;
+import 'package:shelf_router/src/router.dart';
 import 'package:tiktok_backend/src/core/config/database_service.dart';
 import 'package:mongo_dart/mongo_dart.dart' show ObjectId, SelectorBuilder, MimeMultipart, modify, where; 
 
@@ -232,6 +233,109 @@ class VideoController {
           body: jsonEncode({'error': 'An unexpected error occurred during upload: $e'}));
     }
   }
+
+  static Future<Response> getVideoByIdHandler(Request request, String videoId) async {
+  print('[VideoController] Getting video by ID: $videoId');
+  
+  try {
+    // Validate videoId format
+    if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
+      return Response(400,
+        body: jsonEncode({'error': 'Invalid video ID format'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    ObjectId videoObjectId;
+    try {
+      videoObjectId = ObjectId.fromHexString(videoId);
+    } catch (e) {
+      return Response(400,
+        body: jsonEncode({'error': 'Invalid video ID format: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    final videosCollection = DatabaseService.db.collection('videos');
+    final usersCollection = DatabaseService.db.collection('users');
+
+    // Find the video
+    final videoDoc = await videosCollection.findOne(where.id(videoObjectId));
+    if (videoDoc == null) {
+      print('[VideoController] Video not found: $videoId');
+      return Response(404,
+        body: jsonEncode({
+          'error': 'Video not found',
+          'videoId': videoId,
+          'message': 'The requested video does not exist or has been deleted'
+        }),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    print('[VideoController] Found video: ${videoDoc['_id']}');
+
+    // Get user info để đảm bảo có username
+    final userId = videoDoc['userId'] as ObjectId;
+    String username = videoDoc['username'] as String? ?? '';
+    String? userAvatarUrl = videoDoc['userAvatarUrl'] as String?;
+
+    // Nếu username thiếu, fetch từ users collection
+    if (username.isEmpty || username == 'Unknown User') {
+      print('[VideoController] Username missing, fetching from users collection...');
+      
+      final userDoc = await usersCollection.findOne(where.id(userId));
+      if (userDoc != null) {
+        username = userDoc['username'] as String? ?? 'Unknown User';
+        userAvatarUrl = userDoc['avatarUrl'] as String?;
+        
+        // Update video document với username correct
+        await videosCollection.updateOne(
+          where.id(videoObjectId),
+          modify.set('username', username).set('userAvatarUrl', userAvatarUrl)
+        );
+        
+        print('[VideoController] Updated video with correct username: $username');
+      } else {
+        username = 'Deleted User';
+      }
+    }
+
+    // Format response
+    final responseVideo = Map<String, dynamic>.from(videoDoc);
+    responseVideo['_id'] = videoObjectId.toHexString();
+    responseVideo['userId'] = userId.toHexString();
+    responseVideo['username'] = username;
+    responseVideo['userAvatarUrl'] = userAvatarUrl;
+    
+    // Convert likes và saves arrays
+    responseVideo['likes'] = (videoDoc['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+    responseVideo['saves'] = (videoDoc['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+    
+    // Add user object for frontend compatibility
+    responseVideo['user'] = {
+      'username': username,
+      'avatarUrl': userAvatarUrl
+    };
+
+    print('[VideoController] ✅ Video retrieved successfully: $videoId');
+    
+    return Response.ok(
+      jsonEncode({
+        'video': responseVideo,
+        'message': 'Video retrieved successfully'
+      }),
+      headers: {'Content-Type': 'application/json'}
+    );
+
+  } catch (e, s) {
+    print('[VideoController.getVideoByIdHandler] Error: $e\n$s');
+    return Response.internalServerError(
+      body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+      headers: {'Content-Type': 'application/json'}
+    );
+  }
+}
 
   // --- HÀM LẤY DANH SÁCH VIDEO CHO FEED - FIXED ---
   static Future<Response> getFeedVideosHandler(Request request) async {
@@ -634,7 +738,17 @@ static Future<Response> toggleSaveVideoHandler(Request request, String videoId, 
     final matches = hashtagRegex.allMatches(description);
     return matches.map((match) => match.group(0)!).toList();
   }
+
+  static Future<Router> getUserVideosHandler(Request request, String userId, int page, int limit) async {
+    throw UnimplementedError();
+  }
+
+  static Future<Router> deleteVideoHandler(Request request, String videoId, String userIdString) async {
+    throw UnimplementedError();
+  }
 }
+
+
 
 // --- CÁC HÀM EXTENSION TIỆN ÍCH ---
 

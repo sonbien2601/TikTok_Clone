@@ -1,4 +1,4 @@
-// tiktok_backend/lib/src/features/videos/video_routes.dart
+// tiktok_backend/lib/src/features/videos/video_routes.dart - FIXED VERSION
 import 'dart:convert';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -13,11 +13,34 @@ Router createVideoRoutes() {
   // Feed route
   router.get('/feed', VideoController.getFeedVideosHandler);
 
+  // GET SINGLE VIDEO BY ID - NEW ROUTE
+  router.get('/<videoId>', (Request request, String videoId) async {
+    print('[VideoRoutes] Get video by ID route hit with videoId: $videoId');
+
+    if (videoId.isEmpty) {
+      return Response(400,
+          body: jsonEncode({
+            'error': 'Video ID is required',
+            'receivedVideoId': videoId,
+            'path': request.url.path,
+          }),
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    try {
+      return await VideoController.getVideoByIdHandler(request, videoId);
+    } catch (e, stackTrace) {
+      print('[VideoRoutes] Error in get video by ID route: $e');
+      print('[VideoRoutes] StackTrace: $stackTrace');
+      return Response.internalServerError(
+          body: jsonEncode({'error': 'Internal server error: $e'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  });
+
   // Like route với parameter đúng cách
   router.post('/<videoId>/like', (Request request, String videoId) async {
     print('[VideoRoutes] Like route hit with videoId: $videoId');
-    print('[VideoRoutes] Request method: ${request.method}');
-    print('[VideoRoutes] Request URL: ${request.url}');
 
     if (videoId.isEmpty) {
       print('[VideoRoutes] Error: videoId is empty');
@@ -31,7 +54,6 @@ Router createVideoRoutes() {
     }
 
     try {
-      // Đọc body từ request
       final requestBody = await request.readAsString();
       print('[VideoRoutes] Request body: $requestBody');
 
@@ -41,7 +63,6 @@ Router createVideoRoutes() {
             headers: {'Content-Type': 'application/json'});
       }
 
-      // Parse JSON để validate
       Map<String, dynamic> payload;
       try {
         payload = jsonDecode(requestBody);
@@ -58,9 +79,6 @@ Router createVideoRoutes() {
             headers: {'Content-Type': 'application/json'});
       }
 
-      print('[VideoRoutes] Calling VideoController.toggleLikeVideoHandler with videoId: $videoId, userId: $userIdString');
-
-      // Gọi trực tiếp VideoController với parameters
       return await VideoController.toggleLikeVideoHandler(request, videoId, userIdString);
 
     } catch (e, stackTrace) {
@@ -75,8 +93,6 @@ Router createVideoRoutes() {
   // Save route với parameter đúng cách
   router.post('/<videoId>/save', (Request request, String videoId) async {
     print('[VideoRoutes] Save route hit with videoId: $videoId');
-    print('[VideoRoutes] Request method: ${request.method}');
-    print('[VideoRoutes] Request URL: ${request.url}');
 
     if (videoId.isEmpty) {
       print('[VideoRoutes] Error: videoId is empty');
@@ -90,7 +106,6 @@ Router createVideoRoutes() {
     }
 
     try {
-      // Đọc body từ request
       final requestBody = await request.readAsString();
       print('[VideoRoutes] Request body: $requestBody');
 
@@ -100,7 +115,6 @@ Router createVideoRoutes() {
             headers: {'Content-Type': 'application/json'});
       }
 
-      // Parse JSON để validate
       Map<String, dynamic> payload;
       try {
         payload = jsonDecode(requestBody);
@@ -117,9 +131,6 @@ Router createVideoRoutes() {
             headers: {'Content-Type': 'application/json'});
       }
 
-      print('[VideoRoutes] Calling VideoController.toggleSaveVideoHandler with videoId: $videoId, userId: $userIdString');
-
-      // Gọi trực tiếp VideoController với parameters
       return await VideoController.toggleSaveVideoHandler(request, videoId, userIdString);
 
     } catch (e, stackTrace) {
@@ -148,57 +159,17 @@ Router createVideoRoutes() {
       'availableRoutes': [
         'POST /api/videos/upload',
         'GET /api/videos/feed',
+        'GET /api/videos/{videoId}',
         'POST /api/videos/{videoId}/like',
         'POST /api/videos/{videoId}/save',
         'GET /api/videos/debug/info',
-        'GET /api/videos/debug/{videoId}/like',
-        'GET /api/videos/debug/{videoId}/save'
       ],
       'examples': [
+        'GET /api/videos/683c24fffdf60af9cddfb22a',
         'POST /api/videos/683c24fffdf60af9cddfb22a/like',
         'POST /api/videos/683c24fffdf60af9cddfb22a/save'
       ]
     }), headers: {'Content-Type': 'application/json'});
-  });
-
-  router.get('/debug/<videoId>/like', (Request request, String videoId) async {
-    return Response.ok(jsonEncode({
-      'message': 'Debug: Like route is working',
-      'videoId': videoId,
-      'method': 'GET',
-      'fullUrl': request.url.toString(),
-      'pathSegments': request.url.pathSegments,
-    }), headers: {'Content-Type': 'application/json'});
-  });
-
-  router.get('/debug/<videoId>/save', (Request request, String videoId) async {
-    return Response.ok(jsonEncode({
-      'message': 'Debug: Save route is working',
-      'videoId': videoId,
-      'method': 'GET',
-      'fullUrl': request.url.toString(),
-      'pathSegments': request.url.pathSegments,
-    }), headers: {'Content-Type': 'application/json'});
-  });
-
-  // Catch-all route cho debug
-  router.all('/<path|.*>', (Request request) async {
-    print('[VideoRoutes] Unmatched route: ${request.method} ${request.url.path}');
-    return Response(404, 
-      body: jsonEncode({
-        'error': 'Route not found',
-        'method': request.method,
-        'path': request.url.path,
-        'pathSegments': request.url.pathSegments,
-        'availableRoutes': [
-          'POST /api/videos/upload',
-          'GET /api/videos/feed',
-          'POST /api/videos/{videoId}/like',
-          'POST /api/videos/{videoId}/save'
-        ]
-      }), 
-      headers: {'Content-Type': 'application/json'}
-    );
   });
 
   return router;

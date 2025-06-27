@@ -1,0 +1,24 @@
+{
+  "watch": [
+    "bin/",
+    "lib/",
+    "pubspec.yaml",
+    "pubspec.lock"
+  ],
+  "ext": "dart,yaml,yml",
+  "ignore": [
+    "build/",
+    ".dart_tool/",
+    "test/",
+    "*.log"
+  ],
+  "exec": "dart run bin/server.dart",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "restartable": "rs",
+  "colours": true,
+  "legacyWatch": false,
+  "delay": 1000,
+  "verbose": true
+}

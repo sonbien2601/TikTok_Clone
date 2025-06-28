@@ -1,4 +1,4 @@
-// tiktok_frontend/lib/src/features/profile/presentation/pages/profile_page.dart - UPDATED WITH FOLLOW SYSTEM
+// tiktok_frontend/lib/src/features/profile/presentation/pages/profile_page.dart 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; 
 import 'package:tiktok_frontend/src/features/admin/presentation/pages/admin_dashboard_page.dart';
@@ -57,6 +57,29 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // NEW: Method to refresh follow counts
+  Future<void> _refreshFollowCounts() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.currentUser == null) {
+      return;
+    }
+
+    try {
+      print('[ProfilePage] Refreshing follow counts...');
+      // Call API to get updated user data with follow counts
+      await authService.refreshUserData();
+      
+      if (mounted) {
+        setState(() {
+          // Widget will rebuild with updated follow counts
+        });
+        print('[ProfilePage] Follow counts refreshed successfully');
+      }
+    } catch (e) {
+      print('[ProfilePage] Error refreshing follow counts: $e');
+    }
+  }
+
   void _navigateToNotifications() {
     Navigator.push(
       context,
@@ -77,6 +100,8 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {});
         // Reload unread count in case profile update affects notifications
         _loadUnreadCount();
+        // Refresh follow counts in case profile update affects them
+        _refreshFollowCounts();
       }
     });
   }
@@ -654,100 +679,98 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // NEW METHOD: Build follow stats row
   Widget _buildFollowStatsRow(UserFrontend? currentUser) {
-    // For now, we'll show placeholder values since the user model doesn't have follow counts yet
-    // These will be updated when the backend migration is complete
-    final followersCount = 0; // currentUser?.followersCount ?? 0;
-    final followingCount = 0; // currentUser?.followingCount ?? 0;
+  // NEW: Use real data from user object
+  final followersCount = currentUser?.followersCount ?? 0;
+  final followingCount = currentUser?.followingCount ?? 0;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.blue.shade50,
-            Colors.purple.shade50,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.blue.withOpacity(0.2),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // Followers
-          InkWell(
-            onTap: _navigateToFollowers,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Column(
-                children: [
-                  Text(
-                    _formatCount(followersCount),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Người theo dõi',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Divider
-          Container(
-            width: 1,
-            height: 30,
-            color: Colors.grey.shade300,
-          ),
-          
-          // Following
-          InkWell(
-            onTap: _navigateToFollowing,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Column(
-                children: [
-                  Text(
-                    _formatCount(followingCount),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Đang theo dõi',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Colors.blue.shade50,
+          Colors.purple.shade50,
         ],
       ),
-    );
-  }
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: Colors.blue.withOpacity(0.2),
+      ),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        // Followers
+        InkWell(
+          onTap: _navigateToFollowers,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              children: [
+                Text(
+                  _formatCount(followersCount),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Người theo dõi',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        // Divider
+        Container(
+          width: 1,
+          height: 30,
+          color: Colors.grey.shade300,
+        ),
+        
+        // Following
+        InkWell(
+          onTap: _navigateToFollowing,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              children: [
+                Text(
+                  _formatCount(followingCount),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Đang theo dõi',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildSectionHeader(String title) {
     return Align(

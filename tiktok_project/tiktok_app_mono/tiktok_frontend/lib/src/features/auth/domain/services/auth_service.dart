@@ -1,4 +1,3 @@
-// Cập nhật AuthService để sử dụng auto-detection
 // tiktok_frontend/lib/src/features/auth/domain/services/auth_service.dart
 
 import 'dart:convert';
@@ -7,40 +6,68 @@ import 'package:http/http.dart' as http;
 import 'package:tiktok_frontend/src/core/config/network_config.dart'; // Import NetworkConfig
 
 class UserFrontend {
-  // ... (giữ nguyên UserFrontend class)
   final String id;
   final String username;
   final String email;
   final bool isAdmin;
-  final String? dateOfBirth; 
+  final String? dateOfBirth;
   final String? gender;
   final List<String> interests;
+
+  // NEW: Follow count fields
+  final int followersCount;
+  final int followingCount;
 
   UserFrontend({
     required this.id,
     required this.username,
     required this.email,
-    this.isAdmin = false,
+    required this.isAdmin,
     this.dateOfBirth,
     this.gender,
     this.interests = const [],
+    // NEW: Default follow counts
+    this.followersCount = 0,
+    this.followingCount = 0,
   });
 
   factory UserFrontend.fromJson(Map<String, dynamic> json) {
+    print('[UserFrontend] Parsing user data: ${json.keys}');
+    print('[UserFrontend] followersCount: ${json['followersCount']}');
+    print('[UserFrontend] followingCount: ${json['followingCount']}');
+
     return UserFrontend(
-      id: json['_id'] as String? ?? 'N/A_ID_ERROR',
-      username: json['username'] as String? ?? 'N/A_Username',
-      email: json['email'] as String? ?? 'N/A_Email',
+      id: json['_id'] as String,
+      username: json['username'] as String,
+      email: json['email'] as String,
       isAdmin: json['isAdmin'] as bool? ?? false,
       dateOfBirth: json['dateOfBirth'] as String?,
       gender: json['gender'] as String?,
       interests: List<String>.from(json['interests'] as List? ?? []),
+      // NEW: Parse follow counts from backend
+      followersCount: json['followersCount'] as int? ?? 0,
+      followingCount: json['followingCount'] as int? ?? 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'username': username,
+      'email': email,
+      'isAdmin': isAdmin,
+      'dateOfBirth': dateOfBirth,
+      'gender': gender,
+      'interests': interests,
+      // NEW: Include follow counts
+      'followersCount': followersCount,
+      'followingCount': followingCount,
+    };
   }
 
   @override
   String toString() {
-    return 'UserFrontend(id: $id, username: $username, email: $email, isAdmin: $isAdmin)';
+    return 'UserFrontend(id: $id, username: $username, followers: $followersCount, following: $followingCount)';
   }
 }
 
@@ -52,11 +79,23 @@ class AuthService extends ChangeNotifier {
   UserFrontend? get currentUser => _currentUser;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
 
+  void notifyFollowCountsChanged() {
+    print('[AuthService] Follow counts changed - triggering refresh');
+    // Refresh user data and notify listeners
+    refreshUserData().then((_) {
+      print('[AuthService] Follow counts refreshed successfully');
+    }).catchError((e) {
+      print('[AuthService] Error refreshing follow counts: $e');
+    });
+  }
+
   // Getter để debug URL hiện tại
   Future<String> get currentBaseUrl => NetworkConfig.getBaseUrl('/api/users');
 
-  void _updateAuthState(bool isAuthenticated, Map<String, dynamic>? userDataFromApi) {
-    print('[AuthService] _updateAuthState called. Target isAuthenticated: $isAuthenticated');
+  void _updateAuthState(
+      bool isAuthenticated, Map<String, dynamic>? userDataFromApi) {
+    print(
+        '[AuthService] _updateAuthState called. Target isAuthenticated: $isAuthenticated');
     this._isAuthenticated = isAuthenticated;
     if (isAuthenticated && userDataFromApi != null) {
       try {
@@ -65,7 +104,7 @@ class AuthService extends ChangeNotifier {
       } catch (e) {
         print('[AuthService] Error parsing user data: $e');
         this._currentUser = null;
-        this._isAuthenticated = false; 
+        this._isAuthenticated = false;
       }
     } else {
       this._currentUser = null;
@@ -76,34 +115,36 @@ class AuthService extends ChangeNotifier {
     }
     notifyListeners();
   }
-  
+
   Future<void> login(String identifierValue, String password) async {
     // AUTO-DETECT IP và tạo URL
     final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
     final targetUrl = Uri.parse('$baseUrl/login');
-    
+
     print('[AuthService] Auto-detected backend URL: $baseUrl');
     print('[AuthService] Attempting login to: $targetUrl');
-    
+
     try {
-      final response = await http.post(
-        targetUrl,
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(<String, String>{
-          'identifier': identifierValue, 
-          'password': password
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            targetUrl,
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(<String, String>{
+              'identifier': identifierValue,
+              'password': password
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       print('[AuthService] Login Response status: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
-        if (responseData is Map<String, dynamic> && 
-            responseData.containsKey('user') && 
+        if (responseData is Map<String, dynamic> &&
+            responseData.containsKey('user') &&
             responseData['user'] is Map<String, dynamic>) {
           _updateAuthState(true, responseData['user'] as Map<String, dynamic>);
         } else {
@@ -112,88 +153,96 @@ class AuthService extends ChangeNotifier {
         }
       } else {
         String errorMessage = 'Failed to login. Status: ${response.statusCode}';
-        try { 
-          final errorData = jsonDecode(response.body); 
-          errorMessage = errorData['error'] ?? errorMessage; 
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['error'] ?? errorMessage;
         } catch (_) {}
-        _updateAuthState(false, null); 
+        _updateAuthState(false, null);
         throw Exception(errorMessage);
       }
     } catch (e) {
       print('[AuthService] Login error: $e');
-      if (e.toString().contains('Connection refused') || 
+      if (e.toString().contains('Connection refused') ||
           e.toString().contains('Failed host lookup')) {
         // Clear cache và thử lại với IP khác
         NetworkConfig.clearCache();
         print('[AuthService] ❌ Connection failed, cleared IP cache');
         print('[AuthService] 💡 Next login attempt will try to find new IP');
       }
-      _updateAuthState(false, null); 
-      rethrow; 
+      _updateAuthState(false, null);
+      rethrow;
     }
   }
 
   Future<void> refreshUserData() async {
     if (!_isAuthenticated || _currentUser == null) {
-      print('[AuthService] Cannot refresh user data: not authenticated or no current user');
+      print(
+          '[AuthService] Cannot refresh - not authenticated or no current user');
       return;
     }
-    
+
     try {
+      print('[AuthService] Refreshing user data for user: ${_currentUser!.id}');
+
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
-      final targetUrl = Uri.parse('$baseUrl/${_currentUser!.id}');
-      
-      print('[AuthService] Refreshing user data from: $targetUrl');
-      
+      final url = Uri.parse('$baseUrl/${_currentUser!.id}');
+
+      print('[AuthService] Making request to: $url');
+
       final response = await http.get(
-        targetUrl,
-        headers: <String, String>{
+        url,
+        headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
 
-      print('[AuthService] Refresh User Data Response status: ${response.statusCode}');
-      
+      print('[AuthService] Response status: ${response.statusCode}');
+      print('[AuthService] Response body: ${response.body}');
+
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        if (responseData is Map<String, dynamic>) {
-          // Update current user with fresh data
-          _updateAuthState(true, responseData);
-          print('[AuthService] ✅ User data refreshed successfully');
-          print('[AuthService] Updated user: username="${_currentUser?.username}", interests=${_currentUser?.interests}');
-        } else {
-          print('[AuthService] ❌ Invalid user data format in refresh response');
-        }
+        final userData = jsonDecode(response.body);
+
+        print('[AuthService] Parsed user data keys: ${userData.keys}');
+        print(
+            '[AuthService] followersCount in response: ${userData['followersCount']}');
+        print(
+            '[AuthService] followingCount in response: ${userData['followingCount']}');
+
+        // Create new user object
+        final newUser = UserFrontend.fromJson(userData);
+
+        print('[AuthService] New user object: $newUser');
+
+        // Update current user
+        _currentUser = newUser;
+        _isAuthenticated = true;
+
+        // Notify listeners to rebuild UI
+        notifyListeners();
+
+        print('[AuthService] ✅ User data refreshed successfully');
+        print(
+            '[AuthService] Current follow counts - Followers: ${_currentUser!.followersCount}, Following: ${_currentUser!.followingCount}');
       } else {
-        print('[AuthService] ❌ Failed to refresh user data. Status: ${response.statusCode}');
-        print('[AuthService] Response body: ${response.body}');
-        
-        // Don't throw error for 404 as user might have been deleted
-        if (response.statusCode == 404) {
-          print('[AuthService] User not found, logging out...');
-          await logout();
-        }
+        print(
+            '[AuthService] ❌ Failed to refresh user data: ${response.statusCode}');
+        print('[AuthService] Error response: ${response.body}');
+        throw Exception('Failed to refresh user data: ${response.statusCode}');
       }
     } catch (e) {
-      print('[AuthService] ⚠️ Error refreshing user data: $e');
-      if (e.toString().contains('Connection refused') || 
-          e.toString().contains('Failed host lookup')) {
-        NetworkConfig.clearCache();
-        print('[AuthService] 🔄 Connection failed during refresh, cleared IP cache');
-      }
-      // Don't throw error to avoid breaking the UI
-      // The user can continue with cached data
+      print('[AuthService] ❌ Error refreshing user data: $e');
+      throw Exception('Không thể tải lại thông tin người dùng: $e');
     }
   }
 
-   Future<UserFrontend?> getFreshUserData() async {
+  Future<UserFrontend?> getFreshUserData() async {
     if (!_isAuthenticated || _currentUser == null) return null;
-    
+
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final targetUrl = Uri.parse('$baseUrl/${_currentUser!.id}');
-      
+
       final response = await http.get(
         targetUrl,
         headers: <String, String>{
@@ -216,59 +265,67 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> register(
-    String username, String email, String password,
-    DateTime? dateOfBirth, String? gender, List<String> interests,
+    String username,
+    String email,
+    String password,
+    DateTime? dateOfBirth,
+    String? gender,
+    List<String> interests,
   ) async {
     // AUTO-DETECT IP và tạo URL
     final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
     final targetUrl = Uri.parse('$baseUrl/register');
-    
+
     print('[AuthService] Auto-detected backend URL for register: $baseUrl');
-    
+
     try {
-      final response = await http.post(
-        targetUrl,
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(<String, dynamic>{
-          'username': username, 
-          'email': email, 
-          'password': password,
-          'dateOfBirth': dateOfBirth?.toIso8601String(),
-          'gender': gender, 
-          'interests': interests,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            targetUrl,
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(<String, dynamic>{
+              'username': username,
+              'email': email,
+              'password': password,
+              'dateOfBirth': dateOfBirth?.toIso8601String(),
+              'gender': gender,
+              'interests': interests,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       print('[AuthService] Register Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         print('[AuthService] Registration successful.');
-        return true; 
+        return true;
       } else {
-        String errorMessage = 'Failed to register. Status: ${response.statusCode}';
-        try { 
-          final errorData = jsonDecode(response.body); 
-          errorMessage = errorData['error'] ?? errorMessage; 
+        String errorMessage =
+            'Failed to register. Status: ${response.statusCode}';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['error'] ?? errorMessage;
         } catch (_) {}
         throw Exception(errorMessage);
       }
     } catch (e) {
       print('[AuthService] Register error: $e');
-      if (e.toString().contains('Connection refused') || 
+      if (e.toString().contains('Connection refused') ||
           e.toString().contains('Failed host lookup')) {
         NetworkConfig.clearCache();
-        print('[AuthService] ❌ Connection failed during register, cleared IP cache');
+        print(
+            '[AuthService] ❌ Connection failed during register, cleared IP cache');
       }
-      rethrow; 
+      rethrow;
     }
   }
-  
+
   Future<void> logout() async {
     print('[AuthService] Logging out...');
-    await Future.delayed(const Duration(milliseconds: 100)); 
+    await Future.delayed(const Duration(milliseconds: 100));
     _updateAuthState(false, null);
     print('[AuthService] User logged out.');
   }
@@ -279,8 +336,9 @@ class AuthService extends ChangeNotifier {
       final fileBaseUrl = await NetworkConfig.getFileBaseUrl();
       final healthUrl = Uri.parse('$fileBaseUrl/health');
       print('[AuthService] Testing connection to $healthUrl');
-      
-      final response = await http.get(healthUrl).timeout(const Duration(seconds: 5));
+
+      final response =
+          await http.get(healthUrl).timeout(const Duration(seconds: 5));
       print('[AuthService] Health check response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {

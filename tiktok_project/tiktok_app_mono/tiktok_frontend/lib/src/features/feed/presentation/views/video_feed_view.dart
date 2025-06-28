@@ -74,7 +74,8 @@ class _VideoFeedViewState extends State<VideoFeedView>
   void _pauseCurrentVideo() {
     if (_videoControllers.containsKey(_currentVideoIndex)) {
       final controller = _videoControllers[_currentVideoIndex];
-      if (controller?.value.isInitialized == true && controller!.value.isPlaying) {
+      if (controller?.value.isInitialized == true &&
+          controller!.value.isPlaying) {
         controller.pause();
       }
     }
@@ -83,7 +84,8 @@ class _VideoFeedViewState extends State<VideoFeedView>
   void _playCurrentVideo() {
     if (_videoControllers.containsKey(_currentVideoIndex)) {
       final controller = _videoControllers[_currentVideoIndex];
-      if (controller?.value.isInitialized == true && !controller!.value.isPlaying) {
+      if (controller?.value.isInitialized == true &&
+          !controller!.value.isPlaying) {
         controller.play();
       }
     }
@@ -103,7 +105,7 @@ class _VideoFeedViewState extends State<VideoFeedView>
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.id;
-      
+
       final response = await _videoService.getVideoFeed(
         page: _currentPage,
         limit: 10,
@@ -120,7 +122,7 @@ class _VideoFeedViewState extends State<VideoFeedView>
           _hasNextPage = response.pagination.hasNextPage;
           _isLoading = false;
         });
-        
+
         debugPrint('[VideoFeedView] Loaded ${response.videos.length} videos');
         debugPrint('[VideoFeedView] Total videos: ${_videos.length}');
       }
@@ -132,7 +134,7 @@ class _VideoFeedViewState extends State<VideoFeedView>
           _hasError = true;
           _errorMessage = e.toString();
         });
-        
+
         // Show error snackbar
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -184,22 +186,22 @@ class _VideoFeedViewState extends State<VideoFeedView>
 
   Future<void> _refreshVideos() async {
     debugPrint('[VideoFeedView] Refreshing videos...');
-    
+
     // Reset pagination
     _currentPage = 1;
     _hasNextPage = true;
-    
+
     // Clear existing videos and controllers
     setState(() {
       _videos.clear();
     });
-    
+
     // Dispose old controllers
     for (var controller in _videoControllers.values) {
       controller.dispose();
     }
     _videoControllers.clear();
-    
+
     await _loadVideos();
   }
 
@@ -212,7 +214,9 @@ class _VideoFeedViewState extends State<VideoFeedView>
 
     // Pause previous video
     _videoControllers.forEach((key, controller) {
-      if (key != index && controller.value.isInitialized && controller.value.isPlaying) {
+      if (key != index &&
+          controller.value.isInitialized &&
+          controller.value.isPlaying) {
         controller.pause();
       }
     });
@@ -225,7 +229,7 @@ class _VideoFeedViewState extends State<VideoFeedView>
 
   void _onVideoInitialized(int index, VideoPlayerController controller) {
     _videoControllers[index] = controller;
-    
+
     // Auto-play current video
     if (index == _currentVideoIndex) {
       controller.play();
@@ -238,7 +242,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
     }
   }
 
-  // FIXED: Use copyWith instead of direct assignment
   Future<void> _handleLikeVideo(int index) async {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
@@ -255,38 +258,43 @@ class _VideoFeedViewState extends State<VideoFeedView>
     // Optimistic update using copyWith
     final updatedVideo = video.copyWith(
       isLikedByCurrentUser: !video.isLikedByCurrentUser,
-      likesCount: video.isLikedByCurrentUser ? video.likesCount - 1 : video.likesCount + 1,
+      likesCount: video.isLikedByCurrentUser
+          ? video.likesCount - 1
+          : video.likesCount + 1,
     );
-    
+
     setState(() {
       _videos[index] = updatedVideo;
     });
 
     try {
+      // *** FIX: Đổi từ LikeResult thành VideoLikeResponse ***
       final result = await _videoService.toggleLikeVideo(
         video.id,
         authService.currentUser!.id,
       );
-      
-      // Update with actual result from server
+
       final serverUpdatedVideo = originalVideo.copyWith(
-        isLikedByCurrentUser: result.isLiked,
-        likesCount: result.likesCount,
+        isLikedByCurrentUser:
+            result.isLiked, // ✅ ĐÚNG: VideoLikeResponse có property isLiked
+        likesCount: result
+            .likesCount, // ✅ ĐÚNG: VideoLikeResponse có property likesCount
       );
-      
+
       setState(() {
         _videos[index] = serverUpdatedVideo;
       });
-      
-      debugPrint('[VideoFeedView] Like toggled successfully: ${result.isLiked}');
+
+      debugPrint(
+          '[VideoFeedView] Like toggled successfully: ${result.isLiked}');
     } catch (e) {
       debugPrint('[VideoFeedView] Error toggling like: $e');
-      
+
       // Revert optimistic update
       setState(() {
         _videos[index] = originalVideo;
       });
-      
+
       _showErrorSnackBar('Lỗi khi thích video: $e');
     }
   }
@@ -309,7 +317,7 @@ class _VideoFeedViewState extends State<VideoFeedView>
     final updatedVideo = video.copyWith(
       isSavedByCurrentUser: !video.isSavedByCurrentUser,
     );
-    
+
     setState(() {
       _videos[index] = updatedVideo;
     });
@@ -319,25 +327,26 @@ class _VideoFeedViewState extends State<VideoFeedView>
         video.id,
         authService.currentUser!.id,
       );
-      
+
       // Update with actual result from server
       final serverUpdatedVideo = originalVideo.copyWith(
         isSavedByCurrentUser: result.isSaved,
       );
-      
+
       setState(() {
         _videos[index] = serverUpdatedVideo;
       });
-      
-      debugPrint('[VideoFeedView] Save toggled successfully: ${result.isSaved}');
+
+      debugPrint(
+          '[VideoFeedView] Save toggled successfully: ${result.isSaved}');
     } catch (e) {
       debugPrint('[VideoFeedView] Error toggling save: $e');
-      
+
       // Revert optimistic update
       setState(() {
         _videos[index] = originalVideo;
       });
-      
+
       _showErrorSnackBar('Lỗi khi lưu video: $e');
     }
   }
@@ -500,7 +509,8 @@ class _VideoFeedViewState extends State<VideoFeedView>
               key: ValueKey(video.id),
               videoPost: video,
               isActive: isActive,
-              onVideoInitialized: (controller) => _onVideoInitialized(index, controller),
+              onVideoInitialized: (controller) =>
+                  _onVideoInitialized(index, controller),
               onDispose: () => _onVideoDispose(index),
               onLikeButtonPressed: () => _handleLikeVideo(index),
               onSaveButtonPressed: () => _handleSaveVideo(index),

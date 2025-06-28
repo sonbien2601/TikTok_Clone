@@ -51,107 +51,115 @@ class ProfileController {
 
   // Update user profile
   static Future<Response> updateUserProfileHandler(Request request, String userId) async {
-    print('[ProfileController] Updating profile for userId: $userId');
-    try {
-      if (userId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
-        return Response(400, body: jsonEncode({'error': 'Invalid user ID format'}));
-      }
-
-      final requestBody = await request.readAsString();
-      if (requestBody.isEmpty) {
-        return Response(400, body: jsonEncode({'error': 'Request body is empty'}));
-      }
-
-      final Map<String, dynamic> updateData;
-      try {
-        updateData = jsonDecode(requestBody);
-      } catch (e) {
-        return Response(400, body: jsonEncode({'error': 'Invalid JSON format'}));
-      }
-
-      final usersCollection = DatabaseService.db.collection('users');
-      final userObjectId = ObjectId.fromHexString(userId);
-
-      // Check if user exists
-      final existingUser = await usersCollection.findOne({'_id': userObjectId});
-      if (existingUser == null) {
-        return Response(404, body: jsonEncode({'error': 'User not found'}));
-      }
-
-      // Prepare update fields
-      Map<String, dynamic> updateFields = {};
-      
-      if (updateData.containsKey('username')) {
-        final username = updateData['username'] as String?;
-        if (username != null && username.trim().isNotEmpty) {
-          // Check if username already exists (excluding current user)
-          final existingUsername = await usersCollection.findOne({
-            'username': username.toLowerCase(),
-            '_id': {'\$ne': userObjectId}
-          });
-          if (existingUsername != null) {
-            return Response(409, body: jsonEncode({'error': 'Username already exists'}));
-          }
-          updateFields['username'] = username.trim();
-        }
-      }
-
-      if (updateData.containsKey('dateOfBirth')) {
-        updateFields['dateOfBirth'] = updateData['dateOfBirth'];
-      }
-
-      if (updateData.containsKey('gender')) {
-        updateFields['gender'] = updateData['gender'];
-      }
-
-      if (updateData.containsKey('interests')) {
-        updateFields['interests'] = updateData['interests'];
-      }
-
-      if (updateFields.isEmpty) {
-        return Response(400, body: jsonEncode({'error': 'No valid fields to update'}));
-      }
-
-      // Add updatedAt timestamp
-      updateFields['updatedAt'] = DateTime.now().toIso8601String();
-
-      // Update user
-      final updateResult = await usersCollection.updateOne(
-        where.id(userObjectId),
-        modify.set(updateFields['username'] ?? existingUser['username'], updateFields['username'] ?? existingUser['username'])
-            .set('dateOfBirth', updateFields['dateOfBirth'] ?? existingUser['dateOfBirth'])
-            .set('gender', updateFields['gender'] ?? existingUser['gender'])
-            .set('interests', updateFields['interests'] ?? existingUser['interests'])
-            .set('updatedAt', updateFields['updatedAt'])
-      );
-
-      if (updateResult.isSuccess) {
-        // Get updated user data
-        final updatedUser = await usersCollection.findOne({'_id': userObjectId});
-        if (updatedUser != null) {
-          updatedUser.remove('passwordHash');
-          if (updatedUser['_id'] is ObjectId) {
-            updatedUser['_id'] = (updatedUser['_id'] as ObjectId).toHexString();
-          }
-          
-          return Response.ok(
-            jsonEncode({
-              'message': 'Profile updated successfully',
-              'user': updatedUser
-            }),
-            headers: {'Content-Type': 'application/json'}
-          );
-        }
-      }
-
-      return Response.internalServerError(
-        body: jsonEncode({'error': 'Failed to update profile'}));
-
-    } catch (e, stackTrace) {
-      print('[ProfileController.updateUserProfile] Error: $e \nStack: $stackTrace');
-      return Response.internalServerError(body: jsonEncode({'error': 'An unexpected error occurred: $e'}));
+  print('[ProfileController] Updating profile for userId: $userId');
+  try {
+    if (userId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
+      return Response(400, body: jsonEncode({'error': 'Invalid user ID format'}));
     }
+
+    final requestBody = await request.readAsString();
+    if (requestBody.isEmpty) {
+      return Response(400, body: jsonEncode({'error': 'Request body is empty'}));
+    }
+
+    final Map<String, dynamic> updateData;
+    try {
+      updateData = jsonDecode(requestBody);
+    } catch (e) {
+      return Response(400, body: jsonEncode({'error': 'Invalid JSON format'}));
+    }
+
+    final usersCollection = DatabaseService.db.collection('users');
+    final userObjectId = ObjectId.fromHexString(userId);
+
+    // Check if user exists
+    final existingUser = await usersCollection.findOne({'_id': userObjectId});
+    if (existingUser == null) {
+      return Response(404, body: jsonEncode({'error': 'User not found'}));
+    }
+
+    // Build update query using modify builder
+    var modifyBuilder = modify;
+    bool hasUpdates = false;
+    
+    if (updateData.containsKey('username')) {
+      final username = updateData['username'] as String?;
+      if (username != null && username.trim().isNotEmpty) {
+        // Check if username already exists (excluding current user)
+        final existingUsername = await usersCollection.findOne({
+          'username': username.toLowerCase(),
+          '_id': {'\$ne': userObjectId}
+        });
+        if (existingUsername != null) {
+          return Response(409, body: jsonEncode({'error': 'Username already exists'}));
+        }
+        modifyBuilder = modifyBuilder.set('username', username.trim());
+        hasUpdates = true;
+      }
+    }
+
+    if (updateData.containsKey('dateOfBirth')) {
+      modifyBuilder = modifyBuilder.set('dateOfBirth', updateData['dateOfBirth']);
+      hasUpdates = true;
+    }
+
+    if (updateData.containsKey('gender')) {
+      modifyBuilder = modifyBuilder.set('gender', updateData['gender']);
+      hasUpdates = true;
+    }
+
+    if (updateData.containsKey('interests')) {
+      modifyBuilder = modifyBuilder.set('interests', updateData['interests']);
+      hasUpdates = true;
+    }
+
+    if (!hasUpdates) {
+      return Response(400, body: jsonEncode({'error': 'No valid fields to update'}));
+    }
+
+    // Add updatedAt timestamp
+    modifyBuilder = modifyBuilder.set('updatedAt', DateTime.now().toIso8601String());
+
+    print('[ProfileController] Updating user with data: ${updateData.keys}');
+
+    // Update user using the correct modify builder
+    final updateResult = await usersCollection.updateOne(
+      where.id(userObjectId),
+      modifyBuilder
+    );
+
+    print('[ProfileController] Update result: ${updateResult.isSuccess}');
+
+    if (updateResult.isSuccess) {
+      // Get updated user data
+      final updatedUser = await usersCollection.findOne({'_id': userObjectId});
+      if (updatedUser != null) {
+        updatedUser.remove('passwordHash');
+        if (updatedUser['_id'] is ObjectId) {
+          updatedUser['_id'] = (updatedUser['_id'] as ObjectId).toHexString();
+        }
+        
+        print('[ProfileController] Profile updated successfully for user: $userId');
+        
+        return Response.ok(
+          jsonEncode({
+            'message': 'Profile updated successfully',
+            'user': updatedUser
+          }),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+    }
+
+    print('[ProfileController] Update failed. WriteResult: ${updateResult.writeError?.errmsg ?? "Unknown error"}');
+    return Response.internalServerError(
+      body: jsonEncode({'error': 'Failed to update profile: ${updateResult.writeError?.errmsg ?? "Unknown error"}'}));
+
+  } catch (e, stackTrace) {
+    print('[ProfileController.updateUserProfile] Error: $e \nStack: $stackTrace');
+    return Response.internalServerError(body: jsonEncode({'error': 'An unexpected error occurred: $e'}));
   }
+}
 
   // Get liked videos for user
   static Future<Response> getLikedVideosHandler(Request request, String userId) async {

@@ -98,7 +98,7 @@ class VideoLikeResponse {
 
   factory VideoLikeResponse.fromJson(Map<String, dynamic> json) {
     return VideoLikeResponse(
-      isLiked: json['isLiked'] as bool? ?? false,
+      isLiked: json['isLikedByCurrentUser'] as bool? ?? false,
       likesCount: json['likesCount'] as int? ?? 0,
       message: json['message'] as String? ?? '',
     );
@@ -115,11 +115,15 @@ class VideoSaveResponse {
   });
 
   factory VideoSaveResponse.fromJson(Map<String, dynamic> json) {
-    return VideoSaveResponse(
-      isSaved: json['isSaved'] as bool? ?? false,
-      message: json['message'] as String? ?? '',
-    );
-  }
+  return VideoSaveResponse(
+    // Thử nhiều field có thể có
+    isSaved: json['isSaved'] as bool? ?? 
+             json['isSavedByCurrentUser'] as bool? ?? 
+             json['saved'] as bool? ?? 
+             false,
+    message: json['message'] as String? ?? '',
+  );
+}
 }
 
 class VideoService {
@@ -179,43 +183,69 @@ class VideoService {
   }
 
   // Toggle like video
-  Future<VideoLikeResponse> toggleLikeVideo(String videoId, String userId) async {
-    try {
-      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
-      final url = Uri.parse('$baseUrl/$videoId/like');
-      
-      debugPrint('[VideoService] Toggling like for video: $videoId by user: $userId');
-      
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'userId': userId,
-        }),
-      ).timeout(const Duration(seconds: 10));
+  // Toggle like video
+Future<VideoLikeResponse> toggleLikeVideo(String videoId, String userId) async {
+  try {
+    final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+    final url = Uri.parse('$baseUrl/$videoId/like');
+    
+    debugPrint('[VideoService] Toggling like for video: $videoId by user: $userId');
+    
+    final requestBody = {
+      'userId': userId,
+    };
+    
+    // DEBUG: In ra request details
+    print('=== SENDING TO BACKEND ===');
+    print('URL: $url');
+    print('Method: POST');
+    print('Body: ${jsonEncode(requestBody)}');
+    print('==========================');
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode(requestBody),
+    ).timeout(const Duration(seconds: 10));
 
-      debugPrint('[VideoService] Toggle Like Response Status: ${response.statusCode}');
+    // DEBUG: In ra response details
+    print('=== BACKEND RESPONSE ===');
+    print('Status: ${response.statusCode}');
+    print('Body: ${response.body}');
+    print('========================');
+
+    debugPrint('[VideoService] Toggle Like Response Status: ${response.statusCode}');
+    
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
       
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        return VideoLikeResponse.fromJson(responseData);
-      } else {
-        final errorMessage = 'Failed to toggle like. Status: ${response.statusCode}';
-        debugPrint('[VideoService] $errorMessage, Body: ${response.body}');
-        throw Exception(errorMessage);
-      }
-    } catch (e) {
-      debugPrint('[VideoService] Error toggling like: $e');
-      if (e.toString().contains('Connection refused') || 
-          e.toString().contains('Failed host lookup')) {
-        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
-      }
-      rethrow;
+      // DEBUG: In ra parsed data
+      print('=== PARSED DATA ===');
+      print('isLiked: ${responseData['isLiked']}');
+      print('likesCount: ${responseData['likesCount']}');
+      print('message: ${responseData['message']}');
+      print('===================');
+      
+      final result = VideoLikeResponse.fromJson(responseData);
+      
+      return result;
+    } else {
+      final errorMessage = 'Failed to toggle like. Status: ${response.statusCode}';
+      debugPrint('[VideoService] $errorMessage, Body: ${response.body}');
+      throw Exception(errorMessage);
     }
+  } catch (e) {
+    debugPrint('[VideoService] Error toggling like: $e');
+    if (e.toString().contains('Connection refused') || 
+        e.toString().contains('Failed host lookup')) {
+      throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+    }
+    rethrow;
   }
+}
 
   // Toggle save video
   Future<VideoSaveResponse> toggleSaveVideo(String videoId, String userId) async {

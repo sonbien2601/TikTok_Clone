@@ -778,6 +778,275 @@ class VideoController {
     }
   }
 
+  // --- HÀM TRACK SHARE VIDEO ---
+static Future<Response> shareVideoHandler(Request request, String videoId) async {
+  print('[VideoController] shareVideo called with videoId: $videoId');
+  
+  try {
+    // Validate videoId format
+    if (videoId.isEmpty || videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
+      return Response(400,
+        body: jsonEncode({'error': 'Invalid video ID format'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    // FIXED: Parse request body ONLY ONCE
+    final requestBody = await request.readAsString();
+    print('[VideoController] Share request body: $requestBody');
+    
+    if (requestBody.isEmpty) {
+      return Response(400,
+        body: jsonEncode({'error': 'Request body is empty'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    Map<String, dynamic> shareData;
+    try {
+      shareData = jsonDecode(requestBody);
+    } catch (e) {
+      print('[VideoController] JSON decode error: $e');
+      return Response(400,
+        body: jsonEncode({'error': 'Invalid JSON in request body: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    final String? userId = shareData['userId'] as String?;
+    final String shareMethod = shareData['shareMethod'] as String? ?? 'unknown'; // whatsapp, facebook, copy_link, etc.
+    final String? shareText = shareData['shareText'] as String?;
+
+    print('[VideoController] Parsed share data: method=$shareMethod, userId=$userId');
+
+    // Convert to ObjectIds
+    ObjectId videoObjectId;
+    ObjectId? userObjectId;
+    
+    try {
+      videoObjectId = ObjectId.fromHexString(videoId);
+      if (userId != null && userId.isNotEmpty) {
+        userObjectId = ObjectId.fromHexString(userId);
+      }
+    } catch (e) {
+      print('[VideoController] Invalid ObjectId format. VideoId: $videoId, UserId: $userId');
+      return Response(400,
+        body: jsonEncode({'error': 'Invalid videoId or userId format: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    final videosCollection = DatabaseService.db.collection('videos');
+    final sharesCollection = DatabaseService.db.collection('video_shares'); // Track individual shares
+
+    // Check if video exists
+    final video = await videosCollection.findOne(where.id(videoObjectId));
+    if (video == null) {
+      print('[VideoController] Video not found for id: $videoId');
+      return Response(404,
+        body: jsonEncode({'error': 'Video not found'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    // Create share record for analytics
+    final shareRecord = {
+      'videoId': videoObjectId,
+      'userId': userObjectId,
+      'shareMethod': shareMethod,
+      'shareText': shareText,
+      'userAgent': request.headers['user-agent'],
+      'timestamp': DateTime.now().toIso8601String(),
+      'ipAddress': _getClientIP(request),
+    };
+
+    // Insert share record
+    try {
+      await sharesCollection.insertOne(shareRecord);
+      print('[VideoController] Share record created for video: $videoId, method: $shareMethod');
+    } catch (e) {
+      print('[VideoController] Error creating share record: $e');
+      // Continue execution even if share record fails
+    }
+
+    // Update video shares count
+    final currentSharesCount = video['sharesCount'] as int? ?? 0;
+    final newSharesCount = currentSharesCount + 1;
+
+    print('[VideoController] Updating shares count from $currentSharesCount to $newSharesCount');
+
+    final updateResult = await videosCollection.updateOne(
+      where.id(videoObjectId),
+      modify
+        .set('sharesCount', newSharesCount)
+        .set('updatedAt', DateTime.now().toIso8601String())
+    );
+
+    if (updateResult.isSuccess) {
+      // Get updated video for response
+      final updatedVideo = await videosCollection.findOne(where.id(videoObjectId));
+      if (updatedVideo == null) {
+        return Response(404,
+          body: jsonEncode({'error': 'Video not found after update'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      // Convert ObjectIds to Strings for response
+      final responseVideo = Map<String, dynamic>.from(updatedVideo);
+      responseVideo['_id'] = (updatedVideo['_id'] as ObjectId).toHexString();
+      responseVideo['userId'] = (updatedVideo['userId'] as ObjectId).toHexString();
+      responseVideo['likes'] = (updatedVideo['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+      responseVideo['saves'] = (updatedVideo['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+      responseVideo['uniqueViewers'] = (updatedVideo['uniqueViewers'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+
+      // Add user info
+      responseVideo['user'] = {
+        'username': updatedVideo['username'] ?? 'Unknown User',
+        'avatarUrl': updatedVideo['userAvatarUrl']
+      };
+      responseVideo.remove('username');
+      responseVideo.remove('userAvatarUrl');
+
+      print('[VideoController] Share tracked successfully. New shares count: $newSharesCount');
+      
+      return Response.ok(jsonEncode({
+        'message': 'Video shared successfully',
+        'shareMethod': shareMethod,
+        'sharesCount': newSharesCount,
+        'video': responseVideo
+      }), headers: {'Content-Type': 'application/json'});
+    } else {
+      print('[VideoController] Failed to update shares count: ${updateResult.writeError?.errmsg}');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to update shares count'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+  } catch (e, s) {
+    print('[VideoController.shareVideoHandler] Error: $e');
+    print('[VideoController.shareVideoHandler] StackTrace: $s');
+    return Response.internalServerError(
+      body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+      headers: {'Content-Type': 'application/json'}
+    );
+  }
+}
+
+// Helper method to get client IP
+static String? _getClientIP(Request request) {
+  // Check for forwarded IP first (in case of proxy/load balancer)
+  String? forwardedFor = request.headers['x-forwarded-for'];
+  if (forwardedFor != null && forwardedFor.isNotEmpty) {
+    // Take the first IP if there are multiple
+    return forwardedFor.split(',').first.trim();
+  }
+  
+  // Check for real IP
+  String? realIP = request.headers['x-real-ip'];
+  if (realIP != null && realIP.isNotEmpty) {
+    return realIP;
+  }
+  
+  // Fallback to remote address (may not be available in all setups)
+  return request.headers['remote-addr'] ?? 'unknown';
+}
+
+// --- GET SHARE ANALYTICS FOR VIDEO ---
+static Future<Response> getVideoShareAnalyticsHandler(Request request, String videoId) async {
+  print('[VideoController] getVideoShareAnalytics called with videoId: $videoId');
+  
+  try {
+    // Validate videoId format
+    if (videoId.isEmpty || videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
+      return Response(400,
+        body: jsonEncode({'error': 'Invalid video ID format'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    ObjectId videoObjectId;
+    try {
+      videoObjectId = ObjectId.fromHexString(videoId);
+    } catch (e) {
+      return Response(400,
+        body: jsonEncode({'error': 'Invalid video ID format: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    final sharesCollection = DatabaseService.db.collection('video_shares');
+    final videosCollection = DatabaseService.db.collection('videos');
+
+    // Get video info
+    final video = await videosCollection.findOne(where.id(videoObjectId));
+    if (video == null) {
+      return Response(404,
+        body: jsonEncode({'error': 'Video not found'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+
+    // Get share analytics
+    final sharesData = await sharesCollection.find(where.eq('videoId', videoObjectId)).toList();
+    
+    // Analyze share methods
+    Map<String, int> shareMethodCounts = {};
+    Map<String, int> sharesByHour = {};
+    int totalShares = sharesData.length;
+    
+    for (var share in sharesData) {
+      // Count by method
+      final method = share['shareMethod'] as String? ?? 'unknown';
+      shareMethodCounts[method] = (shareMethodCounts[method] ?? 0) + 1;
+      
+      // Count by hour
+      final timestamp = share['timestamp'] as String?;
+      if (timestamp != null) {
+        final dateTime = DateTime.tryParse(timestamp);
+        if (dateTime != null) {
+          final hourKey = '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:00';
+          sharesByHour[hourKey] = (sharesByHour[hourKey] ?? 0) + 1;
+        }
+      }
+    }
+
+    // Calculate share rate
+    final viewsCount = video['viewsCount'] as int? ?? 0;
+    final shareRate = viewsCount > 0 ? (totalShares / viewsCount * 100) : 0.0;
+
+    final analytics = {
+      'videoId': videoId,
+      'totalShares': totalShares,
+      'shareRate': shareRate,
+      'shareMethodBreakdown': shareMethodCounts,
+      'sharesByHour': sharesByHour,
+      'topShareMethod': shareMethodCounts.isNotEmpty 
+        ? shareMethodCounts.entries.reduce((a, b) => a.value > b.value ? a : b).key
+        : 'none',
+      'viewsCount': viewsCount,
+      'video': {
+        'title': video['description'] as String? ?? '',
+        'createdAt': video['createdAt'] as String?,
+        'username': video['username'] as String? ?? 'Unknown User',
+      }
+    };
+
+    return Response.ok(
+      jsonEncode(analytics),
+      headers: {'Content-Type': 'application/json'}
+    );
+
+  } catch (e, s) {
+    print('[VideoController.getVideoShareAnalyticsHandler] Error: $e\n$s');
+    return Response.internalServerError(
+      body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+      headers: {'Content-Type': 'application/json'}
+    );
+  }
+}
+
+
   // --- CÁC HÀM HELPER ---
   
   /// Parse content-disposition header để lấy name và filename

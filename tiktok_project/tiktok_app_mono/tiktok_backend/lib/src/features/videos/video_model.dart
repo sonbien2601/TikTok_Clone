@@ -1,4 +1,4 @@
-// tiktok_backend/lib/src/features/videos/video_model.dart - UPDATED WITH ANALYTICS
+// tiktok_backend/lib/src/features/videos/video_model.dart - UPDATED WITH SHARES TRACKING
 import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
 
 class Video {
@@ -12,15 +12,15 @@ class Video {
   final List<ObjectId> likes;      
   final int likesCount;            
   int commentsCount;         
-  final int sharesCount;           
+  final int sharesCount;           // ENHANCED: Now properly tracked
   final List<ObjectId> saves;
   
-  // NEW: Analytics fields
-  final int viewsCount;                    // Total views (including repeat views)
-  final int uniqueViewsCount;              // Unique viewers count
-  final List<ObjectId> uniqueViewers;      // Array of user IDs who viewed this video
-  final Map<String, dynamic> analyticsData; // Additional analytics data
-  final DateTime? lastViewedAt;            // Last time video was viewed
+  // Analytics fields
+  final int viewsCount;                    
+  final int uniqueViewsCount;              
+  final List<ObjectId> uniqueViewers;      
+  final Map<String, dynamic> analyticsData; 
+  final DateTime? lastViewedAt;            
   
   final List<String> hashtags;
   final DateTime createdAt;
@@ -37,10 +37,10 @@ class Video {
     this.likes = const [],
     this.likesCount = 0,
     this.commentsCount = 0,
-    this.sharesCount = 0,
+    this.sharesCount = 0,              // Default to 0
     this.saves = const [],
     
-    // NEW: Analytics defaults
+    // Analytics defaults
     this.viewsCount = 0,
     this.uniqueViewsCount = 0,
     this.uniqueViewers = const [],
@@ -64,10 +64,10 @@ class Video {
       'likes': likes.map((id) => id).toList(),
       'likesCount': likesCount,
       'commentsCount': commentsCount,
-      'sharesCount': sharesCount,
+      'sharesCount': sharesCount,        // Include shares count in map
       'saves': saves.map((id) => id).toList(),
       
-      // NEW: Analytics fields
+      // Analytics fields
       'viewsCount': viewsCount,
       'uniqueViewsCount': uniqueViewsCount,
       'uniqueViewers': uniqueViewers.map((id) => id).toList(),
@@ -92,10 +92,10 @@ class Video {
       likes: (map['likes'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
       likesCount: map['likesCount'] as int? ?? 0,
       commentsCount: map['commentsCount'] as int? ?? 0,
-      sharesCount: map['sharesCount'] as int? ?? 0,
+      sharesCount: map['sharesCount'] as int? ?? 0,  // Parse shares count
       saves: (map['saves'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
       
-      // NEW: Analytics fields
+      // Analytics fields
       viewsCount: map['viewsCount'] as int? ?? 0,
       uniqueViewsCount: map['uniqueViewsCount'] as int? ?? 0,
       uniqueViewers: (map['uniqueViewers'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
@@ -108,15 +108,26 @@ class Video {
     );
   }
 
-  // NEW: Helper methods for analytics
+  // Helper methods for analytics
   bool hasUserViewed(ObjectId userId) {
     return uniqueViewers.contains(userId);
   }
 
   double get engagementRate {
     if (viewsCount == 0) return 0.0;
-    final totalEngagements = likesCount + commentsCount + sharesCount;
+    final totalEngagements = likesCount + commentsCount + sharesCount;  // Include shares in engagement
     return (totalEngagements / viewsCount) * 100;
+  }
+
+  // NEW: Share-to-view ratio
+  double get shareRate {
+    if (viewsCount == 0) return 0.0;
+    return (sharesCount / viewsCount) * 100;
+  }
+
+  // NEW: Check if video has good viral potential
+  bool get hasViralPotential {
+    return shareRate > 2.0 && engagementRate > 5.0; // 2% share rate + 5% engagement rate
   }
 
   Map<String, dynamic> getAnalyticsSummary() {
@@ -126,8 +137,10 @@ class Video {
       'uniqueViewsCount': uniqueViewsCount,
       'likesCount': likesCount,
       'commentsCount': commentsCount,
-      'sharesCount': sharesCount,
+      'sharesCount': sharesCount,           // Include shares in analytics
       'engagementRate': engagementRate,
+      'shareRate': shareRate,               // NEW: Share rate metric
+      'hasViralPotential': hasViralPotential, // NEW: Viral potential indicator
       'lastViewedAt': lastViewedAt?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
     };

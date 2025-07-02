@@ -1,4 +1,4 @@
-// tiktok_frontend/lib/src/features/feed/presentation/views/video_feed_view.dart - FIXED VERSION
+// tiktok_frontend/lib/src/features/feed/presentation/views/video_feed_view.dart - FIXED VERSION WITH SHARE FUNCTIONALITY
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -47,7 +47,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
-    // Dispose all video controllers
     for (var controller in _videoControllers.values) {
       controller.dispose();
     }
@@ -63,10 +62,8 @@ class _VideoFeedViewState extends State<VideoFeedView>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.paused) {
-      // Pause current video when app goes to background
       _pauseCurrentVideo();
     } else if (state == AppLifecycleState.resumed) {
-      // Resume current video when app comes back
       _playCurrentVideo();
     }
   }
@@ -135,28 +132,25 @@ class _VideoFeedViewState extends State<VideoFeedView>
           _errorMessage = e.toString();
         });
 
-        // Show error snackbar
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Lỗi tải video: $e'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.red,
-              action: SnackBarAction(
-                label: 'Thử lại',
-                textColor: Colors.white,
-                onPressed: _loadVideos,
-              ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Lỗi tải video: $e'),
+                ),
+              ],
             ),
-          );
-        }
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Thử lại',
+              textColor: Colors.white,
+              onPressed: _loadVideos,
+            ),
+          ),
+        );
       }
     }
   }
@@ -187,16 +181,13 @@ class _VideoFeedViewState extends State<VideoFeedView>
   Future<void> _refreshVideos() async {
     debugPrint('[VideoFeedView] Refreshing videos...');
 
-    // Reset pagination
     _currentPage = 1;
     _hasNextPage = true;
 
-    // Clear existing videos and controllers
     setState(() {
       _videos.clear();
     });
 
-    // Dispose old controllers
     for (var controller in _videoControllers.values) {
       controller.dispose();
     }
@@ -212,7 +203,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
 
     debugPrint('[VideoFeedView] Page changed to: $index');
 
-    // Pause previous video
     _videoControllers.forEach((key, controller) {
       if (key != index &&
           controller.value.isInitialized &&
@@ -221,7 +211,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
       }
     });
 
-    // Load more videos when near the end
     if (index >= _videos.length - 2 && _hasNextPage && !_isLoadingMore) {
       _loadMoreVideos();
     }
@@ -230,7 +219,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
   void _onVideoInitialized(int index, VideoPlayerController controller) {
     _videoControllers[index] = controller;
 
-    // Auto-play current video
     if (index == _currentVideoIndex) {
       controller.play();
     }
@@ -252,10 +240,8 @@ class _VideoFeedViewState extends State<VideoFeedView>
     final video = _videos[index];
     debugPrint('[VideoFeedView] Toggling like for video: ${video.id}');
 
-    // Store original state for potential revert
     final originalVideo = video;
 
-    // Optimistic update using copyWith
     final updatedVideo = video.copyWith(
       isLikedByCurrentUser: !video.isLikedByCurrentUser,
       likesCount: video.isLikedByCurrentUser
@@ -268,17 +254,14 @@ class _VideoFeedViewState extends State<VideoFeedView>
     });
 
     try {
-      // *** FIX: Đổi từ LikeResult thành VideoLikeResponse ***
       final result = await _videoService.toggleLikeVideo(
         video.id,
         authService.currentUser!.id,
       );
 
       final serverUpdatedVideo = originalVideo.copyWith(
-        isLikedByCurrentUser:
-            result.isLiked, // ✅ ĐÚNG: VideoLikeResponse có property isLiked
-        likesCount: result
-            .likesCount, // ✅ ĐÚNG: VideoLikeResponse có property likesCount
+        isLikedByCurrentUser: result.isLiked,
+        likesCount: result.likesCount,
       );
 
       setState(() {
@@ -290,7 +273,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
     } catch (e) {
       debugPrint('[VideoFeedView] Error toggling like: $e');
 
-      // Revert optimistic update
       setState(() {
         _videos[index] = originalVideo;
       });
@@ -299,7 +281,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
     }
   }
 
-  // FIXED: Use copyWith instead of direct assignment
   Future<void> _handleSaveVideo(int index) async {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
@@ -310,10 +291,8 @@ class _VideoFeedViewState extends State<VideoFeedView>
     final video = _videos[index];
     debugPrint('[VideoFeedView] Toggling save for video: ${video.id}');
 
-    // Store original state for potential revert
     final originalVideo = video;
 
-    // Optimistic update using copyWith
     final updatedVideo = video.copyWith(
       isSavedByCurrentUser: !video.isSavedByCurrentUser,
     );
@@ -328,7 +307,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
         authService.currentUser!.id,
       );
 
-      // Update with actual result from server
       final serverUpdatedVideo = originalVideo.copyWith(
         isSavedByCurrentUser: result.isSaved,
       );
@@ -342,13 +320,29 @@ class _VideoFeedViewState extends State<VideoFeedView>
     } catch (e) {
       debugPrint('[VideoFeedView] Error toggling save: $e');
 
-      // Revert optimistic update
       setState(() {
         _videos[index] = originalVideo;
       });
 
       _showErrorSnackBar('Lỗi khi lưu video: $e');
     }
+  }
+
+  Future<void> _handleSharesCountChanged(int index, int newSharesCount) async {
+    if (index < 0 || index >= _videos.length) return;
+    
+    final video = _videos[index];
+    debugPrint('[VideoFeedView] Shares count changed for video: ${video.id}, new count: $newSharesCount');
+
+    final updatedVideo = video.copyWith(
+      sharesCount: newSharesCount,
+    );
+
+    setState(() {
+      _videos[index] = updatedVideo;
+    });
+
+    debugPrint('[VideoFeedView] Shares count updated successfully: $newSharesCount');
   }
 
   void _showLoginRequiredSnackBar() {
@@ -373,7 +367,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Loading state
     if (_isLoading && _videos.isEmpty) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -385,7 +378,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
       );
     }
 
-    // Error state
     if (_hasError && _videos.isEmpty) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -436,7 +428,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
       );
     }
 
-    // Empty state
     if (_videos.isEmpty) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -482,7 +473,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
       );
     }
 
-    // Video feed
     return Scaffold(
       backgroundColor: Colors.black,
       body: RefreshIndicator(
@@ -493,7 +483,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
           onPageChanged: _onPageChanged,
           itemCount: _videos.length + (_isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
-            // Loading indicator for more videos
             if (index >= _videos.length) {
               return const Center(
                 child: CircularProgressIndicator(
@@ -514,6 +503,7 @@ class _VideoFeedViewState extends State<VideoFeedView>
               onDispose: () => _onVideoDispose(index),
               onLikeButtonPressed: () => _handleLikeVideo(index),
               onSaveButtonPressed: () => _handleSaveVideo(index),
+              onSharesCountChanged: (newCount) => _handleSharesCountChanged(index, newCount),
             );
           },
         ),

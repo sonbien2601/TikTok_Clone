@@ -1,4 +1,4 @@
-// tiktok_frontend/lib/src/features/feed/domain/models/video_post_model.dart - UPDATED WITH ANALYTICS
+// UPDATED tiktok_frontend/lib/src/features/feed/domain/models/video_post_model.dart - WITH SHARES COUNT
 import 'video_user_model.dart';
 import 'package:flutter/foundation.dart';
 
@@ -12,9 +12,9 @@ class VideoPost {
   final String? audioName;
   final int likesCount;
   final int commentsCount;
-  final int sharesCount;
+  final int sharesCount;               // ENHANCED: Now properly tracked and displayed
   
-  // NEW: Analytics fields
+  // Analytics fields
   final int viewsCount;
   final int uniqueViewsCount;
   final Map<String, dynamic> analyticsData;
@@ -35,9 +35,9 @@ class VideoPost {
     this.audioName,
     required this.likesCount,
     required this.commentsCount,
-    required this.sharesCount,
+    required this.sharesCount,         // Required parameter
     
-    // NEW: Analytics defaults
+    // Analytics defaults
     this.viewsCount = 0,
     this.uniqueViewsCount = 0,
     this.analyticsData = const {},
@@ -153,9 +153,9 @@ class VideoPost {
       audioName: json['audioName'] as String?,
       likesCount: json['likesCount'] as int? ?? likes.length,
       commentsCount: json['commentsCount'] as int? ?? 0,
-      sharesCount: json['sharesCount'] as int? ?? 0,
+      sharesCount: json['sharesCount'] as int? ?? 0,  // Parse shares count from backend
       
-      // NEW: Analytics fields
+      // Analytics fields
       viewsCount: json['viewsCount'] as int? ?? 0,
       uniqueViewsCount: json['uniqueViewsCount'] as int? ?? 0,
       analyticsData: Map<String, dynamic>.from(json['analyticsData'] as Map? ?? {}),
@@ -212,9 +212,9 @@ class VideoPost {
       'audioName': audioName,
       'likesCount': likesCount,
       'commentsCount': commentsCount,
-      'sharesCount': sharesCount,
+      'sharesCount': sharesCount,           // Include shares count in JSON
       
-      // NEW: Analytics fields
+      // Analytics fields
       'viewsCount': viewsCount,
       'uniqueViewsCount': uniqueViewsCount,
       'analyticsData': analyticsData,
@@ -237,9 +237,9 @@ class VideoPost {
     String? audioName,
     int? likesCount,
     int? commentsCount,
-    int? sharesCount,
+    int? sharesCount,                     // Allow updating shares count
     
-    // NEW: Analytics fields
+    // Analytics fields
     int? viewsCount,
     int? uniqueViewsCount,
     Map<String, dynamic>? analyticsData,
@@ -260,9 +260,9 @@ class VideoPost {
       audioName: audioName ?? this.audioName,
       likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
-      sharesCount: sharesCount ?? this.sharesCount,
+      sharesCount: sharesCount ?? this.sharesCount,   // Update shares count
       
-      // NEW: Analytics fields
+      // Analytics fields
       viewsCount: viewsCount ?? this.viewsCount,
       uniqueViewsCount: uniqueViewsCount ?? this.uniqueViewsCount,
       analyticsData: analyticsData ?? this.analyticsData,
@@ -278,15 +278,15 @@ class VideoPost {
   // Helper methods
   String get formattedLikesCount => _formatCount(likesCount);
   String get formattedCommentsCount => _formatCount(commentsCount);
-  String get formattedSharesCount => _formatCount(sharesCount);
+  String get formattedSharesCount => _formatCount(sharesCount);     // NEW: Format shares count
   
-  // NEW: Analytics helper methods
+  // Analytics helper methods
   String get formattedViewsCount => _formatCount(viewsCount);
   String get formattedUniqueViewsCount => _formatCount(uniqueViewsCount);
   
   double get engagementRate {
     if (viewsCount == 0) return 0.0;
-    final totalEngagements = likesCount + commentsCount + sharesCount;
+    final totalEngagements = likesCount + commentsCount + sharesCount;  // Include shares in engagement
     return (totalEngagements / viewsCount) * 100;
   }
   
@@ -299,15 +299,49 @@ class VideoPost {
   
   String get formattedUniqueViewRate => '${uniqueViewRate.toStringAsFixed(1)}%';
   
-  // Check if video is trending (simple heuristic)
+  // NEW: Share rate calculation
+  double get shareRate {
+    if (viewsCount == 0) return 0.0;
+    return (sharesCount / viewsCount) * 100;
+  }
+  
+  String get formattedShareRate => '${shareRate.toStringAsFixed(1)}%';
+  
+  // NEW: Check if video has viral potential
+  bool get hasViralPotential {
+    return shareRate > 2.0 && engagementRate > 5.0; // 2% share rate + 5% engagement rate
+  }
+  
+  // Check if video is trending (enhanced with shares)
   bool get isTrending {
     final hoursSinceCreated = DateTime.now().difference(createdAt).inHours;
     if (hoursSinceCreated == 0) return false;
     
     final viewsPerHour = viewsCount / hoursSinceCreated;
+    final sharesPerHour = sharesCount / hoursSinceCreated;
     final engagementThreshold = 5.0; // 5% engagement rate
     
-    return viewsPerHour > 10 && engagementRate > engagementThreshold;
+    return viewsPerHour > 10 && 
+           engagementRate > engagementThreshold && 
+           (sharesPerHour > 0.5 || hasViralPotential); // Include share metrics in trending calculation
+  }
+
+  // NEW: Get engagement breakdown
+  Map<String, dynamic> get engagementBreakdown {
+    final total = likesCount + commentsCount + sharesCount;
+    if (total == 0) {
+      return {
+        'likes': 0.0,
+        'comments': 0.0,
+        'shares': 0.0,
+      };
+    }
+    
+    return {
+      'likes': (likesCount / total) * 100,
+      'comments': (commentsCount / total) * 100,
+      'shares': (sharesCount / total) * 100,
+    };
   }
 
   String _formatCount(int count) {
@@ -337,7 +371,7 @@ class VideoPost {
 
   @override
   String toString() {
-    return 'VideoPost(id: $id, user: ${user.username}, description: $description, likesCount: $likesCount, viewsCount: $viewsCount)';
+    return 'VideoPost(id: $id, user: ${user.username}, description: $description, likesCount: $likesCount, sharesCount: $sharesCount, viewsCount: $viewsCount)';
   }
 
   @override

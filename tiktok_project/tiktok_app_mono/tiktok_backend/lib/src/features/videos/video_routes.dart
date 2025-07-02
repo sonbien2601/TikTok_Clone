@@ -90,6 +90,104 @@ Router createVideoRoutes() {
     }
   });
 
+
+  // Share video route - POST /api/videos/{videoId}/share
+  router.post('/<videoId>/share', (Request request, String videoId) async {
+    print('[VideoRoutes] Share route hit with videoId: $videoId');
+
+    if (videoId.isEmpty) {
+      print('[VideoRoutes] Error: videoId is empty');
+      return Response(400,
+          body: jsonEncode({
+            'error': 'Video ID is required - empty videoId',
+            'receivedVideoId': videoId,
+            'path': request.url.path,
+          }),
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    try {
+      // FIXED: Don't read request body here - let the controller handle it
+      return await VideoController.shareVideoHandler(request, videoId);
+
+    } catch (e, stackTrace) {
+      print('[VideoRoutes] Error in share route: $e');
+      print('[VideoRoutes] StackTrace: $stackTrace');
+      return Response.internalServerError(
+          body: jsonEncode({'error': 'Internal server error: $e'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  });
+
+  // Get share analytics route - GET /api/videos/{videoId}/share-analytics - UNCHANGED
+  router.get('/<videoId>/share-analytics', (Request request, String videoId) async {
+    print('[VideoRoutes] Share analytics route hit with videoId: $videoId');
+
+    if (videoId.isEmpty) {
+      return Response(400,
+          body: jsonEncode({
+            'error': 'Video ID is required',
+            'receivedVideoId': videoId,
+            'path': request.url.path,
+          }),
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    try {
+      return await VideoController.getVideoShareAnalyticsHandler(request, videoId);
+    } catch (e, stackTrace) {
+      print('[VideoRoutes] Error in share analytics route: $e');
+      print('[VideoRoutes] StackTrace: $stackTrace');
+      return Response.internalServerError(
+          body: jsonEncode({'error': 'Internal server error: $e'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  });
+
+  router.options('/<videoId>/share', (Request request, String videoId) async {
+    return Response.ok('', headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+      'Access-Control-Max-Age': '86400',
+    });
+  });
+
+  router.options('/<videoId>/share-analytics', (Request request, String videoId) async {
+    return Response.ok('', headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+      'Access-Control-Max-Age': '86400',
+    });
+  });
+
+
+  // Get share analytics route - GET /api/videos/{videoId}/share-analytics
+  router.get('/<videoId>/share-analytics', (Request request, String videoId) async {
+    print('[VideoRoutes] Share analytics route hit with videoId: $videoId');
+
+    if (videoId.isEmpty) {
+      return Response(400,
+          body: jsonEncode({
+            'error': 'Video ID is required',
+            'receivedVideoId': videoId,
+            'path': request.url.path,
+          }),
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    try {
+      return await VideoController.getVideoShareAnalyticsHandler(request, videoId);
+    } catch (e, stackTrace) {
+      print('[VideoRoutes] Error in share analytics route: $e');
+      print('[VideoRoutes] StackTrace: $stackTrace');
+      return Response.internalServerError(
+          body: jsonEncode({'error': 'Internal server error: $e'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  });
+
   // Save route với parameter đúng cách
   router.post('/<videoId>/save', (Request request, String videoId) async {
     print('[VideoRoutes] Save route hit with videoId: $videoId');
@@ -162,12 +260,25 @@ Router createVideoRoutes() {
         'GET /api/videos/{videoId}',
         'POST /api/videos/{videoId}/like',
         'POST /api/videos/{videoId}/save',
+        'POST /api/videos/{videoId}/share',         // NEW
+        'GET /api/videos/{videoId}/share-analytics', // NEW
         'GET /api/videos/debug/info',
       ],
       'examples': [
         'GET /api/videos/683c24fffdf60af9cddfb22a',
         'POST /api/videos/683c24fffdf60af9cddfb22a/like',
-        'POST /api/videos/683c24fffdf60af9cddfb22a/save'
+        'POST /api/videos/683c24fffdf60af9cddfb22a/save',
+        'POST /api/videos/683c24fffdf60af9cddfb22a/share',           // NEW
+        'GET /api/videos/683c24fffdf60af9cddfb22a/share-analytics',  // NEW
+      ],
+      'shareRequestFormat': {                                         // NEW
+        'shareMethod': 'whatsapp|facebook|instagram|twitter|copy_link|sms|email|native|other',
+        'userId': 'optional_user_id',
+        'shareText': 'optional_custom_share_text'
+      },
+      'supportedShareMethods': [
+        'whatsapp', 'facebook', 'instagram', 'twitter', 
+        'copy_link', 'sms', 'email', 'native', 'other'
       ]
     }), headers: {'Content-Type': 'application/json'});
   });

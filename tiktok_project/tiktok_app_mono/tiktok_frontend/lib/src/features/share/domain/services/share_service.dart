@@ -1,13 +1,13 @@
-// COMPLETE FIXED VERSION - tiktok_frontend/lib/src/features/share/domain/services/share_service.dart
+// File: tiktok_project/tiktok_app_mono/tiktok_frontend/lib/src/features/share/domain/services/share_service.dart
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
-import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 enum ShareMethod {
   whatsapp('whatsapp', 'WhatsApp'),
@@ -50,9 +50,11 @@ class ShareResponse {
 
 class ShareService {
   static const String _appName = 'TikTok Clone';
-  static const String _baseShareUrl = 'https://yourdomain.com/video'; // Change to your domain
+  // Updated to use ngrok URL for testing
+  static const String _baseShareUrl = 'https://d46e-2a09-bac5-d46a-25cd-00-3c4-4e.ngrok-free.app/video';
+  static const String _apiBaseUrl = 'https://d46e-2a09-bac5-d46a-25cd-00-3c4-4e.ngrok-free.app';
 
-  // FIXED: Track share on backend with better error handling
+  // Track share on backend
   Future<ShareResponse> trackVideoShare({
     required String videoId,
     required ShareMethod method,
@@ -65,11 +67,10 @@ class ShareService {
       
       debugPrint('[ShareService] Tracking share: videoId=$videoId, method=${method.value}');
       
-      // FIXED: Ensure all required fields are present
       final requestBody = {
         'shareMethod': method.value,
-        'userId': userId ?? '',  // Provide empty string if null
-        'shareText': customText ?? '',  // Provide empty string if null
+        'userId': userId ?? '',
+        'shareText': customText ?? '',
       };
       
       debugPrint('[ShareService] Request body: ${jsonEncode(requestBody)}');
@@ -81,7 +82,7 @@ class ShareService {
           'Accept': 'application/json',
         },
         body: jsonEncode(requestBody),
-      ).timeout(const Duration(seconds: 15)); // Increased timeout
+      ).timeout(const Duration(seconds: 15));
 
       debugPrint('[ShareService] Track Share Response Status: ${response.statusCode}');
       debugPrint('[ShareService] Track Share Response Body: ${response.body}');
@@ -93,7 +94,6 @@ class ShareService {
         final errorMessage = 'Failed to track share. Status: ${response.statusCode}';
         debugPrint('[ShareService] $errorMessage, Body: ${response.body}');
         
-        // Try to parse error message from response
         String detailedError = errorMessage;
         try {
           final errorData = jsonDecode(response.body);
@@ -125,7 +125,17 @@ class ShareService {
     return '$_baseShareUrl/$videoId';
   }
 
-  // Generate share text
+  // Get embeddable video URL
+  String getEmbedUrl(String videoId) {
+    return '$_baseShareUrl/$videoId/player';
+  }
+
+  // Get API URL for video data
+  String getApiUrl(String videoId) {
+    return '$_apiBaseUrl/api/public/video/$videoId';
+  }
+
+  // Generate share text with better formatting
   String generateShareText({
     required String videoTitle,
     required String username,
@@ -133,9 +143,59 @@ class ShareService {
     String? customMessage,
   }) {
     final shareUrl = getShareUrl(videoId);
-    final defaultText = customMessage ?? 'Check out this amazing video by @$username on $_appName!';
     
-    return '$defaultText\n\n"$videoTitle"\n\n$shareUrl';
+    if (customMessage != null && customMessage.isNotEmpty) {
+      return '$customMessage\n\n🎬 "$videoTitle"\n👤 by @$username\n\n📱 Watch here: $shareUrl\n\n#TikTokClone #Viral';
+    }
+    
+    return '🔥 Check out this amazing video by @$username!\n\n🎬 "$videoTitle"\n\n📱 Watch here: $shareUrl\n\n#TikTokClone #Viral';
+  }
+
+  // Generate platform-specific share text
+  String generatePlatformShareText({
+    required ShareMethod method,
+    required String videoTitle,
+    required String username,
+    required String videoId,
+    String? customMessage,
+  }) {
+    final shareUrl = getShareUrl(videoId);
+    
+    switch (method) {
+      case ShareMethod.whatsapp:
+        return customMessage ?? '🔥 Hey! Check out this amazing video by @$username\n\n"$videoTitle"\n\n📱 $shareUrl';
+      
+      case ShareMethod.facebook:
+        return customMessage ?? 'Check out this incredible video by @$username on our TikTok Clone app! 🎬\n\n$shareUrl';
+      
+      case ShareMethod.twitter:
+        final shortTitle = videoTitle.length > 50 ? '${videoTitle.substring(0, 50)}...' : videoTitle;
+        return customMessage ?? '🔥 Amazing video by @$username: "$shortTitle"\n\n📱 $shareUrl\n\n#TikTokClone #Viral';
+      
+      case ShareMethod.email:
+        return customMessage ?? '''Hi!
+
+I wanted to share this amazing video with you:
+
+"$videoTitle" by @$username
+
+You can watch it here: $shareUrl
+
+It's from our new TikTok Clone app - check it out!
+
+Best regards''';
+      
+      case ShareMethod.sms:
+        return customMessage ?? '🔥 Check this out: "$videoTitle" by @$username\n\n$shareUrl';
+      
+      default:
+        return generateShareText(
+          videoTitle: videoTitle,
+          username: username,
+          videoId: videoId,
+          customMessage: customMessage,
+        );
+    }
   }
 
   // Share via native system share
@@ -147,7 +207,8 @@ class ShareService {
     String? customMessage,
   }) async {
     try {
-      final shareText = generateShareText(
+      final shareText = generatePlatformShareText(
+        method: ShareMethod.native,
         videoTitle: videoTitle,
         username: username,
         videoId: videoId,
@@ -156,7 +217,6 @@ class ShareService {
 
       final result = await Share.share(shareText);
       
-      // Track the share - with better error handling
       ShareResponse trackResponse;
       try {
         trackResponse = await trackVideoShare(
@@ -203,7 +263,8 @@ class ShareService {
     String? customMessage,
   }) async {
     try {
-      final shareText = generateShareText(
+      final shareText = generatePlatformShareText(
+        method: ShareMethod.whatsapp,
         videoTitle: videoTitle,
         username: username,
         videoId: videoId,
@@ -215,7 +276,6 @@ class ShareService {
       if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
         await launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication);
         
-        // Track the share
         final trackResponse = await trackVideoShare(
           videoId: videoId,
           method: ShareMethod.whatsapp,
@@ -252,8 +312,15 @@ class ShareService {
     String? customMessage,
   }) async {
     try {
-      final shareUrl = getShareUrl(videoId);
-      final facebookUrl = _getFacebookUrl(shareUrl);
+      final shareText = generatePlatformShareText(
+        method: ShareMethod.facebook,
+        videoTitle: videoTitle,
+        username: username,
+        videoId: videoId,
+        customMessage: customMessage,
+      );
+
+      final facebookUrl = _getFacebookUrl(shareText);
       
       if (await canLaunchUrl(Uri.parse(facebookUrl))) {
         await launchUrl(Uri.parse(facebookUrl), mode: LaunchMode.externalApplication);
@@ -262,7 +329,7 @@ class ShareService {
           videoId: videoId,
           method: ShareMethod.facebook,
           userId: userId,
-          customText: customMessage,
+          customText: shareText,
         );
 
         return ShareResponse(
@@ -294,7 +361,8 @@ class ShareService {
     String? customMessage,
   }) async {
     try {
-      final shareText = generateShareText(
+      final shareText = generatePlatformShareText(
+        method: ShareMethod.twitter,
         videoTitle: videoTitle,
         username: username,
         videoId: videoId,
@@ -342,7 +410,8 @@ class ShareService {
     String? customMessage,
   }) async {
     try {
-      final shareText = generateShareText(
+      final shareText = generatePlatformShareText(
+        method: ShareMethod.sms,
         videoTitle: videoTitle,
         username: username,
         videoId: videoId,
@@ -381,7 +450,7 @@ class ShareService {
     }
   }
 
-  // Share via Email - COMPLETED
+  // Share via Email
   Future<ShareResponse> shareToEmail({
     required String videoId,
     required String videoTitle,
@@ -390,7 +459,8 @@ class ShareService {
     String? customMessage,
   }) async {
     try {
-      final shareText = generateShareText(
+      final shareText = generatePlatformShareText(
+        method: ShareMethod.email,
         videoTitle: videoTitle,
         username: username,
         videoId: videoId,
@@ -429,7 +499,7 @@ class ShareService {
     }
   }
 
-  // FIXED: Copy link to clipboard with better error handling
+  // Copy link to clipboard
   Future<ShareResponse> copyLink({
     required String videoId,
     String? userId,
@@ -437,11 +507,9 @@ class ShareService {
     try {
       final shareUrl = getShareUrl(videoId);
       
-      // Copy to clipboard first
       await Clipboard.setData(ClipboardData(text: shareUrl));
       debugPrint('[ShareService] Link copied to clipboard: $shareUrl');
       
-      // Then track the share
       ShareResponse trackResponse;
       try {
         trackResponse = await trackVideoShare(
@@ -452,7 +520,6 @@ class ShareService {
         );
       } catch (e) {
         debugPrint('[ShareService] Error tracking copy link: $e');
-        // Still return success since clipboard copy worked
         trackResponse = ShareResponse(
           success: true,
           message: 'Link copied but tracking failed',
@@ -504,6 +571,41 @@ class ShareService {
     }
   }
 
+  // Preview share content before sharing
+  Map<String, String> getSharePreview({
+    required ShareMethod method,
+    required String videoTitle,
+    required String username,
+    required String videoId,
+    String? customMessage,
+  }) {
+    return {
+      'text': generatePlatformShareText(
+        method: method,
+        videoTitle: videoTitle,
+        username: username,
+        videoId: videoId,
+        customMessage: customMessage,
+      ),
+      'url': getShareUrl(videoId),
+      'embedUrl': getEmbedUrl(videoId),
+      'apiUrl': getApiUrl(videoId),
+    };
+  }
+
+  // Validate share URL
+  Future<bool> validateShareUrl(String videoId) async {
+    try {
+      final url = getApiUrl(videoId);
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+      debugPrint('[ShareService] Share URL validation response: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ShareService] Share URL validation failed: $e');
+      return false;
+    }
+  }
+
   // Helper methods for generating URLs
   String _getWhatsAppUrl(String text) {
     final encodedText = Uri.encodeComponent(text);
@@ -518,14 +620,13 @@ class ShareService {
           return 'https://api.whatsapp.com/send?text=$encodedText';
         }
       } catch (e) {
-        // Fallback to web version if Platform detection fails
         return 'https://web.whatsapp.com/send?text=$encodedText';
       }
     }
   }
 
-  String _getFacebookUrl(String url) {
-    final encodedUrl = Uri.encodeComponent(url);
+  String _getFacebookUrl(String text) {
+    final encodedUrl = Uri.encodeComponent(getShareUrl(text.split('\n').last.trim()));
     return 'https://www.facebook.com/sharer/sharer.php?u=$encodedUrl';
   }
 
@@ -538,7 +639,6 @@ class ShareService {
     final encodedText = Uri.encodeComponent(text);
     
     if (kIsWeb) {
-      // SMS not available on web, return empty string
       return '';
     }
     
@@ -549,7 +649,6 @@ class ShareService {
         return 'sms:?body=$encodedText';
       }
     } catch (e) {
-      // Fallback if Platform detection fails
       return 'sms:?body=$encodedText';
     }
   }
@@ -565,7 +664,7 @@ class ShareService {
     try {
       switch (method) {
         case ShareMethod.whatsapp:
-          if (kIsWeb) return true; // Use web WhatsApp
+          if (kIsWeb) return true;
           return await canLaunchUrl(Uri.parse('whatsapp://'));
         case ShareMethod.facebook:
           return await canLaunchUrl(Uri.parse('fb://')) || 
@@ -577,7 +676,7 @@ class ShareService {
           return await canLaunchUrl(Uri.parse('twitter://')) ||
                  await canLaunchUrl(Uri.parse('https://twitter.com'));
         case ShareMethod.sms:
-          return !kIsWeb; // SMS not available on web
+          return !kIsWeb;
         case ShareMethod.email:
           return await canLaunchUrl(Uri.parse('mailto:')) ||
                  await canLaunchUrl(Uri.parse('https://mail.google.com'));
@@ -588,7 +687,6 @@ class ShareService {
       }
     } catch (e) {
       debugPrint('[ShareService] Error checking availability for ${method.value}: $e');
-      // Return false for problematic methods, true for basic ones
       return method == ShareMethod.copyLink || method == ShareMethod.native;
     }
   }
@@ -597,16 +695,14 @@ class ShareService {
   Future<List<ShareMethod>> getAvailableShareMethods() async {
     final List<ShareMethod> available = [];
     
-    // Always add these basic methods first
     available.addAll([
       ShareMethod.copyLink,
       ShareMethod.native,
     ]);
     
-    // Check other methods
     for (final method in ShareMethod.values) {
       if (method == ShareMethod.copyLink || method == ShareMethod.native) {
-        continue; // Already added
+        continue;
       }
       
       try {
@@ -615,11 +711,9 @@ class ShareService {
         }
       } catch (e) {
         debugPrint('[ShareService] Error checking method ${method.value}: $e');
-        // Skip this method if there's an error
       }
     }
     
-    // Ensure we have at least the basic methods
     if (!available.contains(ShareMethod.copyLink)) {
       available.insert(0, ShareMethod.copyLink);
     }
@@ -630,7 +724,7 @@ class ShareService {
     return available;
   }
 
-  // ADDITIONAL: Test connection to share API
+  // Test connection to share API
   Future<bool> testShareConnection() async {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
@@ -645,7 +739,7 @@ class ShareService {
     }
   }
 
-  // ADDITIONAL: Batch share tracking (for analytics)
+  // Batch share tracking
   Future<bool> trackBulkShares(List<Map<String, dynamic>> shareEvents) async {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/analytics');
@@ -671,7 +765,7 @@ class ShareService {
     }
   }
 
-  // ADDITIONAL: Get popular share methods
+  // Get popular share methods
   Future<List<ShareMethod>> getPopularShareMethods() async {
     try {
       final analytics = await getShareAnalytics('summary');
@@ -680,7 +774,6 @@ class ShareService {
       final breakdown = analytics['globalShareMethodBreakdown'] as Map<String, dynamic>?;
       if (breakdown == null) return await getAvailableShareMethods();
       
-      // Sort methods by popularity
       final sortedMethods = breakdown.entries.toList()
         ..sort((a, b) => (b.value as int).compareTo(a.value as int));
       

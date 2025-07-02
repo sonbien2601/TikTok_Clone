@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/follow/domain/services/follow_service.dart';
+import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart'; // NEW IMPORT
 
 enum FollowButtonStyle {
   primary,    // Blue background, white text
@@ -50,11 +51,17 @@ class _FollowButtonWidgetState extends State<FollowButtonWidget>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
+  // NEW: FollowStateManager
+  late FollowStateManager _followStateManager;
+
   @override
   void initState() {
     super.initState();
     _isFollowing = widget.initialIsFollowing;
     _followerCount = widget.initialFollowerCount;
+
+    // NEW: Get FollowStateManager instance
+    _followStateManager = FollowStateManager();
 
     // Animation setup
     _animationController = AnimationController(
@@ -69,8 +76,94 @@ class _FollowButtonWidgetState extends State<FollowButtonWidget>
       curve: Curves.easeInOut,
     ));
 
+    // NEW: Listen to FollowStateManager changes
+    _followStateManager.addListener(_onFollowStateChanged);
+
     // Load actual follow status
     _loadFollowStatus();
+
+    // NEW: Check if there's already data in FollowStateManager
+    _syncWithFollowStateManager();
+  }
+
+  @override
+  void dispose() {
+    // NEW: Remove listener
+    _followStateManager.removeListener(_onFollowStateChanged);
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  // NEW: Sync with FollowStateManager
+  void _syncWithFollowStateManager() {
+    final followInfo = _followStateManager.getFollowInfo(widget.targetUserId);
+    
+    if (followInfo['hasData'] == true) {
+      final managedIsFollowing = followInfo['isFollowing'] as bool;
+      final managedFollowerCount = followInfo['followerCount'] as int;
+      
+      print('[FollowButtonWidget] Syncing with FollowStateManager for ${widget.targetUserId}');
+      print('[FollowButtonWidget] Managed state: following=$managedIsFollowing, followers=$managedFollowerCount');
+      
+      if (managedIsFollowing != _isFollowing || managedFollowerCount != _followerCount) {
+        setState(() {
+          _isFollowing = managedIsFollowing;
+          _followerCount = managedFollowerCount;
+        });
+      }
+    } else {
+      // Initialize FollowStateManager with our current data
+      _followStateManager.updateFollowState(
+        userId: widget.targetUserId,
+        isFollowing: _isFollowing,
+        followerCount: _followerCount,
+      );
+    }
+  }
+
+  // NEW: Handle FollowStateManager changes
+  void _onFollowStateChanged() {
+    final followInfo = _followStateManager.getFollowInfo(widget.targetUserId);
+    
+    if (followInfo['hasData'] == true) {
+      final managedIsFollowing = followInfo['isFollowing'] as bool;
+      final managedFollowerCount = followInfo['followerCount'] as int;
+      
+      // Only update if there's a real change and it's not from our own action
+      if ((managedIsFollowing != _isFollowing || managedFollowerCount != _followerCount) &&
+          !_isLoading) {
+        
+        print('[FollowButtonWidget] ${widget.targetUserId} - Follow state changed from external source');
+        print('[FollowButtonWidget] ${widget.targetUserId} - New state: following=$managedIsFollowing, followers=$managedFollowerCount');
+        
+        setState(() {
+          _isFollowing = managedIsFollowing;
+          _followerCount = managedFollowerCount;
+        });
+        
+        // Notify parent widget
+        widget.onFollowChanged?.call();
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(FollowButtonWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.targetUserId != widget.targetUserId) {
+      // User changed, sync with new user's data
+      _syncWithFollowStateManager();
+    }
+    if (oldWidget.initialIsFollowing != widget.initialIsFollowing) {
+      setState(() {
+        _isFollowing = widget.initialIsFollowing;
+      });
+    }
+    if (oldWidget.initialFollowerCount != widget.initialFollowerCount) {
+      setState(() {
+        _followerCount = widget.initialFollowerCount;
+      });
+    }
   }
 
   Future<void> _loadFollowStatus() async {
@@ -90,31 +183,17 @@ class _FollowButtonWidgetState extends State<FollowButtonWidget>
           _isFollowing = status.isFollowing;
           _followerCount = status.targetUser.followersCount;
         });
+
+        // NEW: Update FollowStateManager with API data
+        _followStateManager.updateFollowState(
+          userId: widget.targetUserId,
+          isFollowing: status.isFollowing,
+          followerCount: status.targetUser.followersCount,
+        );
       }
     } catch (e) {
       print('[FollowButtonWidget] Error loading follow status: $e');
       // Keep using initial values if API fails
-    }
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(FollowButtonWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialIsFollowing != widget.initialIsFollowing) {
-      setState(() {
-        _isFollowing = widget.initialIsFollowing;
-      });
-    }
-    if (oldWidget.initialFollowerCount != widget.initialFollowerCount) {
-      setState(() {
-        _followerCount = widget.initialFollowerCount;
-      });
     }
   }
 
@@ -157,6 +236,13 @@ class _FollowButtonWidgetState extends State<FollowButtonWidget>
       _followerCount += _isFollowing ? 1 : -1;
     });
 
+    // NEW: Update FollowStateManager immediately (optimistic)
+    _followStateManager.updateFollowState(
+      userId: widget.targetUserId,
+      isFollowing: _isFollowing,
+      followerCount: _followerCount,
+    );
+
     try {
       if (originalIsFollowing) {
         // Unfollow
@@ -169,6 +255,13 @@ class _FollowButtonWidgetState extends State<FollowButtonWidget>
           _isFollowing = result.isFollowing;
           _followerCount = result.followerCount;
         });
+
+        // NEW: Update FollowStateManager with actual result
+        _followStateManager.updateFollowState(
+          userId: widget.targetUserId,
+          isFollowing: result.isFollowing,
+          followerCount: result.followerCount,
+        );
 
         _showSuccessMessage('Đã bỏ theo dõi @${widget.targetUsername}');
       } else {
@@ -183,11 +276,21 @@ class _FollowButtonWidgetState extends State<FollowButtonWidget>
           _followerCount = result.followerCount;
         });
 
+        // NEW: Update FollowStateManager with actual result
+        _followStateManager.updateFollowState(
+          userId: widget.targetUserId,
+          isFollowing: result.isFollowing,
+          followerCount: result.followerCount,
+        );
+
         _showSuccessMessage('Đã theo dõi @${widget.targetUsername}');
       }
 
       // Notify parent widget
       widget.onFollowChanged?.call();
+
+      // NEW: Update current user's following count in AuthService
+      authService.notifyFollowCountsChanged();
 
     } catch (e) {
       print('[FollowButtonWidget] Error toggling follow: $e');
@@ -197,6 +300,13 @@ class _FollowButtonWidgetState extends State<FollowButtonWidget>
         _isFollowing = originalIsFollowing;
         _followerCount = originalFollowerCount;
       });
+
+      // NEW: Revert FollowStateManager update
+      _followStateManager.updateFollowState(
+        userId: widget.targetUserId,
+        isFollowing: originalIsFollowing,
+        followerCount: originalFollowerCount,
+      );
 
       _showErrorMessage(e.toString());
     } finally {

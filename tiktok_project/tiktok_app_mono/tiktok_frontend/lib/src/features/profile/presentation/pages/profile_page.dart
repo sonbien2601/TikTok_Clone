@@ -10,6 +10,7 @@ import 'package:tiktok_frontend/src/features/profile/presentation/pages/liked_vi
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/saved_videos_page.dart';
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/followers_page.dart';
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/following_page.dart';
+import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart'; // NEW IMPORT
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -23,10 +24,55 @@ class _ProfilePageState extends State<ProfilePage> {
   int _unreadNotificationCount = 0;
   bool _isLoadingNotifications = false;
 
+  // NEW: FollowStateManager
+  late FollowStateManager _followStateManager;
+
   @override
   void initState() {
     super.initState();
+    
+    // NEW: Initialize FollowStateManager
+    _followStateManager = FollowStateManager();
+    _followStateManager.addListener(_onFollowStateChanged);
+    
     _loadUnreadCount();
+  }
+
+  @override
+  void dispose() {
+    // NEW: Remove listener
+    _followStateManager.removeListener(_onFollowStateChanged);
+    super.dispose();
+  }
+
+  // NEW: Handle follow state changes
+  void _onFollowStateChanged() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.currentUser == null) {
+      return;
+    }
+
+    // Check if current user's follower count changed
+    final currentUserId = authService.currentUser!.id;
+    final followInfo = _followStateManager.getFollowInfo(currentUserId);
+    
+    if (followInfo['hasData'] == true) {
+      final newFollowerCount = followInfo['followerCount'] as int;
+      final currentFollowerCount = authService.currentUser!.followersCount;
+      
+      if (newFollowerCount != currentFollowerCount) {
+        print('[ProfilePage] Detected follower count change: $currentFollowerCount -> $newFollowerCount');
+        
+        // Trigger AuthService to refresh user data
+        authService.refreshUserData().then((_) {
+          if (mounted) {
+            setState(() {
+              // Widget will rebuild with updated data
+            });
+          }
+        });
+      }
+    }
   }
 
   Future<void> _loadUnreadCount() async {
@@ -57,7 +103,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // NEW: Method to refresh follow counts
+  // Method to refresh follow counts
   Future<void> _refreshFollowCounts() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
@@ -120,7 +166,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // NEW FOLLOW NAVIGATION METHODS
+  // FOLLOW NAVIGATION METHODS
   void _navigateToFollowers() {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
@@ -135,7 +181,10 @@ class _ProfilePageState extends State<ProfilePage> {
           username: authService.currentUser!.username,
         ),
       ),
-    );
+    ).then((_) {
+      // NEW: Refresh follow counts when returning from followers page
+      _refreshFollowCounts();
+    });
   }
 
   void _navigateToFollowing() {
@@ -152,7 +201,10 @@ class _ProfilePageState extends State<ProfilePage> {
           username: authService.currentUser!.username,
         ),
       ),
-    );
+    ).then((_) {
+      // NEW: Refresh follow counts when returning from following page
+      _refreshFollowCounts();
+    });
   }
 
   void _navigateToMyVideos() {
@@ -248,6 +300,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final UserFrontend? currentUser = authService.currentUser;
 
     print('[ProfilePage] Building. User: ${currentUser?.username}, isAdmin: ${authService.isAdmin}');
+    print('[ProfilePage] Current follow counts - Followers: ${currentUser?.followersCount}, Following: ${currentUser?.followingCount}');
 
     return Scaffold(
       appBar: AppBar(
@@ -256,6 +309,18 @@ class _ProfilePageState extends State<ProfilePage> {
             const Icon(Icons.person_outline),
             const SizedBox(width: 8),
             Text(currentUser?.username ?? 'Profile'),
+            // NEW: Show live update indicator if follow state changed recently
+            if (currentUser != null && _followStateManager.hasRecentUpdate(currentUser.id)) ...[
+              const SizedBox(width: 8),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -324,7 +389,7 @@ class _ProfilePageState extends State<ProfilePage> {
       body: RefreshIndicator(
         onRefresh: () async {
           await _loadUnreadCount();
-          // Có thể thêm refresh other data ở đây
+          await _refreshFollowCounts();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -419,7 +484,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     
                     const SizedBox(height: 16),
                     
-                    // NEW FOLLOW STATS ROW
+                    // FOLLOW STATS ROW with realtime updates
                     _buildFollowStatsRow(currentUser),
                     
                     // Additional info row
@@ -567,7 +632,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   
                   const SizedBox(height: 24),
                   
-                  // NEW SOCIAL SECTION
+                  // SOCIAL SECTION
                   _buildSectionHeader('Mạng xã hội'),
                   const SizedBox(height: 8),
                   
@@ -680,97 +745,113 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildFollowStatsRow(UserFrontend? currentUser) {
-  // NEW: Use real data from user object
-  final followersCount = currentUser?.followersCount ?? 0;
-  final followingCount = currentUser?.followingCount ?? 0;
+    // Use real data from user object with realtime updates
+    final followersCount = currentUser?.followersCount ?? 0;
+    final followingCount = currentUser?.followingCount ?? 0;
 
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [
-          Colors.blue.shade50,
-          Colors.purple.shade50,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.blue.shade50,
+            Colors.purple.shade50,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.blue.withOpacity(0.2),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Followers
+          InkWell(
+            onTap: _navigateToFollowers,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                children: [
+                  // NEW: Show animation for follower count changes
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      _formatCount(followersCount),
+                      key: ValueKey(followersCount),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Người theo dõi',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  // NEW: Show recent update indicator
+                  if (currentUser != null && _followStateManager.hasRecentUpdate(currentUser.id))
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Divider
+          Container(
+            width: 1,
+            height: 30,
+            color: Colors.grey.shade300,
+          ),
+          
+          // Following
+          InkWell(
+            onTap: _navigateToFollowing,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                children: [
+                  Text(
+                    _formatCount(followingCount),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Đang theo dõi',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: Colors.blue.withOpacity(0.2),
-      ),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        // Followers
-        InkWell(
-          onTap: _navigateToFollowers,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
-              children: [
-                Text(
-                  _formatCount(followersCount),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Người theo dõi',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        
-        // Divider
-        Container(
-          width: 1,
-          height: 30,
-          color: Colors.grey.shade300,
-        ),
-        
-        // Following
-        InkWell(
-          onTap: _navigateToFollowing,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
-              children: [
-                Text(
-                  _formatCount(followingCount),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Đang theo dõi',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildSectionHeader(String title) {
     return Align(

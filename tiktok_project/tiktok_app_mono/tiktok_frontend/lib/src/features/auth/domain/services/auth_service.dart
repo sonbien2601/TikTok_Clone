@@ -3,7 +3,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
-import 'package:tiktok_frontend/src/core/config/network_config.dart'; // Import NetworkConfig
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
+import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart'; // NEW IMPORT
 
 class UserFrontend {
   final String id;
@@ -14,7 +15,7 @@ class UserFrontend {
   final String? gender;
   final List<String> interests;
 
-  // NEW: Follow count fields
+  // Follow count fields
   final int followersCount;
   final int followingCount;
 
@@ -26,7 +27,6 @@ class UserFrontend {
     this.dateOfBirth,
     this.gender,
     this.interests = const [],
-    // NEW: Default follow counts
     this.followersCount = 0,
     this.followingCount = 0,
   });
@@ -44,9 +44,33 @@ class UserFrontend {
       dateOfBirth: json['dateOfBirth'] as String?,
       gender: json['gender'] as String?,
       interests: List<String>.from(json['interests'] as List? ?? []),
-      // NEW: Parse follow counts from backend
       followersCount: json['followersCount'] as int? ?? 0,
       followingCount: json['followingCount'] as int? ?? 0,
+    );
+  }
+
+  // NEW: Copy with method
+  UserFrontend copyWith({
+    String? id,
+    String? username,
+    String? email,
+    bool? isAdmin,
+    String? dateOfBirth,
+    String? gender,
+    List<String>? interests,
+    int? followersCount,
+    int? followingCount,
+  }) {
+    return UserFrontend(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      email: email ?? this.email,
+      isAdmin: isAdmin ?? this.isAdmin,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      gender: gender ?? this.gender,
+      interests: interests ?? this.interests,
+      followersCount: followersCount ?? this.followersCount,
+      followingCount: followingCount ?? this.followingCount,
     );
   }
 
@@ -59,7 +83,6 @@ class UserFrontend {
       'dateOfBirth': dateOfBirth,
       'gender': gender,
       'interests': interests,
-      // NEW: Include follow counts
       'followersCount': followersCount,
       'followingCount': followingCount,
     };
@@ -75,9 +98,38 @@ class AuthService extends ChangeNotifier {
   bool _isAuthenticated = false;
   UserFrontend? _currentUser;
 
+  // NEW: FollowStateManager instance
+  final FollowStateManager _followStateManager = FollowStateManager();
+
   bool get isAuthenticated => _isAuthenticated;
   UserFrontend? get currentUser => _currentUser;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
+
+  // NEW: Getter for FollowStateManager
+  FollowStateManager get followStateManager => _followStateManager;
+
+  // NEW: Method to update current user's follow counts from FollowStateManager
+  void updateCurrentUserFollowCounts() {
+    if (_currentUser == null) return;
+
+    // Kiểm tra xem có cập nhật follow count nào cho current user không
+    final currentUserId = _currentUser!.id;
+    final followInfo = _followStateManager.getFollowInfo(currentUserId);
+    
+    if (followInfo['hasData'] == true) {
+      final newFollowerCount = followInfo['followerCount'] as int;
+      
+      if (newFollowerCount != _currentUser!.followersCount) {
+        print('[AuthService] Updating current user follower count: ${_currentUser!.followersCount} -> $newFollowerCount');
+        
+        _currentUser = _currentUser!.copyWith(
+          followersCount: newFollowerCount,
+        );
+        
+        notifyListeners();
+      }
+    }
+  }
 
   void notifyFollowCountsChanged() {
     print('[AuthService] Follow counts changed - triggering refresh');
@@ -89,7 +141,6 @@ class AuthService extends ChangeNotifier {
     });
   }
 
-  // Getter để debug URL hiện tại
   Future<String> get currentBaseUrl => NetworkConfig.getBaseUrl('/api/users');
 
   void _updateAuthState(
@@ -101,6 +152,15 @@ class AuthService extends ChangeNotifier {
       try {
         this._currentUser = UserFrontend.fromJson(userDataFromApi);
         print('[AuthService] User data parsed. User: ${this._currentUser}');
+        
+        // NEW: Sync with FollowStateManager
+        if (_currentUser != null) {
+          _followStateManager.updateFollowState(
+            userId: _currentUser!.id,
+            isFollowing: false, // Current user doesn't follow themselves
+            followerCount: _currentUser!.followersCount,
+          );
+        }
       } catch (e) {
         print('[AuthService] Error parsing user data: $e');
         this._currentUser = null;
@@ -117,7 +177,6 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> login(String identifierValue, String password) async {
-    // AUTO-DETECT IP và tạo URL
     final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
     final targetUrl = Uri.parse('$baseUrl/login');
 
@@ -164,7 +223,6 @@ class AuthService extends ChangeNotifier {
       print('[AuthService] Login error: $e');
       if (e.toString().contains('Connection refused') ||
           e.toString().contains('Failed host lookup')) {
-        // Clear cache và thử lại với IP khác
         NetworkConfig.clearCache();
         print('[AuthService] ❌ Connection failed, cleared IP cache');
         print('[AuthService] 💡 Next login attempt will try to find new IP');
@@ -217,6 +275,13 @@ class AuthService extends ChangeNotifier {
         // Update current user
         _currentUser = newUser;
         _isAuthenticated = true;
+
+        // NEW: Sync with FollowStateManager
+        _followStateManager.updateFollowState(
+          userId: _currentUser!.id,
+          isFollowing: false, // Current user doesn't follow themselves
+          followerCount: _currentUser!.followersCount,
+        );
 
         // Notify listeners to rebuild UI
         notifyListeners();
@@ -272,7 +337,6 @@ class AuthService extends ChangeNotifier {
     String? gender,
     List<String> interests,
   ) async {
-    // AUTO-DETECT IP và tạo URL
     final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
     final targetUrl = Uri.parse('$baseUrl/register');
 
@@ -326,6 +390,10 @@ class AuthService extends ChangeNotifier {
   Future<void> logout() async {
     print('[AuthService] Logging out...');
     await Future.delayed(const Duration(milliseconds: 100));
+    
+    // NEW: Clear FollowStateManager when logging out
+    _followStateManager.clearAll();
+    
     _updateAuthState(false, null);
     print('[AuthService] User logged out.');
   }

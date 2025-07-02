@@ -1,5 +1,5 @@
-// tiktok_frontend/lib/src/features/feed/domain/models/video_post_model.dart
-import 'video_user_model.dart'; // Import the fixed VideoUser model
+// tiktok_frontend/lib/src/features/feed/domain/models/video_post_model.dart - UPDATED WITH ANALYTICS
+import 'video_user_model.dart';
 import 'package:flutter/foundation.dart';
 
 class VideoPost {
@@ -13,7 +13,13 @@ class VideoPost {
   final int likesCount;
   final int commentsCount;
   final int sharesCount;
+  
+  // NEW: Analytics fields
   final int viewsCount;
+  final int uniqueViewsCount;
+  final Map<String, dynamic> analyticsData;
+  final DateTime? lastViewedAt;
+  
   final bool isLikedByCurrentUser;
   final bool isSavedByCurrentUser;
   final DateTime createdAt;
@@ -30,7 +36,13 @@ class VideoPost {
     required this.likesCount,
     required this.commentsCount,
     required this.sharesCount,
+    
+    // NEW: Analytics defaults
     this.viewsCount = 0,
+    this.uniqueViewsCount = 0,
+    this.analyticsData = const {},
+    this.lastViewedAt,
+    
     required this.isLikedByCurrentUser,
     required this.isSavedByCurrentUser,
     required this.createdAt,
@@ -142,7 +154,15 @@ class VideoPost {
       likesCount: json['likesCount'] as int? ?? likes.length,
       commentsCount: json['commentsCount'] as int? ?? 0,
       sharesCount: json['sharesCount'] as int? ?? 0,
+      
+      // NEW: Analytics fields
       viewsCount: json['viewsCount'] as int? ?? 0,
+      uniqueViewsCount: json['uniqueViewsCount'] as int? ?? 0,
+      analyticsData: Map<String, dynamic>.from(json['analyticsData'] as Map? ?? {}),
+      lastViewedAt: json['lastViewedAt'] != null 
+        ? DateTime.tryParse(json['lastViewedAt'] as String)
+        : null,
+      
       isLikedByCurrentUser: isLikedByCurrentUser,
       isSavedByCurrentUser: isSavedByCurrentUser,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
@@ -193,7 +213,13 @@ class VideoPost {
       'likesCount': likesCount,
       'commentsCount': commentsCount,
       'sharesCount': sharesCount,
+      
+      // NEW: Analytics fields
       'viewsCount': viewsCount,
+      'uniqueViewsCount': uniqueViewsCount,
+      'analyticsData': analyticsData,
+      'lastViewedAt': lastViewedAt?.toIso8601String(),
+      
       'isLikedByCurrentUser': isLikedByCurrentUser,
       'isSavedByCurrentUser': isSavedByCurrentUser,
       'createdAt': createdAt.toIso8601String(),
@@ -212,7 +238,13 @@ class VideoPost {
     int? likesCount,
     int? commentsCount,
     int? sharesCount,
+    
+    // NEW: Analytics fields
     int? viewsCount,
+    int? uniqueViewsCount,
+    Map<String, dynamic>? analyticsData,
+    DateTime? lastViewedAt,
+    
     bool? isLikedByCurrentUser,
     bool? isSavedByCurrentUser,
     DateTime? createdAt,
@@ -229,7 +261,13 @@ class VideoPost {
       likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
       sharesCount: sharesCount ?? this.sharesCount,
+      
+      // NEW: Analytics fields
       viewsCount: viewsCount ?? this.viewsCount,
+      uniqueViewsCount: uniqueViewsCount ?? this.uniqueViewsCount,
+      analyticsData: analyticsData ?? this.analyticsData,
+      lastViewedAt: lastViewedAt ?? this.lastViewedAt,
+      
       isLikedByCurrentUser: isLikedByCurrentUser ?? this.isLikedByCurrentUser,
       isSavedByCurrentUser: isSavedByCurrentUser ?? this.isSavedByCurrentUser,
       createdAt: createdAt ?? this.createdAt,
@@ -241,7 +279,36 @@ class VideoPost {
   String get formattedLikesCount => _formatCount(likesCount);
   String get formattedCommentsCount => _formatCount(commentsCount);
   String get formattedSharesCount => _formatCount(sharesCount);
+  
+  // NEW: Analytics helper methods
   String get formattedViewsCount => _formatCount(viewsCount);
+  String get formattedUniqueViewsCount => _formatCount(uniqueViewsCount);
+  
+  double get engagementRate {
+    if (viewsCount == 0) return 0.0;
+    final totalEngagements = likesCount + commentsCount + sharesCount;
+    return (totalEngagements / viewsCount) * 100;
+  }
+  
+  String get formattedEngagementRate => '${engagementRate.toStringAsFixed(1)}%';
+  
+  double get uniqueViewRate {
+    if (viewsCount == 0) return 0.0;
+    return (uniqueViewsCount / viewsCount) * 100;
+  }
+  
+  String get formattedUniqueViewRate => '${uniqueViewRate.toStringAsFixed(1)}%';
+  
+  // Check if video is trending (simple heuristic)
+  bool get isTrending {
+    final hoursSinceCreated = DateTime.now().difference(createdAt).inHours;
+    if (hoursSinceCreated == 0) return false;
+    
+    final viewsPerHour = viewsCount / hoursSinceCreated;
+    final engagementThreshold = 5.0; // 5% engagement rate
+    
+    return viewsPerHour > 10 && engagementRate > engagementThreshold;
+  }
 
   String _formatCount(int count) {
     if (count < 1000) {
@@ -270,7 +337,7 @@ class VideoPost {
 
   @override
   String toString() {
-    return 'VideoPost(id: $id, user: ${user.username}, description: $description, likesCount: $likesCount)';
+    return 'VideoPost(id: $id, user: ${user.username}, description: $description, likesCount: $likesCount, viewsCount: $viewsCount)';
   }
 
   @override

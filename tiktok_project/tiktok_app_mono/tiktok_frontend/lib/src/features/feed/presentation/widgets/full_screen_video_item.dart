@@ -1,4 +1,4 @@
-// tiktok_frontend/lib/src/features/feed/presentation/widgets/full_screen_video_item.dart - UPDATED WITH FOLLOW SYSTEM
+// tiktok_frontend/lib/src/features/feed/presentation/widgets/full_screen_video_item.dart - UPDATED WITH ANALYTICS
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +6,7 @@ import 'package:tiktok_frontend/src/features/feed/domain/models/video_post_model
 import 'package:tiktok_frontend/src/features/feed/presentation/widgets/comment_bottom_sheet.dart';
 import 'package:tiktok_frontend/src/features/follow/presentation/widgets/follow_button_widget.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
+import 'package:tiktok_frontend/src/features/analytics/domain/services/analytics_service.dart'; // NEW IMPORT
 
 class FullScreenVideoItem extends StatefulWidget {
   final VideoPost videoPost;
@@ -39,6 +40,13 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
   
   // Local state for comments count
   late int _localCommentsCount;
+  
+  // NEW: Analytics tracking variables
+  DateTime? _playStartTime;
+  Duration _totalWatchTime = Duration.zero;
+  bool _hasTrackedInitialView = false;
+  bool _isViewingActivelyTracked = false;
+  late AnalyticsService _analyticsService;
 
   @override
   void initState() {
@@ -46,12 +54,15 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     WidgetsBinding.instance.addObserver(this);
     _localCommentsCount = widget.videoPost.commentsCount;
     
+    // NEW: Initialize analytics service
+    _analyticsService = Provider.of<AnalyticsService>(context, listen: false);
+    
     // Debug user info
     print("[FullScreenVideoItem: ${widget.videoPost.id}] === INIT STATE ===");
     print("[FullScreenVideoItem: ${widget.videoPost.id}] Username: '${widget.videoPost.user.username}'");
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] User object: ${widget.videoPost.user}");
+    print("[FullScreenVideoItem: ${widget.videoPost.id}] Views: ${widget.videoPost.viewsCount}");
+    print("[FullScreenVideoItem: ${widget.videoPost.id}] Unique Views: ${widget.videoPost.uniqueViewsCount}");
     print("[FullScreenVideoItem: ${widget.videoPost.id}] URL: ${widget.videoPost.videoUrl}");
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] Description: ${widget.videoPost.description}");
     print("[FullScreenVideoItem: ${widget.videoPost.id}] ================");
     
     _initializeVideoPlayer();
@@ -85,6 +96,9 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
         if (widget.isActive) {
           await _videoPlayerController!.play();
           print("[FullScreenVideoItem: ${widget.videoPost.id}] Auto-playing because isActive is true.");
+          
+          // NEW: Track initial view when video starts playing
+          _trackVideoPlay();
         } else {
           await _videoPlayerController!.pause();
         }
@@ -100,13 +114,101 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     if (!mounted || _videoPlayerController == null || !_videoPlayerController!.value.isInitialized) return;
     final value = _videoPlayerController!.value;
     bool needsSetState = false;
-    if (_isPlaying != value.isPlaying) { _isPlaying = value.isPlaying; needsSetState = true; }
+    
+    // Handle play/pause state changes
+    if (_isPlaying != value.isPlaying) { 
+      _isPlaying = value.isPlaying; 
+      needsSetState = true;
+      
+      // NEW: Track play/pause for analytics
+      if (_isPlaying) {
+        _trackVideoPlay();
+      } else {
+        _trackVideoPause();
+      }
+    }
+    
     if (_isBuffering != value.isBuffering) { _isBuffering = value.isBuffering; needsSetState = true; }
     if (value.hasError && !_hasError) { 
       print("[FullScreenVideoItem: ${widget.videoPost.id}] VideoPlayerError: ${value.errorDescription}");
       _hasError = true; needsSetState = true;
+      
+      // NEW: Track error for analytics
+      _trackVideoError(value.errorDescription);
     }
     if (needsSetState) setState(() {});
+  }
+
+  // NEW: Analytics tracking methods
+  void _trackVideoPlay() {
+    if (!_isViewingActivelyTracked) {
+      _playStartTime = DateTime.now();
+      _isViewingActivelyTracked = true;
+      
+      // Track initial view if not already tracked
+      if (!_hasTrackedInitialView) {
+        _trackInitialView();
+        _hasTrackedInitialView = true;
+      }
+      
+      print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Started tracking video play at ${_playStartTime}");
+    }
+  }
+
+  void _trackVideoPause() {
+    if (_isViewingActivelyTracked && _playStartTime != null) {
+      final watchDuration = DateTime.now().difference(_playStartTime!);
+      _totalWatchTime += watchDuration;
+      _isViewingActivelyTracked = false;
+      
+      print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Paused video, watch duration: ${watchDuration.inSeconds}s, total: ${_totalWatchTime.inSeconds}s");
+      
+      // Track view with duration if watched for at least 1 second
+      if (watchDuration.inSeconds >= 1) {
+        _trackViewWithDuration(watchDuration.inSeconds);
+      }
+    }
+  }
+
+  void _trackInitialView() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUser?.id;
+    
+    // Track the initial view
+    _analyticsService.autoTrackView(
+      videoId: widget.videoPost.id,
+      userId: currentUserId,
+      viewDuration: 0, // Initial view, no duration yet
+      viewSource: 'feed',
+    );
+    
+    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Tracked initial view for user: $currentUserId");
+  }
+
+  void _trackViewWithDuration(int durationSeconds) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUser?.id;
+    
+    // Track view with duration
+    _analyticsService.autoTrackView(
+      videoId: widget.videoPost.id,
+      userId: currentUserId,
+      viewDuration: durationSeconds,
+      viewSource: 'feed',
+    );
+    
+    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Tracked view with duration: ${durationSeconds}s for user: $currentUserId");
+  }
+
+  void _trackVideoError(String? errorDescription) {
+    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Video error tracked: $errorDescription");
+    // Could implement error tracking to analytics service if needed
+  }
+
+  void _trackVideoComplete() {
+    // Track when video playback completes (reaches end)
+    _trackVideoPause(); // This will handle the final duration tracking
+    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Video playback completed");
   }
 
   @override
@@ -121,11 +223,22 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     if (widget.isActive != oldWidget.isActive) {
       print("[FullScreenVideoItem: ${widget.videoPost.id}] isActive changed to ${widget.isActive}");
       if (_isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
-        widget.isActive ? _videoPlayerController!.play() : _videoPlayerController!.pause();
+        if (widget.isActive) {
+          _videoPlayerController!.play();
+        } else {
+          _videoPlayerController!.pause();
+        }
       }
     }
+    
+    // NEW: Reset analytics tracking if video changed
+    if (widget.videoPost.id != oldWidget.videoPost.id) {
+      _resetAnalyticsTracking();
+    }
+    
     if (widget.videoPost.videoUrl != oldWidget.videoPost.videoUrl) {
         print("[FullScreenVideoItem: ${widget.videoPost.id}] Video URL changed. Re-initializing player.");
+        _resetAnalyticsTracking();
         _initializeVideoPlayer();
     }
     if (widget.videoPost.isLikedByCurrentUser != oldWidget.videoPost.isLikedByCurrentUser ||
@@ -143,21 +256,42 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
       });
     }
   }
+
+  // NEW: Reset analytics tracking state
+  void _resetAnalyticsTracking() {
+    _trackVideoPause(); // Track any remaining time from previous video
+    _playStartTime = null;
+    _totalWatchTime = Duration.zero;
+    _hasTrackedInitialView = false;
+    _isViewingActivelyTracked = false;
+    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Analytics tracking reset");
+  }
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (!_isInitialized || _videoPlayerController == null || !_videoPlayerController!.value.isInitialized) return;
+    
     if (state == AppLifecycleState.paused) {
-      if (_videoPlayerController!.value.isPlaying) _videoPlayerController!.pause();
+      if (_videoPlayerController!.value.isPlaying) {
+        _videoPlayerController!.pause();
+        // Analytics tracking will be handled by _videoPlayerListener
+      }
     } else if (state == AppLifecycleState.resumed) {
-      if (widget.isActive) _videoPlayerController!.play();
+      if (widget.isActive) {
+        _videoPlayerController!.play();
+        // Analytics tracking will be handled by _videoPlayerListener
+      }
     }
   }
 
   @override
   void dispose() {
     print("[FullScreenVideoItem: ${widget.videoPost.id}] dispose called.");
+    
+    // NEW: Track final analytics before disposing
+    _trackVideoPause(); // Track any remaining watch time
+    
     WidgetsBinding.instance.removeObserver(this);
     widget.onDispose(); 
     _videoPlayerController?.removeListener(_videoPlayerListener);
@@ -205,7 +339,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     });
   }
 
-  // NEW METHOD: Check if current user should see follow button
+  // Check if current user should see follow button
   bool _shouldShowFollowButton() {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
@@ -218,13 +352,13 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
 
   @override
   Widget build(BuildContext context) {
-    // Debug username in build
+    // Debug info in build
     print('[FullScreenVideoItem: ${widget.videoPost.id}] === BUILD ===');
     print('[FullScreenVideoItem: ${widget.videoPost.id}] Username: "${widget.videoPost.user.username}"');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] IsLiked: ${widget.videoPost.isLikedByCurrentUser}');
+    print('[FullScreenVideoItem: ${widget.videoPost.id}] Views: ${widget.videoPost.formattedViewsCount}');
     print('[FullScreenVideoItem: ${widget.videoPost.id}] Likes: ${widget.videoPost.likesCount}');
+    print('[FullScreenVideoItem: ${widget.videoPost.id}] Engagement: ${widget.videoPost.formattedEngagementRate}');
     print('[FullScreenVideoItem: ${widget.videoPost.id}] IsActive: ${widget.isActive}');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] HasError: $_hasError');
     print('[FullScreenVideoItem: ${widget.videoPost.id}] =============');
     
     final screenSize = MediaQuery.of(context).size;
@@ -317,6 +451,34 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
               )
             ),
             
+            // NEW: Analytics overlay (top right) - showing view count
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.visibility, color: Colors.white, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.videoPost.formattedViewsCount,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
             // Bottom content
             Positioned(
               bottom: 0, left: 0, right: 0,
@@ -387,40 +549,22 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                        // NEW: Follow button
+                                        // Follow button
                                         if (_shouldShowFollowButton()) ...[
                                           const SizedBox(width: 8),
                                           FollowButtonWidget(
                                             targetUserId: widget.videoPost.user.id,
                                             targetUsername: widget.videoPost.user.username,
-                                            initialIsFollowing: false, // TODO: Get actual follow status
-                                            initialFollowerCount: 0, // TODO: Get actual follower count
+                                            initialIsFollowing: false,
+                                            initialFollowerCount: 0,
                                             style: FollowButtonStyle.compact,
                                             onFollowChanged: () {
-                                              // Handle follow state change if needed
                                               print('[FullScreenVideoItem] Follow state changed for ${widget.videoPost.user.username}');
                                             },
                                           ),
                                         ],
                                       ],
                                     ),
-                                    // DEBUG: Hiển thị thông tin debug nếu username có vấn đề
-                                    if (widget.videoPost.user.username == 'Unknown User' || widget.videoPost.user.username.isEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.withOpacity(0.8),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          'DEBUG: Raw="${widget.videoPost.user.username}"',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
                                   ],
                                 ),
                               ),
@@ -463,7 +607,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                             ),
                           const SizedBox(height: 8),
                           
-                          // Audio info
+                          // Audio info with analytics
                           Row(
                             children: [
                               const Icon(Icons.music_note, color: Colors.white, size: 16), 
@@ -486,6 +630,24 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                                   )
                                 )
                               ),
+                              // NEW: Show trending indicator
+                              if (widget.videoPost.isTrending)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'TRENDING',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                             ]
                           ),
                         ],
@@ -503,7 +665,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                           // Like button
                           _buildInteractionButton(
                             icon: widget.videoPost.isLikedByCurrentUser ? Icons.favorite_rounded : Icons.favorite_border_outlined, 
-                            label: widget.videoPost.likesCount.toString(), 
+                            label: widget.videoPost.formattedLikesCount, 
                             onPressed: widget.onLikeButtonPressed, 
                             iconColor: widget.videoPost.isLikedByCurrentUser ? Colors.redAccent[400] : Colors.white
                           ),
@@ -529,7 +691,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                           // Share button
                           _buildInteractionButton(
                             icon: Icons.reply_rounded, 
-                            label: widget.videoPost.sharesCount.toString(), 
+                            label: widget.videoPost.formattedSharesCount, 
                             onPressed: () { 
                               print("Share button tapped for video: ${widget.videoPost.id}"); 
                             }

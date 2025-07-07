@@ -38,7 +38,8 @@ class ShareResponse {
     required this.newSharesCount,
   });
 
-  factory ShareResponse.fromJson(Map<String, dynamic> json, ShareMethod method) {
+  factory ShareResponse.fromJson(
+      Map<String, dynamic> json, ShareMethod method) {
     return ShareResponse(
       success: true,
       message: json['message'] as String? ?? 'Video shared successfully',
@@ -51,8 +52,10 @@ class ShareResponse {
 class ShareService {
   static const String _appName = 'TikTok Clone';
   // Updated to use ngrok URL for testing
-  static const String _baseShareUrl = 'https://d46e-2a09-bac5-d46a-25cd-00-3c4-4e.ngrok-free.app/video';
-  static const String _apiBaseUrl = 'https://d46e-2a09-bac5-d46a-25cd-00-3c4-4e.ngrok-free.app';
+  static const String _baseShareUrl =
+      'https://9146-113-176-64-137.ngrok-free.app/video';
+  static const String _apiBaseUrl =
+      'https://9146-113-176-64-137.ngrok-free.app';
 
   // Track share on backend
   Future<ShareResponse> trackVideoShare({
@@ -64,36 +67,41 @@ class ShareService {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
       final url = Uri.parse('$baseUrl/$videoId/share');
-      
-      debugPrint('[ShareService] Tracking share: videoId=$videoId, method=${method.value}');
-      
+
+      debugPrint(
+          '[ShareService] Tracking share: videoId=$videoId, method=${method.value}');
+
       final requestBody = {
         'shareMethod': method.value,
         'userId': userId ?? '',
         'shareText': customText ?? '',
       };
-      
-      debugPrint('[ShareService] Request body: ${jsonEncode(requestBody)}');
-      
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(requestBody),
-      ).timeout(const Duration(seconds: 15));
 
-      debugPrint('[ShareService] Track Share Response Status: ${response.statusCode}');
+      debugPrint('[ShareService] Request body: ${jsonEncode(requestBody)}');
+
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json; charset=UTF-8',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(requestBody),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint(
+          '[ShareService] Track Share Response Status: ${response.statusCode}');
       debugPrint('[ShareService] Track Share Response Body: ${response.body}');
-      
+
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         return ShareResponse.fromJson(responseData, method);
       } else {
-        final errorMessage = 'Failed to track share. Status: ${response.statusCode}';
+        final errorMessage =
+            'Failed to track share. Status: ${response.statusCode}';
         debugPrint('[ShareService] $errorMessage, Body: ${response.body}');
-        
+
         String detailedError = errorMessage;
         try {
           final errorData = jsonDecode(response.body);
@@ -101,7 +109,7 @@ class ShareService {
         } catch (e) {
           // If can't parse error, use original message
         }
-        
+
         return ShareResponse(
           success: false,
           message: detailedError,
@@ -143,11 +151,11 @@ class ShareService {
     String? customMessage,
   }) {
     final shareUrl = getShareUrl(videoId);
-    
+
     if (customMessage != null && customMessage.isNotEmpty) {
       return '$customMessage\n\n🎬 "$videoTitle"\n👤 by @$username\n\n📱 Watch here: $shareUrl\n\n#TikTokClone #Viral';
     }
-    
+
     return '🔥 Check out this amazing video by @$username!\n\n🎬 "$videoTitle"\n\n📱 Watch here: $shareUrl\n\n#TikTokClone #Viral';
   }
 
@@ -160,20 +168,26 @@ class ShareService {
     String? customMessage,
   }) {
     final shareUrl = getShareUrl(videoId);
-    
+
     switch (method) {
       case ShareMethod.whatsapp:
-        return customMessage ?? '🔥 Hey! Check out this amazing video by @$username\n\n"$videoTitle"\n\n📱 $shareUrl';
-      
+        return customMessage ??
+            '🔥 Hey! Check out this amazing video by @$username\n\n"$videoTitle"\n\n📱 $shareUrl';
+
       case ShareMethod.facebook:
-        return customMessage ?? 'Check out this incredible video by @$username on our TikTok Clone app! 🎬\n\n$shareUrl';
-      
+        return customMessage ??
+            'Check out this incredible video by @$username on our TikTok Clone app! 🎬\n\n$shareUrl';
+
       case ShareMethod.twitter:
-        final shortTitle = videoTitle.length > 50 ? '${videoTitle.substring(0, 50)}...' : videoTitle;
-        return customMessage ?? '🔥 Amazing video by @$username: "$shortTitle"\n\n📱 $shareUrl\n\n#TikTokClone #Viral';
-      
+        final shortTitle = videoTitle.length > 50
+            ? '${videoTitle.substring(0, 50)}...'
+            : videoTitle;
+        return customMessage ??
+            '🔥 Amazing video by @$username: "$shortTitle"\n\n📱 $shareUrl\n\n#TikTokClone #Viral';
+
       case ShareMethod.email:
-        return customMessage ?? '''Hi!
+        return customMessage ??
+            '''Hi!
 
 I wanted to share this amazing video with you:
 
@@ -184,10 +198,11 @@ You can watch it here: $shareUrl
 It's from our new TikTok Clone app - check it out!
 
 Best regards''';
-      
+
       case ShareMethod.sms:
-        return customMessage ?? '🔥 Check this out: "$videoTitle" by @$username\n\n$shareUrl';
-      
+        return customMessage ??
+            '🔥 Check this out: "$videoTitle" by @$username\n\n$shareUrl';
+
       default:
         return generateShareText(
           videoTitle: videoTitle,
@@ -216,7 +231,7 @@ Best regards''';
       );
 
       final result = await Share.share(shareText);
-      
+
       ShareResponse trackResponse;
       try {
         trackResponse = await trackVideoShare(
@@ -237,8 +252,8 @@ Best regards''';
 
       return ShareResponse(
         success: result.status == ShareResultStatus.success,
-        message: result.status == ShareResultStatus.success 
-            ? 'Video shared successfully!' 
+        message: result.status == ShareResultStatus.success
+            ? 'Video shared successfully!'
             : 'Share was cancelled',
         method: ShareMethod.native,
         newSharesCount: trackResponse.newSharesCount,
@@ -272,10 +287,11 @@ Best regards''';
       );
 
       final whatsappUrl = _getWhatsAppUrl(shareText);
-      
+
       if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
-        await launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication);
-        
+        await launchUrl(Uri.parse(whatsappUrl),
+            mode: LaunchMode.externalApplication);
+
         final trackResponse = await trackVideoShare(
           videoId: videoId,
           method: ShareMethod.whatsapp,
@@ -321,10 +337,11 @@ Best regards''';
       );
 
       final facebookUrl = _getFacebookUrl(shareText);
-      
+
       if (await canLaunchUrl(Uri.parse(facebookUrl))) {
-        await launchUrl(Uri.parse(facebookUrl), mode: LaunchMode.externalApplication);
-        
+        await launchUrl(Uri.parse(facebookUrl),
+            mode: LaunchMode.externalApplication);
+
         final trackResponse = await trackVideoShare(
           videoId: videoId,
           method: ShareMethod.facebook,
@@ -370,10 +387,11 @@ Best regards''';
       );
 
       final twitterUrl = _getTwitterUrl(shareText);
-      
+
       if (await canLaunchUrl(Uri.parse(twitterUrl))) {
-        await launchUrl(Uri.parse(twitterUrl), mode: LaunchMode.externalApplication);
-        
+        await launchUrl(Uri.parse(twitterUrl),
+            mode: LaunchMode.externalApplication);
+
         final trackResponse = await trackVideoShare(
           videoId: videoId,
           method: ShareMethod.twitter,
@@ -419,10 +437,10 @@ Best regards''';
       );
 
       final smsUrl = _getSMSUrl(shareText);
-      
+
       if (await canLaunchUrl(Uri.parse(smsUrl))) {
         await launchUrl(Uri.parse(smsUrl));
-        
+
         final trackResponse = await trackVideoShare(
           videoId: videoId,
           method: ShareMethod.sms,
@@ -468,10 +486,10 @@ Best regards''';
       );
 
       final emailUrl = _getEmailUrl(shareText, videoTitle);
-      
+
       if (await canLaunchUrl(Uri.parse(emailUrl))) {
         await launchUrl(Uri.parse(emailUrl));
-        
+
         final trackResponse = await trackVideoShare(
           videoId: videoId,
           method: ShareMethod.email,
@@ -506,10 +524,10 @@ Best regards''';
   }) async {
     try {
       final shareUrl = getShareUrl(videoId);
-      
+
       await Clipboard.setData(ClipboardData(text: shareUrl));
       debugPrint('[ShareService] Link copied to clipboard: $shareUrl');
-      
+
       ShareResponse trackResponse;
       try {
         trackResponse = await trackVideoShare(
@@ -550,7 +568,7 @@ Best regards''';
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
       final url = Uri.parse('$baseUrl/$videoId/share-analytics');
-      
+
       final response = await http.get(
         url,
         headers: {
@@ -562,7 +580,8 @@ Best regards''';
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else {
-        debugPrint('[ShareService] Failed to get analytics: ${response.statusCode}');
+        debugPrint(
+            '[ShareService] Failed to get analytics: ${response.statusCode}');
         return null;
       }
     } catch (e) {
@@ -597,8 +616,10 @@ Best regards''';
   Future<bool> validateShareUrl(String videoId) async {
     try {
       final url = getApiUrl(videoId);
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
-      debugPrint('[ShareService] Share URL validation response: ${response.statusCode}');
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+      debugPrint(
+          '[ShareService] Share URL validation response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('[ShareService] Share URL validation failed: $e');
@@ -609,7 +630,7 @@ Best regards''';
   // Helper methods for generating URLs
   String _getWhatsAppUrl(String text) {
     final encodedText = Uri.encodeComponent(text);
-    
+
     if (kIsWeb) {
       return 'https://web.whatsapp.com/send?text=$encodedText';
     } else {
@@ -626,7 +647,8 @@ Best regards''';
   }
 
   String _getFacebookUrl(String text) {
-    final encodedUrl = Uri.encodeComponent(getShareUrl(text.split('\n').last.trim()));
+    final encodedUrl =
+        Uri.encodeComponent(getShareUrl(text.split('\n').last.trim()));
     return 'https://www.facebook.com/sharer/sharer.php?u=$encodedUrl';
   }
 
@@ -637,11 +659,11 @@ Best regards''';
 
   String _getSMSUrl(String text) {
     final encodedText = Uri.encodeComponent(text);
-    
+
     if (kIsWeb) {
       return '';
     }
-    
+
     try {
       if (Platform.isIOS) {
         return 'sms:&body=$encodedText';
@@ -655,7 +677,8 @@ Best regards''';
 
   String _getEmailUrl(String text, String subject) {
     final encodedText = Uri.encodeComponent(text);
-    final encodedSubject = Uri.encodeComponent('Check out this video on $_appName: $subject');
+    final encodedSubject =
+        Uri.encodeComponent('Check out this video on $_appName: $subject');
     return 'mailto:?subject=$encodedSubject&body=$encodedText';
   }
 
@@ -667,26 +690,27 @@ Best regards''';
           if (kIsWeb) return true;
           return await canLaunchUrl(Uri.parse('whatsapp://'));
         case ShareMethod.facebook:
-          return await canLaunchUrl(Uri.parse('fb://')) || 
-                 await canLaunchUrl(Uri.parse('https://facebook.com'));
+          return await canLaunchUrl(Uri.parse('fb://')) ||
+              await canLaunchUrl(Uri.parse('https://facebook.com'));
         case ShareMethod.instagram:
           return await canLaunchUrl(Uri.parse('instagram://')) ||
-                 await canLaunchUrl(Uri.parse('https://instagram.com'));
+              await canLaunchUrl(Uri.parse('https://instagram.com'));
         case ShareMethod.twitter:
           return await canLaunchUrl(Uri.parse('twitter://')) ||
-                 await canLaunchUrl(Uri.parse('https://twitter.com'));
+              await canLaunchUrl(Uri.parse('https://twitter.com'));
         case ShareMethod.sms:
           return !kIsWeb;
         case ShareMethod.email:
           return await canLaunchUrl(Uri.parse('mailto:')) ||
-                 await canLaunchUrl(Uri.parse('https://mail.google.com'));
+              await canLaunchUrl(Uri.parse('https://mail.google.com'));
         case ShareMethod.native:
         case ShareMethod.copyLink:
         case ShareMethod.other:
           return true;
       }
     } catch (e) {
-      debugPrint('[ShareService] Error checking availability for ${method.value}: $e');
+      debugPrint(
+          '[ShareService] Error checking availability for ${method.value}: $e');
       return method == ShareMethod.copyLink || method == ShareMethod.native;
     }
   }
@@ -694,17 +718,17 @@ Best regards''';
   // Get available share methods for current platform
   Future<List<ShareMethod>> getAvailableShareMethods() async {
     final List<ShareMethod> available = [];
-    
+
     available.addAll([
       ShareMethod.copyLink,
       ShareMethod.native,
     ]);
-    
+
     for (final method in ShareMethod.values) {
       if (method == ShareMethod.copyLink || method == ShareMethod.native) {
         continue;
       }
-      
+
       try {
         if (await isShareMethodAvailable(method)) {
           available.add(method);
@@ -713,14 +737,14 @@ Best regards''';
         debugPrint('[ShareService] Error checking method ${method.value}: $e');
       }
     }
-    
+
     if (!available.contains(ShareMethod.copyLink)) {
       available.insert(0, ShareMethod.copyLink);
     }
     if (!available.contains(ShareMethod.native)) {
       available.insert(1, ShareMethod.native);
     }
-    
+
     return available;
   }
 
@@ -729,9 +753,11 @@ Best regards''';
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
       final healthUrl = Uri.parse('$baseUrl/debug/info');
-      
-      final response = await http.get(healthUrl).timeout(const Duration(seconds: 5));
-      debugPrint('[ShareService] Share API test response: ${response.statusCode}');
+
+      final response =
+          await http.get(healthUrl).timeout(const Duration(seconds: 5));
+      debugPrint(
+          '[ShareService] Share API test response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('[ShareService] Share API test failed: $e');
@@ -744,20 +770,23 @@ Best regards''';
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/analytics');
       final url = Uri.parse('$baseUrl/track-shares-bulk');
-      
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'shares': shareEvents,
-          'timestamp': DateTime.now().toIso8601String(),
-        }),
-      ).timeout(const Duration(seconds: 10));
 
-      debugPrint('[ShareService] Bulk share tracking response: ${response.statusCode}');
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json; charset=UTF-8',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({
+              'shares': shareEvents,
+              'timestamp': DateTime.now().toIso8601String(),
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      debugPrint(
+          '[ShareService] Bulk share tracking response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('[ShareService] Error in bulk share tracking: $e');
@@ -770,13 +799,14 @@ Best regards''';
     try {
       final analytics = await getShareAnalytics('summary');
       if (analytics == null) return await getAvailableShareMethods();
-      
-      final breakdown = analytics['globalShareMethodBreakdown'] as Map<String, dynamic>?;
+
+      final breakdown =
+          analytics['globalShareMethodBreakdown'] as Map<String, dynamic>?;
       if (breakdown == null) return await getAvailableShareMethods();
-      
+
       final sortedMethods = breakdown.entries.toList()
         ..sort((a, b) => (b.value as int).compareTo(a.value as int));
-      
+
       final popularMethods = <ShareMethod>[];
       for (final entry in sortedMethods) {
         final method = ShareMethod.values.firstWhere(
@@ -787,8 +817,10 @@ Best regards''';
           popularMethods.add(method);
         }
       }
-      
-      return popularMethods.isNotEmpty ? popularMethods : await getAvailableShareMethods();
+
+      return popularMethods.isNotEmpty
+          ? popularMethods
+          : await getAvailableShareMethods();
     } catch (e) {
       debugPrint('[ShareService] Error getting popular methods: $e');
       return await getAvailableShareMethods();

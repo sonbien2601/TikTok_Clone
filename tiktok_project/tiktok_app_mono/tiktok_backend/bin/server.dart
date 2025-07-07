@@ -20,6 +20,7 @@ import 'package:tiktok_backend/src/features/videos/video_routes.dart';
 import 'package:tiktok_backend/src/features/comments/comment_routes.dart';
 import 'package:tiktok_backend/src/features/notifications/notification_routes.dart';
 import 'package:tiktok_backend/src/features/analytics/analytics_routes.dart';
+import 'package:tiktok_backend/src/features/search/search_routes.dart';
 
 Future<void> main(List<String>? args) async {
   print('[Server] 🚀 Starting TikTok Backend Server with Follow System and Analytics...');
@@ -39,8 +40,8 @@ Future<void> main(List<String>? args) async {
     router.get('/health', (Request request) {
       return Response.ok(jsonEncode({
         'status': 'healthy',
-        'service': 'tiktok_backend_with_follow_and_analytics',
-        'version': '1.2.0',
+        'service': 'tiktok_backend_with_follow_analytics_and_search',
+        'version': '1.3.0',
         'timestamp': DateTime.now().toIso8601String(),
         'features': [
           'user_management',
@@ -49,7 +50,8 @@ Future<void> main(List<String>? args) async {
           'comment_system',
           'notification_system',
           'video_analytics',
-          'public_video_access', // NEW FEATURE
+          'public_video_access',
+          'user_search_and_discovery',
         ],
       }), headers: {'Content-Type': 'application/json'});
     });
@@ -61,6 +63,7 @@ Future<void> main(List<String>? args) async {
     router.mount('/api/comments', createCommentRoutes());
     router.mount('/api/notifications', createNotificationRoutes());
     router.mount('/api/analytics', createAnalyticsRoutes());
+    router.mount('/api/search', createSearchRoutes());
 
     // Static file handler
     final uploadsPath = p.join(Directory.current.path, 'uploads');
@@ -73,141 +76,141 @@ Future<void> main(List<String>? args) async {
 
     // PUBLIC VIDEO ACCESS - No auth required
     router.get('/video/<videoId>', (Request request, String videoId) async {
-  print('[Server] Public video access: $videoId');
-  
-  try {
-    // Validate video ID format
-    if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
-      return _buildVideoNotFoundPage();
-    }
+      print('[Server] Public video access: $videoId');
+      
+      try {
+        // Validate video ID format
+        if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
+          return _buildVideoNotFoundPage();
+        }
 
-    ObjectId videoObjectId;
-    try {
-      videoObjectId = ObjectId.fromHexString(videoId);
-    } catch (e) {
-      return _buildVideoNotFoundPage();
-    }
+        ObjectId videoObjectId;
+        try {
+          videoObjectId = ObjectId.fromHexString(videoId);
+        } catch (e) {
+          return _buildVideoNotFoundPage();
+        }
 
-    final videosCollection = DatabaseService.db.collection('videos');
-    final usersCollection = DatabaseService.db.collection('users');
+        final videosCollection = DatabaseService.db.collection('videos');
+        final usersCollection = DatabaseService.db.collection('users');
 
-    // Get video data
-    final video = await videosCollection.findOne(where.id(videoObjectId));
-    if (video == null) {
-      return _buildVideoNotFoundPage();
-    }
+        // Get video data
+        final video = await videosCollection.findOne(where.id(videoObjectId));
+        if (video == null) {
+          return _buildVideoNotFoundPage();
+        }
 
-    // Get user data
-    final userId = video['userId'] as ObjectId;
-    final user = await usersCollection.findOne(where.id(userId));
-    
-    final username = user?['username'] as String? ?? 'Unknown User';
-    final userAvatar = user?['avatarUrl'] as String?;
+        // Get user data
+        final userId = video['userId'] as ObjectId;
+        final user = await usersCollection.findOne(where.id(userId));
+        
+        final username = user?['username'] as String? ?? 'Unknown User';
+        final userAvatar = user?['avatarUrl'] as String?;
 
-    // Build video landing page HTML
-    final html = _buildVideoLandingPage(
-      videoId: videoId,
-      title: video['description'] as String? ?? 'Check out this video!',
-      username: username,
-      userAvatar: userAvatar,
-      videoUrl: video['videoUrl'] as String? ?? '',
-      viewsCount: video['viewsCount'] as int? ?? 0,
-      likesCount: video['likesCount'] as int? ?? 0,
-      sharesCount: video['sharesCount'] as int? ?? 0,
-      createdAt: video['createdAt'] as String?,
-    );
+        // Build video landing page HTML
+        final html = _buildVideoLandingPage(
+          videoId: videoId,
+          title: video['description'] as String? ?? 'Check out this video!',
+          username: username,
+          userAvatar: userAvatar,
+          videoUrl: video['videoUrl'] as String? ?? '',
+          viewsCount: video['viewsCount'] as int? ?? 0,
+          likesCount: video['likesCount'] as int? ?? 0,
+          sharesCount: video['sharesCount'] as int? ?? 0,
+          createdAt: video['createdAt'] as String?,
+        );
 
-    // Track the view
-    _trackPublicView(videoId);
+        // Track the view
+        _trackPublicView(videoId);
 
-    return Response.ok(
-      html,
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
-      },
-    );
+        return Response.ok(
+          html,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600',
+          },
+        );
 
-  } catch (e, s) {
-    print('[Server] Error serving public video: $e\n$s');
-    return _buildErrorPage();
-  }
-});
+      } catch (e, s) {
+        print('[Server] Error serving public video: $e\n$s');
+        return _buildErrorPage();
+      }
+    });
 
     // API endpoint to get video data for embedding
     router.get('/api/public/video/<videoId>', (Request request, String videoId) async {
-  print('[Server] Public video API access: $videoId');
-  
-  try {
-    if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
-      return Response(404, 
-        body: jsonEncode({'error': 'Video not found'}),
-        headers: {'Content-Type': 'application/json'}
-      );
-    }
+      print('[Server] Public video API access: $videoId');
+      
+      try {
+        if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
+          return Response(404, 
+            body: jsonEncode({'error': 'Video not found'}),
+            headers: {'Content-Type': 'application/json'}
+          );
+        }
 
-    ObjectId videoObjectId;
-    try {
-      videoObjectId = ObjectId.fromHexString(videoId);
-    } catch (e) {
-      return Response(404, 
-        body: jsonEncode({'error': 'Invalid video ID'}),
-        headers: {'Content-Type': 'application/json'}
-      );
-    }
+        ObjectId videoObjectId;
+        try {
+          videoObjectId = ObjectId.fromHexString(videoId);
+        } catch (e) {
+          return Response(404, 
+            body: jsonEncode({'error': 'Invalid video ID'}),
+            headers: {'Content-Type': 'application/json'}
+          );
+        }
 
-    final videosCollection = DatabaseService.db.collection('videos');
-    final usersCollection = DatabaseService.db.collection('users');
+        final videosCollection = DatabaseService.db.collection('videos');
+        final usersCollection = DatabaseService.db.collection('users');
 
-    final video = await videosCollection.findOne(where.id(videoObjectId));
-    if (video == null) {
-      return Response(404, 
-        body: jsonEncode({'error': 'Video not found'}),
-        headers: {'Content-Type': 'application/json'}
-      );
-    }
+        final video = await videosCollection.findOne(where.id(videoObjectId));
+        if (video == null) {
+          return Response(404, 
+            body: jsonEncode({'error': 'Video not found'}),
+            headers: {'Content-Type': 'application/json'}
+          );
+        }
 
-    // Get user data
-    final userId = video['userId'] as ObjectId;
-    final user = await usersCollection.findOne(where.id(userId));
+        // Get user data
+        final userId = video['userId'] as ObjectId;
+        final user = await usersCollection.findOne(where.id(userId));
 
-    // Build public response
-    final publicVideo = {
-      'id': videoId,
-      'description': video['description'],
-      'videoUrl': video['videoUrl'],
-      'user': {
-        'username': user?['username'] ?? 'Unknown User',
-        'avatarUrl': user?['avatarUrl'],
-      },
-      'viewsCount': video['viewsCount'] ?? 0,
-      'likesCount': video['likesCount'] ?? 0,
-      'sharesCount': video['sharesCount'] ?? 0,
-      'createdAt': video['createdAt'],
-    };
+        // Build public response
+        final publicVideo = {
+          'id': videoId,
+          'description': video['description'],
+          'videoUrl': video['videoUrl'],
+          'user': {
+            'username': user?['username'] ?? 'Unknown User',
+            'avatarUrl': user?['avatarUrl'],
+          },
+          'viewsCount': video['viewsCount'] ?? 0,
+          'likesCount': video['likesCount'] ?? 0,
+          'sharesCount': video['sharesCount'] ?? 0,
+          'createdAt': video['createdAt'],
+        };
 
-    return Response.ok(
-      jsonEncode(publicVideo),
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*', // Allow cross-origin requests
-      },
-    );
+        return Response.ok(
+          jsonEncode(publicVideo),
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        );
 
-  } catch (e, s) {
-    print('[Server] Error in public video API: $e\n$s');
-    return Response.internalServerError(
-      body: jsonEncode({'error': 'Internal server error'}),
-      headers: {'Content-Type': 'application/json'}
-    );
-  }
-});
+      } catch (e, s) {
+        print('[Server] Error in public video API: $e\n$s');
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Internal server error'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+    });
 
     // Enhanced debug endpoint with analytics and public access info
     router.get('/api/debug', (Request request) {
       return Response.ok(jsonEncode({
-        'message': 'TikTok Backend API with Follow System & Analytics',
-        'version': '1.2.0',
+        'message': 'TikTok Backend API with Follow System, Analytics & Search',
+        'version': '1.3.0',
         'server_time': DateTime.now().toIso8601String(),
         'endpoints': {
           'users': [
@@ -234,9 +237,9 @@ Future<void> main(List<String>? args) async {
             'GET /{videoId}',
             'POST /{videoId}/like',
             'POST /{videoId}/save',
-            'POST /{videoId}/share', // Added share endpoint
+            'POST /{videoId}/share',
           ],
-          'public_videos': [ // NEW ENDPOINTS
+          'public_videos': [
             'GET /video/{videoId}',
             'GET /api/public/video/{videoId}',
           ],
@@ -259,6 +262,29 @@ Future<void> main(List<String>? args) async {
             'GET /summary?timeframe=24h',
             'GET /debug/info',
           ],
+          'search': [
+            'GET /users?q=query&page=1&limit=20',
+            'GET /trending?limit=10&timeframe=7d',
+            'GET /videos?q=query&page=1&limit=20',
+            'GET /suggestions?q=partial&limit=5',
+            'GET /test',
+            'GET /debug/info',
+          ],
+        },
+        'new_features_phase3': {
+          'user_search_and_discovery': {
+            'description': 'Comprehensive user and video search functionality',
+            'features': [
+              'Search users by username, email, display name',
+              'Trending users with activity-based scoring',
+              'Video search by description and hashtags',
+              'Real-time search suggestions/autocomplete',
+              'Follow status integration in search results',
+              'Pagination support for all search endpoints',
+              'Multiple timeframe support for trending analysis',
+              'Performance optimized with proper indexing',
+            ],
+          },
         },
         'new_features_phase2': {
           'video_analytics': {
@@ -325,7 +351,7 @@ Future<void> main(List<String>? args) async {
     print('🎯 API Base URL: http://${server.address.host}:${server.port}/api');
     print('🐛 Debug Info: http://${server.address.host}:${server.port}/api/debug');
     print('🏥 Health Check: http://${server.address.host}:${server.port}/health');
-    print('📁 Static Files: http://${server.address.host}:${server.port}/Uploads');
+    print('📁 Static Files: http://${server.address.host}:${server.port}/uploads');
     print('');
     print('🆕 NEW FEATURES (Phase 1):');
     print('🤝 Follow System: http://${server.address.host}:${server.port}/api/follow');
@@ -341,6 +367,14 @@ Future<void> main(List<String>? args) async {
     print('   - View trending videos');
     print('   - User analytics dashboard');
     print('   - Test: http://${server.address.host}:${server.port}/api/analytics/debug/info');
+    print('');
+    print('🆕 NEW FEATURES (Phase 3):');
+    print('🔍 User Search & Discovery: http://${server.address.host}:${server.port}/api/search');
+    print('   - Search users by username/email/display name');
+    print('   - Get trending users with activity scoring');
+    print('   - Search videos by description and hashtags');
+    print('   - Real-time search suggestions');
+    print('   - Test: http://${server.address.host}:${server.port}/api/search/test');
     print('');
     print('🆕 NEW FEATURES (Public Access):');
     print('🎥 Public Video Access: http://${server.address.host}:${server.port}/video/{videoId}');
@@ -359,6 +393,11 @@ Future<void> main(List<String>? args) async {
     print('   - Trending videos: GET /api/analytics/trending?timeframe=24h');
     print('   - Public video: GET /video/VIDEO_ID');
     print('   - Public video API: GET /api/public/video/VIDEO_ID');
+    print('   - Search users: GET /api/search/users?q=john&limit=10');
+    print('   - Trending users: GET /api/search/trending?timeframe=24h&limit=5');
+    print('   - Search videos: GET /api/search/videos?q=dance&limit=10');
+    print('   - Search suggestions: GET /api/search/suggestions?q=jo&limit=5');
+    print('   - Search debug: GET /api/search/debug/info');
     print('================================================\n');
   } catch (e, stackTrace) {
     print('\n❌ ================================================');

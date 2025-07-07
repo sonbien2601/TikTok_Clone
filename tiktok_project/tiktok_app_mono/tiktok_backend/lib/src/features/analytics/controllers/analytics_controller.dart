@@ -1,7 +1,6 @@
 // tiktok_backend/lib/src/features/analytics/controllers/analytics_controller.dart
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:mongo_dart/mongo_dart.dart' show ObjectId, SelectorBuilder, modify, where;
 import 'package:tiktok_backend/src/core/config/database_service.dart';
@@ -35,7 +34,6 @@ class AnalyticsController {
       final userIdString = payload['userId'] as String?;
       final viewDuration = payload['viewDuration'] as int? ?? 0; // Duration in seconds
       final viewSource = payload['viewSource'] as String? ?? 'feed'; // 'feed', 'profile', 'search', etc.
-      final isUniqueView = payload['isUniqueView'] as bool? ?? true;
 
       // Validate required fields
       if (videoIdString == null || videoIdString.isEmpty) {

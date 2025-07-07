@@ -10,21 +10,6 @@ Router createCommentRoutes() {
 
   print('[CommentRoutes] Creating comment routes with reply and like features...');
 
-  // Debug middleware for comment routes
-  Middleware commentDebugMiddleware = (Handler innerHandler) {
-    return (Request request) async {
-      final startTime = DateTime.now();
-      print('[CommentRoutes] ${request.method} ${request.url}');
-      print('[CommentRoutes] Path segments: ${request.url.pathSegments}');
-      
-      final response = await innerHandler(request);
-      final duration = DateTime.now().difference(startTime);
-      
-      print('[CommentRoutes] ${request.method} ${request.url.path} - ${response.statusCode} (${duration.inMilliseconds}ms)');
-      return response;
-    };
-  };
-
   // DEBUG ROUTES
   router.get('/debug/info', (Request request) async {
     return Response.ok(jsonEncode({

@@ -1,58 +1,23 @@
 // tiktok_frontend/lib/src/features/feed/domain/services/comment_service.dart
 import 'dart:convert';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import '../models/comment_model.dart';
 
 class CommentService {
-  // CẤU HÌNH IP CHO ANDROID THẬT
-  static const String _backendHost = 'localhost';
-  static const String _backendPort = '8080';
-  static const String _realDeviceIP = '10.21.12.255'; // IP thực của máy tính
-  static const String _apiPath = '/api/comments';
-
-  String get _effectiveBackendHost {
-    if (kIsWeb) {
-      return _backendHost;
-    } else {
-      try {
-        if (Platform.isAndroid) {
-          // KIỂM TRA XEM CÓ PHẢI ANDROID EMULATOR KHÔNG
-          return _isAndroidEmulator() ? '10.0.2.2' : _realDeviceIP;
-        } else if (Platform.isIOS) {
-          return _realDeviceIP;
-        }
-      } catch (e) { 
-        print("[CommentService] Error checking platform for host: $e");
-      }
-      return _backendHost;
-    }
-  }
-
-  // Hàm kiểm tra xem có phải Android emulator không
-  bool _isAndroidEmulator() {
-    try {
-      return Platform.environment.containsKey('ANDROID_EMULATOR') ||
-             Platform.environment['ANDROID_EMULATOR'] == 'true';
-    } catch (e) {
-      print("[CommentService] Cannot determine if emulator, assuming real device: $e");
-      return false;
-    }
-  }
-
-  String get _apiBaseUrl {
-    final host = _effectiveBackendHost;
-    return 'http://$host:$_backendPort$_apiPath';
-  }
-
   // Get comments for a video with pagination
   Future<CommentPaginationResponse> getVideoComments(String videoId, {int page = 1, int limit = 20}) async {
-    final url = Uri.parse('$_apiBaseUrl/video/$videoId?page=$page&limit=$limit');
-    print('[CommentService] Fetching comments from $url');
-    print('[CommentService] Platform info: ${kIsWeb ? "Web" : Platform.operatingSystem}, isEmulator: ${!kIsWeb ? _isAndroidEmulator() : "N/A"}');
-    
     try {
+      final fullUrl = await NetworkConfig.getBaseUrl('/api/comments/video/$videoId');
+      final url = Uri.parse(fullUrl).replace(
+        queryParameters: {
+          'page': page.toString(),
+          'limit': limit.toString(),
+        },
+      );
+      
+      print('[CommentService] Fetching comments from $url');
+      
       final response = await http.get(
         url, 
         headers: {
@@ -66,8 +31,6 @@ class CommentService {
 
       if (response.statusCode == 200) {
         final String responseBody = response.body;
-        print('[CommentService] Response body type: ${responseBody.runtimeType}');
-        print('[CommentService] Response body length: ${responseBody.length}');
         
         if (responseBody.isEmpty) {
           throw Exception('Empty response from server');
@@ -136,9 +99,11 @@ class CommentService {
       print('[CommentService] Error fetching comments: $e');
       
       if (e.toString().contains('Connection refused') || 
-          e.toString().contains('Failed host lookup')) {
-        print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
-        print('[CommentService] 💡 Current target IP: $_effectiveBackendHost');
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('No address associated with hostname')) {
+        print('[CommentService] ❌ Cannot connect to backend server');
+        // Clear cache and try again next time
+        NetworkConfig.clearCache();
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
       }
       
@@ -148,12 +113,14 @@ class CommentService {
 
   // Add a comment to a video
   Future<CommentModel> addComment(String videoId, String userId, String text) async {
-    final url = Uri.parse('$_apiBaseUrl/video/$videoId');
-    print('[CommentService] Adding comment to video $videoId by user $userId');
-    
     try {
+      final url = await NetworkConfig.getBaseUrl('/api/comments/video/$videoId');
+      
+      print('[CommentService] Adding comment to video $videoId by user $userId');
+      print('[CommentService] URL: $url');
+      
       final response = await http.post(
-        url,
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
@@ -179,14 +146,16 @@ class CommentService {
     }
   }
 
-  // Reply to a comment - FIXED URL
+  // Reply to a comment
   Future<CommentModel> replyToComment(String commentId, String userId, String text) async {
-    final url = Uri.parse('$_apiBaseUrl/reply/$commentId'); // CHANGED FROM /$commentId/reply
-    print('[CommentService] Replying to comment $commentId by user $userId');
-    
     try {
+      final url = await NetworkConfig.getBaseUrl('/api/comments/reply/$commentId');
+      
+      print('[CommentService] Replying to comment $commentId by user $userId');
+      print('[CommentService] URL: $url');
+      
       final response = await http.post(
-        url,
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
@@ -212,14 +181,16 @@ class CommentService {
     }
   }
 
-  // Toggle like on comment - FIXED URL
+  // Toggle like on comment
   Future<CommentModel> toggleLikeComment(String commentId, String userId) async {
-    final url = Uri.parse('$_apiBaseUrl/like/$commentId'); // CHANGED FROM /$commentId/like
-    print('[CommentService] Toggling like on comment $commentId by user $userId');
-    
     try {
+      final url = await NetworkConfig.getBaseUrl('/api/comments/like/$commentId');
+      
+      print('[CommentService] Toggling like on comment $commentId by user $userId');
+      print('[CommentService] URL: $url');
+      
       final response = await http.post(
-        url,
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
@@ -244,12 +215,19 @@ class CommentService {
     }
   }
 
-  // Get replies for a comment - FIXED URL
+  // Get replies for a comment
   Future<CommentRepliesResponse> getCommentReplies(String commentId, {int page = 1, int limit = 10}) async {
-    final url = Uri.parse('$_apiBaseUrl/replies/$commentId?page=$page&limit=$limit'); // CHANGED FROM /$commentId/replies
-    print('[CommentService] Fetching replies for comment $commentId from $url');
-    
     try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/comments/replies/$commentId');
+      final url = Uri.parse(baseUrl).replace(
+        queryParameters: {
+          'page': page.toString(),
+          'limit': limit.toString(),
+        },
+      );
+      
+      print('[CommentService] Fetching replies for comment $commentId from $url');
+      
       final response = await http.get(
         url, 
         headers: {
@@ -292,12 +270,14 @@ class CommentService {
 
   // Edit a comment
   Future<CommentModel> editComment(String commentId, String userId, String newText) async {
-    final url = Uri.parse('$_apiBaseUrl/edit/$commentId');
-    print('[CommentService] Editing comment $commentId by user $userId at $url');
-    
     try {
+      final url = await NetworkConfig.getBaseUrl('/api/comments/edit/$commentId');
+      
+      print('[CommentService] Editing comment $commentId by user $userId');
+      print('[CommentService] URL: $url');
+      
       final response = await http.put(
-        url,
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
@@ -325,12 +305,14 @@ class CommentService {
 
   // Delete a comment
   Future<void> deleteComment(String commentId, String userId) async {
-    final url = Uri.parse('$_apiBaseUrl/delete/$commentId');
-    print('[CommentService] Deleting comment $commentId by user $userId at $url');
-    
     try {
+      final url = await NetworkConfig.getBaseUrl('/api/comments/delete/$commentId');
+      
+      print('[CommentService] Deleting comment $commentId by user $userId');
+      print('[CommentService] URL: $url');
+      
       final response = await http.delete(
-        url,
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
@@ -413,25 +395,39 @@ class CommentService {
   // Helper method to handle connection errors
   void _handleConnectionError(dynamic error) {
     if (error.toString().contains('Connection refused') || 
-        error.toString().contains('Failed host lookup')) {
-      print('[CommentService] ❌ Cannot connect to backend server at $_apiBaseUrl');
-      print('[CommentService] 💡 Current target IP: $_effectiveBackendHost');
-      throw Exception('Không thể kết nối đến server');
+        error.toString().contains('Failed host lookup') ||
+        error.toString().contains('No address associated with hostname')) {
+      print('[CommentService] ❌ Cannot connect to backend server');
+      // Clear cache and try again next time
+      NetworkConfig.clearCache();
+      throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
     }
   }
 
   // Test connection
   Future<bool> testConnection() async {
     try {
-      final healthUrl = Uri.parse('http://$_effectiveBackendHost:$_backendPort/health');
+      final healthUrl = await NetworkConfig.getBaseUrl('/health');
       print('[CommentService] Testing connection to $healthUrl');
       
-      final response = await http.get(healthUrl).timeout(const Duration(seconds: 5));
+      final response = await http.get(Uri.parse(healthUrl)).timeout(const Duration(seconds: 5));
       print('[CommentService] Health check response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
       print('[CommentService] Connection test failed: $e');
       return false;
     }
+  }
+
+  // Get connection status info
+  Map<String, dynamic> getConnectionInfo() {
+    final status = NetworkConfig.getStatus();
+    return {
+      'platform': status['platform'],
+      'cached_url': status['cached_url'],
+      'cache_valid': status['cache_valid'],
+      'server_port': status['server_port'],
+      'available_urls': status['available_urls'],
+    };
   }
 }

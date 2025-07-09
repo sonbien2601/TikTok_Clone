@@ -6,20 +6,18 @@ import 'dart:convert';
 
 class ApiConfig {
   // ==========================================
-  // MULTI-DEVICE CONFIGURATION
+  // ENHANCED MULTI-DEVICE CONFIGURATION
   // ==========================================
   
   // Base URLs for different environments
   static const String _localhostUrl = 'http://localhost:8080';
   static const String _localhostAltUrl = 'http://127.0.0.1:8080';
-  static const String _androidEmulatorUrl = 'http://172.31.98.67:8080';
+  static const String _androidEmulatorUrl = 'http://10.0.2.2:8080'; // CRITICAL FOR AVD
   static const String _prodBaseUrl = 'https://your-production-domain.com';
   
-  // Network IP - CẬP NHẬT IP NÀY VỚI IP THỰC CỦA MÁY TÍNH
-  // Chạy lệnh sau để tìm IP:
-  // Windows: ipconfig
-  // Mac/Linux: ifconfig hoặc ip addr show
-  static const String _networkIpUrl = 'http://172.31.98.67:8080'; // THAY ĐỔI IP NÀY!
+  // UPDATED: Network IP - Replace with your actual machine IP
+  // Run 'ipconfig' (Windows) or 'ifconfig' (Mac/Linux) to find your IP
+  static const String _networkIpUrl = 'http://192.2.26.102:8080'; // CHANGE THIS!
   
   // Environment detection
   static bool get _isProduction => !kDebugMode;
@@ -30,21 +28,25 @@ class ApiConfig {
   // Cached base URL after discovery
   static String? _discoveredUrl;
   static bool _discoveryCompleted = false;
+  static DateTime? _lastDiscovery;
   
-  // Smart base URL selection
+  // Cache duration for URL discovery
+  static const Duration _cacheValidDuration = Duration(minutes: 5);
+  
+  // Smart base URL selection with caching
   static String get baseUrl {
     if (_isProduction) {
       return _prodBaseUrl;
     }
     
-    // Return cached URL if discovery completed
-    if (_discoveredUrl != null && _discoveryCompleted) {
+    // Return cached URL if discovery completed and still valid
+    if (_discoveredUrl != null && _isDiscoveryCacheValid()) {
       return _discoveredUrl!;
     }
     
-    // Default URLs based on platform
+    // Default URLs based on platform while discovery is running
     if (_isAndroidEmulator) {
-      return _androidEmulatorUrl;
+      return _androidEmulatorUrl; // This is CRITICAL for AVD
     } else if (_isRealDevice) {
       return _networkIpUrl;
     } else if (_isWeb) {
@@ -54,77 +56,110 @@ class ApiConfig {
     return _localhostUrl;
   }
   
+  // Check if discovery cache is still valid
+  static bool _isDiscoveryCacheValid() {
+    if (_lastDiscovery == null) return false;
+    return DateTime.now().difference(_lastDiscovery!) < _cacheValidDuration;
+  }
+  
   // Manual override for testing
   static void setBaseUrl(String url) {
     _discoveredUrl = url;
     _discoveryCompleted = true;
-    print('[ApiConfig] Manual override: Using $url');
+    _lastDiscovery = DateTime.now();
+    print('[ApiConfig] 📌 Manual override: Using $url');
   }
   
   // ==========================================
-  // URL DISCOVERY AND TESTING
+  // ENHANCED URL DISCOVERY
   // ==========================================
   
-  // Discover the best working URL
+  // Discover the best working URL with improved logic
   static Future<String> discoverBestUrl() async {
-    if (_discoveryCompleted && _discoveredUrl != null) {
+    if (_discoveryCompleted && _discoveredUrl != null && _isDiscoveryCacheValid()) {
+      print('[ApiConfig] 📋 Using cached URL: $_discoveredUrl');
       return _discoveredUrl!;
     }
     
-    print('[ApiConfig] Starting URL discovery...');
+    print('[ApiConfig] 🔍 Starting URL discovery for ${_getPlatformName()}...');
     
-    // URLs to test in order of preference
+    // URLs to test in order of preference based on platform
     List<String> urlsToTest = [];
     
     if (_isAndroidEmulator) {
       urlsToTest = [
-        _androidEmulatorUrl,
-        _localhostAltUrl,
-        _localhostUrl,
-        _networkIpUrl,
+        _androidEmulatorUrl,    // PRIMARY for AVD
+        _localhostUrl,          // Fallback 1
+        _localhostAltUrl,       // Fallback 2
+        _networkIpUrl,          // Fallback 3
       ];
+      print('[ApiConfig] 🤖 Android Emulator detected - prioritizing 10.0.2.2');
     } else if (_isRealDevice) {
       urlsToTest = [
-        _networkIpUrl,
-        _androidEmulatorUrl,
-        _localhostUrl,
+        _networkIpUrl,          // PRIMARY for real device
+        _androidEmulatorUrl,    // Fallback 1
+        _localhostUrl,          // Fallback 2
       ];
+      print('[ApiConfig] 📱 Real Device detected - prioritizing network IP');
     } else {
       urlsToTest = [
-        _localhostUrl,
-        _localhostAltUrl,
-        _networkIpUrl,
+        _localhostUrl,          // PRIMARY for web
+        _localhostAltUrl,       // Fallback 1
+        _networkIpUrl,          // Fallback 2
       ];
+      print('[ApiConfig] 🌐 Web Browser detected - prioritizing localhost');
     }
     
-    for (final url in urlsToTest) {
-      print('[ApiConfig] Testing URL: $url');
+    // Test each URL with shorter timeout for faster discovery
+    for (int i = 0; i < urlsToTest.length; i++) {
+      final url = urlsToTest[i];
+      print('[ApiConfig] 🧪 Testing URL ${i + 1}/${urlsToTest.length}: $url');
       
       if (await _testConnection(url)) {
         print('[ApiConfig] ✅ Working URL found: $url');
         _discoveredUrl = url;
         _discoveryCompleted = true;
+        _lastDiscovery = DateTime.now();
         return url;
       } else {
         print('[ApiConfig] ❌ Failed: $url');
       }
     }
     
-    print('[ApiConfig] ⚠️ No working URL found, using default');
-    _discoveredUrl = baseUrl;
+    // If no URL works, use platform default
+    final fallbackUrl = _isAndroidEmulator ? _androidEmulatorUrl : 
+                       _isRealDevice ? _networkIpUrl : _localhostUrl;
+    
+    print('[ApiConfig] ⚠️ No working URL found, using fallback: $fallbackUrl');
+    _discoveredUrl = fallbackUrl;
     _discoveryCompleted = true;
-    return baseUrl;
+    _lastDiscovery = DateTime.now();
+    return fallbackUrl;
   }
   
-  // Test connection to a specific URL
+  // Enhanced connection test with shorter timeout
   static Future<bool> _testConnection(String baseUrl) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/health'),
-        headers: defaultHeaders,
-      ).timeout(const Duration(seconds: 5));
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'TikTokClone/${_getPlatformName()}',
+        },
+      ).timeout(const Duration(seconds: 3)); // Shorter timeout for faster discovery
       
-      return response.statusCode == 200;
+      final success = response.statusCode == 200;
+      if (success) {
+        try {
+          final body = json.decode(response.body);
+          print('[ApiConfig] 📊 Server response: ${body['service']} v${body['version']}');
+        } catch (e) {
+          // Server responded but not with expected JSON
+        }
+      }
+      
+      return success;
     } catch (e) {
       return false;
     }
@@ -132,46 +167,69 @@ class ApiConfig {
   
   // Force refresh URL discovery
   static Future<String> refreshUrlDiscovery() async {
+    print('[ApiConfig] 🔄 Forcing URL discovery refresh...');
     _discoveryCompleted = false;
     _discoveredUrl = null;
+    _lastDiscovery = null;
     return await discoverBestUrl();
   }
   
   // ==========================================
-  // ENHANCED CONNECTION TESTING
+  // COMPREHENSIVE CONNECTION TESTING
   // ==========================================
   
-  // Comprehensive connection test
+  // Run comprehensive connection test with detailed results
   static Future<Map<String, dynamic>> testConnection() async {
+    print('[ApiConfig] 🔬 Running comprehensive connection test...');
+    
     final results = <String, dynamic>{
       'timestamp': DateTime.now().toIso8601String(),
       'platform': _getPlatformInfo(),
       'tests': <String, dynamic>{},
+      'recommendations': <String, dynamic>{},
     };
     
     final urlsToTest = [
-      _localhostUrl,
-      _localhostAltUrl,
-      _androidEmulatorUrl,
-      _networkIpUrl,
+      {'name': 'Android Emulator (10.0.2.2)', 'url': _androidEmulatorUrl, 'priority': _isAndroidEmulator ? 1 : 3},
+      {'name': 'Network IP', 'url': _networkIpUrl, 'priority': _isRealDevice ? 1 : 2},
+      {'name': 'Localhost', 'url': _localhostUrl, 'priority': _isWeb ? 1 : 4},
+      {'name': 'Localhost Alt', 'url': _localhostAltUrl, 'priority': 5},
     ];
     
-    for (final url in urlsToTest) {
-      final testResult = await _detailedConnectionTest(url);
-      results['tests'][url] = testResult;
-    }
+    // Sort by priority for current platform
+    urlsToTest.sort((a, b) => (a['priority'] as int).compareTo(b['priority'] as int));
     
-    // Find best URL from results
     String? bestUrl;
-    for (final entry in results['tests'].entries) {
-      if (entry.value['success'] == true) {
-        bestUrl = entry.key;
-        break;
+    int bestTime = 999999;
+    
+    for (final urlInfo in urlsToTest) {
+      final name = urlInfo['name'] as String;
+      final url = urlInfo['url'] as String;
+      final priority = urlInfo['priority'] as int;
+      
+      final testResult = await _detailedConnectionTest(url);
+      testResult['priority'] = priority;
+      results['tests'][name] = testResult;
+      
+      // Track best performing URL
+      if (testResult['success'] == true) {
+        final time = testResult['response_time_ms'] as int? ?? 999999;
+        if (time < bestTime) {
+          bestTime = time;
+          bestUrl = url;
+        }
       }
     }
     
-    results['recommended_url'] = bestUrl ?? baseUrl;
-    results['current_url'] = baseUrl;
+    // Generate recommendations
+    results['recommendations'] = {
+      'best_url': bestUrl,
+      'best_time_ms': bestUrl != null ? bestTime : null,
+      'platform_default': _isAndroidEmulator ? _androidEmulatorUrl : 
+                          _isRealDevice ? _networkIpUrl : _localhostUrl,
+      'current_url': baseUrl,
+      'should_update': bestUrl != null && bestUrl != baseUrl,
+    };
     
     return results;
   }
@@ -183,6 +241,7 @@ class ApiConfig {
       'response_time_ms': null,
       'status_code': null,
       'error': null,
+      'server_info': null,
     };
     
     try {
@@ -190,8 +249,12 @@ class ApiConfig {
       
       final response = await http.get(
         Uri.parse('$url/health'),
-        headers: defaultHeaders,
-      ).timeout(const Duration(seconds: 10));
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'TikTokClone/${_getPlatformName()}',
+        },
+      ).timeout(const Duration(seconds: 5));
       
       stopwatch.stop();
       
@@ -202,9 +265,14 @@ class ApiConfig {
       if (response.statusCode == 200) {
         try {
           final body = json.decode(response.body);
-          result['server_info'] = body;
+          result['server_info'] = {
+            'service': body['service'],
+            'version': body['version'],
+            'status': body['status'],
+            'features': body['features'],
+          };
         } catch (e) {
-          // Server responded but not with JSON
+          result['server_info'] = 'Response OK but not expected JSON format';
         }
       }
       
@@ -215,15 +283,22 @@ class ApiConfig {
     return result;
   }
   
+  static String _getPlatformName() {
+    if (_isAndroidEmulator) return 'android_emulator';
+    if (_isRealDevice) return 'real_device';
+    if (_isWeb) return 'web';
+    return 'unknown';
+  }
+  
   static Map<String, dynamic> _getPlatformInfo() {
     return {
       'is_web': kIsWeb,
       'is_android': !kIsWeb && Platform.isAndroid,
       'is_ios': !kIsWeb && Platform.isIOS,
       'is_debug': kDebugMode,
-      'detected_environment': _isAndroidEmulator ? 'android_emulator' : 
-                             _isRealDevice ? 'real_device' : 
-                             _isWeb ? 'web' : 'unknown',
+      'detected_environment': _getPlatformName(),
+      'recommended_url': _isAndroidEmulator ? _androidEmulatorUrl : 
+                        _isRealDevice ? _networkIpUrl : _localhostUrl,
     };
   }
   
@@ -253,23 +328,22 @@ class ApiConfig {
   static String get feedUrl => '$videosUrl/feed';
   static String get healthUrl => '$baseUrl/health';
   static String get debugUrl => '$baseUrl/api/debug';
-  static String get networkInfoUrl => '$baseUrl/api/network-info';
   
   // Static files base URL
   static String get fileBaseUrl => baseUrl;
   
   // ==========================================
-  // TIMEOUTS AND LIMITS (ENHANCED)
+  // TIMEOUTS AND LIMITS (OPTIMIZED FOR MOBILE)
   // ==========================================
   
-  // Request timeouts (in seconds) - Increased for mobile networks
-  static const int connectTimeout = 15;  // Increased from 30
-  static const int receiveTimeout = 30;  // Increased from 60
-  static const int sendTimeout = 60;     // Keep for file uploads
+  // Request timeouts (in seconds) - Optimized for mobile networks
+  static const int connectTimeout = 10;  // Reduced for faster feedback
+  static const int receiveTimeout = 20;  // Reasonable for API calls
+  static const int sendTimeout = 60;     // Keep high for file uploads
   
   // Discovery timeouts
-  static const int discoveryTimeout = 5;
-  static const int healthCheckTimeout = 10;
+  static const int discoveryTimeout = 3;  // Fast discovery
+  static const int healthCheckTimeout = 5;
   
   // Pagination defaults
   static const int defaultPageSize = 10;
@@ -288,17 +362,13 @@ class ApiConfig {
     'jpg', 'jpeg', 'png', 'gif', 'webp'
   ];
   
-  // Analytics configuration
-  static const int viewTrackingCooldownSeconds = 5;
-  static const int minViewDurationSeconds = 1;
-  
   // Debug configuration
   static const bool enableApiLogging = kDebugMode;
   static const bool enableAnalyticsLogging = kDebugMode;
   static const bool enableNetworkDiagnostics = kDebugMode;
   
   // ==========================================
-  // HELPER METHODS (ENHANCED)
+  // HELPER METHODS
   // ==========================================
   
   static bool get isProduction => _isProduction;
@@ -314,23 +384,26 @@ class ApiConfig {
   static Map<String, String> get defaultHeaders => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'User-Agent': 'TikTokClone/${_getPlatformInfo()['detected_environment']}',
+    'User-Agent': 'TikTokClone/${_getPlatformName()}',
+    'Cache-Control': 'no-cache',
   };
   
   static Map<String, String> get uploadHeaders => {
     'Accept': 'application/json',
-    'User-Agent': 'TikTokClone/${_getPlatformInfo()['detected_environment']}',
+    'User-Agent': 'TikTokClone/${_getPlatformName()}',
     // Don't set Content-Type for multipart uploads
   };
   
   // ==========================================
-  // CONFIGURATION GETTERS (ENHANCED)
+  // CONFIGURATION GETTERS
   // ==========================================
   
   static Map<String, dynamic> get config => {
     'baseUrl': baseUrl,
     'discoveredUrl': _discoveredUrl,
     'discoveryCompleted': _discoveryCompleted,
+    'cacheValid': _isDiscoveryCacheValid(),
+    'lastDiscovery': _lastDiscovery?.toIso8601String(),
     'environment': isDevelopment ? 'development' : 'production',
     'platform': _getPlatformInfo(),
     'enableLogging': enableApiLogging,
@@ -346,11 +419,6 @@ class ApiConfig {
       'defaultPageSize': defaultPageSize,
       'maxPageSize': maxPageSize,
     },
-    'analytics': {
-      'cooldownSeconds': viewTrackingCooldownSeconds,
-      'minViewDurationSeconds': minViewDurationSeconds,
-      'enableLogging': enableAnalyticsLogging,
-    },
     'urls': {
       'localhost': _localhostUrl,
       'android_emulator': _androidEmulatorUrl,
@@ -360,7 +428,7 @@ class ApiConfig {
   };
   
   // ==========================================
-  // VALIDATION METHODS (UNCHANGED)
+  // VALIDATION METHODS
   // ==========================================
   
   static bool isValidVideoFormat(String extension) {
@@ -379,7 +447,7 @@ class ApiConfig {
   }
   
   // ==========================================
-  // DEBUGGING AND DIAGNOSTICS (ENHANCED)
+  // DEBUGGING AND DIAGNOSTICS
   // ==========================================
   
   static void printConfig() {
@@ -387,24 +455,29 @@ class ApiConfig {
       print('');
       print('=== 🔧 API CONFIG DEBUG ===');
       print('Environment: ${isDevelopment ? 'Development' : 'Production'}');
-      print('Platform: ${_getPlatformInfo()['detected_environment']}');
+      print('Platform: ${_getPlatformName()}');
       print('Current Base URL: $baseUrl');
       print('Discovery Completed: $_discoveryCompleted');
+      print('Cache Valid: ${_isDiscoveryCacheValid()}');
       if (_discoveredUrl != null) {
         print('Discovered URL: $_discoveredUrl');
       }
+      if (_lastDiscovery != null) {
+        print('Last Discovery: ${_lastDiscovery!.toIso8601String()}');
+      }
       print('');
       print('📡 Available URLs:');
-      print('  Localhost: $_localhostUrl');
-      print('  Android Emulator: $_androidEmulatorUrl');
-      print('  Network IP: $_networkIpUrl');
-      print('  Production: $_prodBaseUrl');
+      print('  🤖 Android Emulator: $_androidEmulatorUrl');
+      print('  📱 Network IP: $_networkIpUrl');
+      print('  🌐 Localhost: $_localhostUrl');
+      print('  🔄 Localhost Alt: $_localhostAltUrl');
+      print('  🚀 Production: $_prodBaseUrl');
       print('');
       print('🎯 Endpoint URLs:');
       print('  Auth: $authUrl');
       print('  Videos: $videosUrl');
+      print('  Search: $searchUrl');
       print('  Health: $healthUrl');
-      print('  Debug: $debugUrl');
       print('========================');
       print('');
     }
@@ -418,19 +491,33 @@ class ApiConfig {
     print('=== 🌐 NETWORK DIAGNOSTIC ===');
     
     final testResult = await testConnection();
-    print('Platform: ${testResult['platform']['detected_environment']}');
-    print('Current URL: ${testResult['current_url']}');
-    print('Recommended URL: ${testResult['recommended_url']}');
+    final platform = testResult['platform'] as Map<String, dynamic>;
+    final recommendations = testResult['recommendations'] as Map<String, dynamic>;
+    
+    print('Platform: ${platform['detected_environment']}');
+    print('Current URL: ${recommendations['current_url']}');
+    print('Best URL: ${recommendations['best_url'] ?? 'None working'}');
+    print('Should Update: ${recommendations['should_update']}');
     print('');
     
-    for (final entry in testResult['tests'].entries) {
-      final url = entry.key;
-      final test = entry.value;
+    final tests = testResult['tests'] as Map<String, dynamic>;
+    print('📊 Connection Tests:');
+    for (final entry in tests.entries) {
+      final name = entry.key;
+      final test = entry.value as Map<String, dynamic>;
       final status = test['success'] ? '✅' : '❌';
       final time = test['response_time_ms']?.toString() ?? 'N/A';
-      print('$status $url (${time}ms)');
+      final priority = test['priority'] ?? 0;
+      
+      print('$status [$priority] $name (${time}ms)');
       if (test['error'] != null) {
         print('   Error: ${test['error']}');
+      }
+      if (test['server_info'] != null && test['success']) {
+        final info = test['server_info'];
+        if (info is Map) {
+          print('   Server: ${info['service']} v${info['version']}');
+        }
       }
     }
     
@@ -441,12 +528,11 @@ class ApiConfig {
   // Initialize and discover best URL
   static Future<void> initialize() async {
     if (enableApiLogging) {
-      print('[ApiConfig] Initializing API configuration...');
+      print('[ApiConfig] 🚀 Initializing API configuration...');
     }
     
-    if (!_discoveryCompleted) {
-      await discoverBestUrl();
-    }
+    // Always run discovery on initialization to ensure fresh URLs
+    await discoverBestUrl();
     
     if (enableApiLogging) {
       printConfig();
@@ -454,6 +540,24 @@ class ApiConfig {
     
     if (enableNetworkDiagnostics) {
       await printNetworkDiagnostic();
+    }
+    
+    if (enableApiLogging) {
+      print('[ApiConfig] ✅ API configuration initialized successfully');
+    }
+  }
+  
+  // Quick health check
+  static Future<bool> quickHealthCheck() async {
+    try {
+      final response = await http.get(
+        Uri.parse(healthUrl),
+        headers: defaultHeaders,
+      ).timeout(const Duration(seconds: 5));
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
     }
   }
 }

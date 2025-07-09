@@ -1,12 +1,10 @@
 // tiktok_frontend/lib/src/features/search/domain/services/search_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:tiktok_frontend/src/core/config/api_config.dart';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import 'package:tiktok_frontend/src/features/search/domain/models/search_model.dart';
 
 class SearchService {
-  static final String _baseUrl = '${ApiConfig.baseUrl}/search';
-
   // Search users by query
   static Future<UserSearchResponse> searchUsers({
     required String query,
@@ -22,8 +20,12 @@ class SearchService {
         if (currentUserId != null) 'currentUserId': currentUserId,
       };
 
-      final uri = Uri.parse('$_baseUrl/users').replace(queryParameters: queryParams);
-      final response = await http.get(uri);
+      final baseEndpoint = await NetworkConfig.getBaseUrl('/api/search/users');
+      final uri = Uri.parse(baseEndpoint).replace(queryParameters: queryParams);
+      
+      print('[SearchService] Searching users at: $uri');
+      
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -50,8 +52,12 @@ class SearchService {
         if (currentUserId != null) 'currentUserId': currentUserId,
       };
 
-      final uri = Uri.parse('$_baseUrl/trending').replace(queryParameters: queryParams);
-      final response = await http.get(uri);
+      final baseEndpoint = await NetworkConfig.getBaseUrl('/api/search/trending');
+      final uri = Uri.parse(baseEndpoint).replace(queryParameters: queryParams);
+      
+      print('[SearchService] Getting trending users at: $uri');
+      
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -80,8 +86,12 @@ class SearchService {
         if (currentUserId != null) 'currentUserId': currentUserId,
       };
 
-      final uri = Uri.parse('$_baseUrl/videos').replace(queryParameters: queryParams);
-      final response = await http.get(uri);
+      final baseEndpoint = await NetworkConfig.getBaseUrl('/api/search/videos');
+      final uri = Uri.parse(baseEndpoint).replace(queryParameters: queryParams);
+      
+      print('[SearchService] Searching videos at: $uri');
+      
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -106,8 +116,12 @@ class SearchService {
         'limit': limit.toString(),
       };
 
-      final uri = Uri.parse('$_baseUrl/suggestions').replace(queryParameters: queryParams);
-      final response = await http.get(uri);
+      final baseEndpoint = await NetworkConfig.getBaseUrl('/api/search/suggestions');
+      final uri = Uri.parse(baseEndpoint).replace(queryParameters: queryParams);
+      
+      print('[SearchService] Getting suggestions at: $uri');
+      
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -124,8 +138,12 @@ class SearchService {
   // Test search functionality
   static Future<bool> testSearchConnection() async {
     try {
-      final uri = Uri.parse('$_baseUrl/test');
-      final response = await http.get(uri);
+      final testEndpoint = await NetworkConfig.getBaseUrl('/api/search/test');
+      final uri = Uri.parse(testEndpoint);
+      
+      print('[SearchService] Testing connection at: $uri');
+      
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (e) {
       print('[SearchService] Error testing search connection: $e');
@@ -136,8 +154,12 @@ class SearchService {
   // Get search debug info
   static Future<Map<String, dynamic>?> getSearchDebugInfo() async {
     try {
-      final uri = Uri.parse('$_baseUrl/debug/info');
-      final response = await http.get(uri);
+      final debugEndpoint = await NetworkConfig.getBaseUrl('/api/search/debug/info');
+      final uri = Uri.parse(debugEndpoint);
+      
+      print('[SearchService] Getting debug info at: $uri');
+      
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

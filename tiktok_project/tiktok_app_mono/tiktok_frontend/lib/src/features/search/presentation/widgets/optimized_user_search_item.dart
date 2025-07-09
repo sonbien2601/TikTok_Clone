@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/follow/presentation/widgets/follow_button_widget.dart';
 import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 
 class OptimizedUserSearchItem extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -71,7 +72,11 @@ class _OptimizedUserSearchItemState extends State<OptimizedUserSearchItem> {
   String _getAvatarUrl(String? avatarUrl) {
     if (avatarUrl == null || avatarUrl.isEmpty) return '';
     if (avatarUrl.startsWith('http')) return avatarUrl;
-    return 'http://localhost:8080$avatarUrl';
+    
+    // Use NetworkConfig for file URLs
+    final status = NetworkConfig.getStatus();
+    final cachedUrl = status['cached_url'] ?? 'http://localhost:8080';
+    return '$cachedUrl$avatarUrl';
   }
 
   Widget _buildTrendingBadge() {

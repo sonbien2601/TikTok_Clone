@@ -7,6 +7,7 @@ import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.d
 import 'package:tiktok_frontend/src/features/follow/domain/services/follow_service.dart';
 import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart';
 import 'package:tiktok_frontend/src/features/follow/presentation/widgets/follow_button_widget.dart';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -15,12 +16,13 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateMixin {
+class _SearchPageState extends State<SearchPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FollowService _followService = FollowService();
   late TabController _tabController;
   late FollowStateManager _followStateManager;
-  
+
   bool _isSearching = false;
   bool _isLoadingTrending = false;
   List<dynamic> _userResults = [];
@@ -31,18 +33,15 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   int _userCount = 0;
   int _videoCount = 0;
 
-  // Base URL for API
-  static const String _baseUrl = 'http://localhost:8080/api';
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _followStateManager = FollowStateManager();
-    
+
     // Listen to follow state changes
     _followStateManager.addListener(_onFollowStateChanged);
-    
+
     _loadTrendingUsers();
   }
 
@@ -99,7 +98,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.id;
 
-      final uri = Uri.parse('$_baseUrl/search/trending').replace(
+      // Use NetworkConfig to get proper URL
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/search/trending');
+      final uri = Uri.parse(baseUrl).replace(
         queryParameters: {
           'limit': '10',
           'timeframe': '7d',
@@ -108,7 +109,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       );
 
       print('[SearchPage] Loading trending users from: $uri');
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -118,7 +119,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             _isLoadingTrending = false;
             _errorMessage = null;
           });
-          
+
           // Initialize follow states
           _initializeFollowStates(_trendingUsers);
         }
@@ -134,13 +135,17 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
 
   Future<void> _loadRealUsersFromDB() async {
     try {
-      final uri = Uri.parse('$_baseUrl/users');
-      final response = await http.get(uri);
+      // Use NetworkConfig for fallback URL too
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final uri = Uri.parse(baseUrl);
+
+      print('[SearchPage] Loading fallback users from: $uri');
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         List<dynamic> users = data['users'] ?? data ?? [];
-        
+
         users.sort((a, b) {
           final aFollowers = a['followersCount'] ?? 0;
           final bFollowers = b['followersCount'] ?? 0;
@@ -153,11 +158,12 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             _isLoadingTrending = false;
             _errorMessage = null;
           });
-          
+
           // Initialize follow states
           _initializeFollowStates(_trendingUsers);
         }
-        print('[SearchPage] ✅ Loaded ${_trendingUsers.length} real users from DB');
+        print(
+            '[SearchPage] ✅ Loaded ${_trendingUsers.length} real users from DB');
       } else {
         throw Exception('Failed to load users');
       }
@@ -166,7 +172,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       if (mounted) {
         setState(() {
           _isLoadingTrending = false;
-          _errorMessage = 'Failed to load users. Please check your backend connection.';
+          _errorMessage =
+              'Failed to load users. Please check your backend connection.';
         });
       }
     }
@@ -180,7 +187,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       final userId = user['id'] as String?;
       final isFollowing = user['isFollowing'] as bool? ?? false;
       final followerCount = user['followersCount'] as int? ?? 0;
-      
+
       if (userId != null) {
         _followStateManager.updateFollowState(
           userId: userId,
@@ -229,7 +236,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           _isSearching = false;
           _errorMessage = null;
         });
-        
+
         // Initialize follow states for search results
         _initializeFollowStates(_userResults);
       }
@@ -244,9 +251,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     }
   }
 
-  Future<Map<String, dynamic>> _searchUsers(String query, String? currentUserId) async {
+  Future<Map<String, dynamic>> _searchUsers(
+      String query, String? currentUserId) async {
     try {
-      final uri = Uri.parse('$_baseUrl/search/users').replace(
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/search/users');
+      final uri = Uri.parse(baseUrl).replace(
         queryParameters: {
           'q': query,
           'page': '1',
@@ -256,11 +265,12 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       );
 
       print('[SearchPage] Searching users: $uri');
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('[SearchPage] ✅ Found ${(data['users'] as List?)?.length ?? 0} users for "$query"');
+        print(
+            '[SearchPage] ✅ Found ${(data['users'] as List?)?.length ?? 0} users for "$query"');
         return data;
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
@@ -271,9 +281,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     }
   }
 
-  Future<Map<String, dynamic>> _searchVideos(String query, String? currentUserId) async {
+  Future<Map<String, dynamic>> _searchVideos(
+      String query, String? currentUserId) async {
     try {
-      final uri = Uri.parse('$_baseUrl/search/videos').replace(
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/search/videos');
+      final uri = Uri.parse(baseUrl).replace(
         queryParameters: {
           'q': query,
           'page': '1',
@@ -283,11 +295,12 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       );
 
       print('[SearchPage] Searching videos: $uri');
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('[SearchPage] ✅ Found ${(data['videos'] as List?)?.length ?? 0} videos for "$query"');
+        print(
+            '[SearchPage] ✅ Found ${(data['videos'] as List?)?.length ?? 0} videos for "$query"');
         return data;
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
@@ -310,13 +323,17 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   String _getAvatarUrl(String? avatarUrl) {
     if (avatarUrl == null || avatarUrl.isEmpty) return '';
     if (avatarUrl.startsWith('http')) return avatarUrl;
-    return 'http://localhost:8080$avatarUrl';
+
+    // Use NetworkConfig for file URLs too
+    return '${NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080'}$avatarUrl';
   }
 
   String _getVideoUrl(String? videoUrl) {
     if (videoUrl == null || videoUrl.isEmpty) return '';
     if (videoUrl.startsWith('http')) return videoUrl;
-    return 'http://localhost:8080$videoUrl';
+
+    // Use NetworkConfig for file URLs too
+    return '${NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080'}$videoUrl';
   }
 
   void _onFollowChanged() {
@@ -332,44 +349,46 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         title: const Text('Search & Discover'),
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
-        bottom: _currentQuery.isNotEmpty ? PreferredSize(
-          preferredSize: const Size.fromHeight(50),
-          child: TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.people, size: 16),
-                    const SizedBox(width: 4),
-                    Text('Users ($_userCount)'),
+        bottom: _currentQuery.isNotEmpty
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(50),
+                child: TabBar(
+                  controller: _tabController,
+                  tabs: [
+                    Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.people, size: 16),
+                          const SizedBox(width: 4),
+                          Text('Users ($_userCount)'),
+                        ],
+                      ),
+                    ),
+                    Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.video_library, size: 16),
+                          const SizedBox(width: 4),
+                          Text('Videos ($_videoCount)'),
+                        ],
+                      ),
+                    ),
+                    const Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.trending_up, size: 16),
+                          SizedBox(width: 4),
+                          Text('Trending'),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.video_library, size: 16),
-                    const SizedBox(width: 4),
-                    Text('Videos ($_videoCount)'),
-                  ],
-                ),
-              ),
-              const Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.trending_up, size: 16),
-                    SizedBox(width: 4),
-                    Text('Trending'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ) : null,
+              )
+            : null,
       ),
       body: Column(
         children: [
@@ -411,7 +430,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   if (_searchController.text == value && value.length >= 2) {
                     _performSearch(value);
                   } else if (value.length < 2) {
-                    _performSearch(''); // Clear results if less than 2 characters
+                    _performSearch(
+                        ''); // Clear results if less than 2 characters
                   }
                 });
               },
@@ -432,7 +452,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber, color: Colors.orange[700], size: 20),
+                  Icon(Icons.warning_amber,
+                      color: Colors.orange[700], size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -446,7 +467,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
 
           // Content
           Expanded(
-            child: _currentQuery.isEmpty 
+            child: _currentQuery.isEmpty
                 ? _buildTrendingContent()
                 : _buildSearchResults(),
           ),
@@ -468,8 +489,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               Text(
                 'Trending Users',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const Spacer(),
               if (_isLoadingTrending)
@@ -481,7 +502,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             ],
           ),
         ),
-        
+
         // Trending Users List
         Expanded(
           child: _buildUsersList(_trendingUsers, showTrendingBadges: true),
@@ -501,7 +522,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildUsersList(List<dynamic> users, {bool showTrendingBadges = false}) {
+  Widget _buildUsersList(List<dynamic> users,
+      {bool showTrendingBadges = false}) {
     if (_isSearching || _isLoadingTrending) {
       return const Center(
         child: Column(
@@ -523,7 +545,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             const Icon(Icons.search_off, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
-              _currentQuery.isNotEmpty 
+              _currentQuery.isNotEmpty
                   ? 'No users found for "$_currentQuery"'
                   : 'No users to display',
               style: const TextStyle(fontSize: 16, color: Colors.grey),
@@ -541,7 +563,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     }
 
     return RefreshIndicator(
-      onRefresh: _currentQuery.isEmpty ? _loadTrendingUsers : () => _performSearch(_currentQuery),
+      onRefresh: _currentQuery.isEmpty
+          ? _loadTrendingUsers
+          : () => _performSearch(_currentQuery),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: users.length,
@@ -550,9 +574,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           final isTopUser = showTrendingBadges && index < 3;
           final avatarUrl = _getAvatarUrl(user['avatarUrl']);
           final userId = user['id'] as String?;
-          
+
           if (userId == null) return const SizedBox.shrink();
-          
+
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             elevation: isTopUser ? 4 : 1,
@@ -562,11 +586,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: Theme.of(context).primaryColor,
-                    backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                    backgroundImage:
+                        avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
                     child: avatarUrl.isEmpty
                         ? Text(
                             (user['username']?[0] ?? '?').toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           )
                         : null,
                   ),
@@ -577,8 +604,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                       child: Container(
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: index == 0 ? Colors.amber : 
-                                 index == 1 ? Colors.grey[400] : Colors.brown[300],
+                          color: index == 0
+                              ? Colors.amber
+                              : index == 1
+                                  ? Colors.grey[400]
+                                  : Colors.brown[300],
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 1),
                         ),
@@ -597,7 +627,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     child: Text(
                       user['displayName'] ?? user['username'] ?? 'Unknown User',
                       style: TextStyle(
-                        fontWeight: isTopUser ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isTopUser ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -625,24 +656,30 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
-                          fontWeight: isTopUser ? FontWeight.w500 : FontWeight.normal,
+                          fontWeight:
+                              isTopUser ? FontWeight.w500 : FontWeight.normal,
                         ),
                       ),
-                      if (user['videosCount'] != null && user['videosCount'] > 0) ...[
+                      if (user['videosCount'] != null &&
+                          user['videosCount'] > 0) ...[
                         const SizedBox(width: 12),
-                        Icon(Icons.video_library, size: 14, color: Colors.grey[600]),
+                        Icon(Icons.video_library,
+                            size: 14, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
                           '${user['videosCount']} videos',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600]),
                         ),
                       ],
                       if (isTopUser) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor.withOpacity(0.1),
+                            color:
+                                Theme.of(context).primaryColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -706,7 +743,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.video_library_outlined, size: 64, color: Colors.grey),
+            const Icon(Icons.video_library_outlined,
+                size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'No videos found for "$_currentQuery"',
@@ -742,7 +780,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Play video: ${video['description'] ?? 'Untitled'}'),
+                  content:
+                      Text('Play video: ${video['description'] ?? 'Untitled'}'),
                   duration: const Duration(seconds: 1),
                 ),
               );
@@ -773,7 +812,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                               color: Colors.white,
                             ),
                           ),
-                        
+
                         // Play overlay
                         const Center(
                           child: Icon(
@@ -782,13 +821,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                             color: Colors.white,
                           ),
                         ),
-                        
+
                         // Stats overlay
                         Positioned(
                           bottom: 8,
                           left: 8,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.7),
                               borderRadius: BorderRadius.circular(12),
@@ -817,7 +857,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     ),
                   ),
                 ),
-                
+
                 // Video info
                 Padding(
                   padding: const EdgeInsets.all(8.0),
@@ -840,7 +880,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                             radius: 8,
                             backgroundColor: Theme.of(context).primaryColor,
                             child: Text(
-                              (video['user']?['username']?[0] ?? '?').toUpperCase(),
+                              (video['user']?['username']?[0] ?? '?')
+                                  .toUpperCase(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 8,

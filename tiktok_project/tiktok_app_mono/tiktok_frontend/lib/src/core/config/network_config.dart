@@ -9,12 +9,13 @@ class NetworkConfig {
   // CẤU HÌNH VỚI IP THỰC TẾ CỦA BẠN
   // ==========================================
   
-  static const String _localhostUrl = 'http://localhost:8080';
-  static const String _localhostAltUrl = 'http://127.0.0.1:8080';
-  static const String _androidEmulatorUrl = 'http://10.0.2.2:8080';
+  static const String _serverPort = '8080'; // ĐÚNG PORT CỦA BACKEND
+  static const String _localhostUrl = 'http://localhost:$_serverPort';
+  static const String _localhostAltUrl = 'http://127.0.0.1:$_serverPort';
+  static const String _androidEmulatorUrl = 'http://10.0.2.2:$_serverPort';
   
-  // ⭐ IP THỰC TẾ CỦA MÁY TÍNH BẠN
-  static const String _networkIpUrl = 'http://172.31.98.67:8080';
+  // ⭐ IP THỰC TẾ CỦA MÁY TÍNH BẠN - CẬP NHẬT IP NÀY!
+  static const String _networkIpUrl = 'http://192.2.26.102:$_serverPort';
   
   // Cache cho discovered URL
   static String? _cachedBaseUrl;
@@ -85,6 +86,7 @@ class NetworkConfig {
       urlsToTest = [
         _networkIpUrl,          // 172.31.98.67:8080 - CHÍNH CHO REAL DEVICE
         _androidEmulatorUrl,    // 10.0.2.2:8080 - DỰ PHÒNG
+        _localhostUrl,          // localhost:8080 - THỬ THÊM
       ];
       print('[NetworkConfig] 📱 Real Device detected');
     } else {
@@ -109,7 +111,8 @@ class NetworkConfig {
     }
     
     // Fallback
-    final fallbackUrl = _isAndroidEmulator ? _androidEmulatorUrl : _localhostUrl;
+    final fallbackUrl = _isAndroidEmulator ? _androidEmulatorUrl : 
+                       _isRealDevice ? _networkIpUrl : _localhostUrl;
     print('[NetworkConfig] ⚠️ No working URL found, using fallback: $fallbackUrl');
     return fallbackUrl;
   }
@@ -125,7 +128,7 @@ class NetworkConfig {
           'Accept': 'application/json',
           'User-Agent': 'TikTokClone/${_getPlatformName()}',
         },
-      ).timeout(const Duration(seconds: 3)); // Timeout ngắn để test nhanh
+      ).timeout(const Duration(seconds: 5)); // Tăng timeout lên 5s
       
       stopwatch.stop();
       
@@ -134,7 +137,7 @@ class NetworkConfig {
       
       return success;
     } catch (e) {
-      print('[NetworkConfig] 💥 $baseUrl -> Error: ${e.toString().substring(0, 50)}...');
+      print('[NetworkConfig] 💥 $baseUrl -> Error: ${e.toString()}');
       return false;
     }
   }
@@ -174,6 +177,7 @@ class NetworkConfig {
       'platform': _getPlatformName(),
       'cached_url': _cachedBaseUrl,
       'cache_valid': _isCacheValid(),
+      'server_port': _serverPort,
       'tests': <String, dynamic>{},
     };
     
@@ -236,7 +240,7 @@ class NetworkConfig {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 8)); // Tăng timeout cho diagnostic
       
       stopwatch.stop();
       
@@ -281,6 +285,7 @@ class NetworkConfig {
     print('');
     print('=== 🌐 NETWORK CONFIG DIAGNOSTIC ===');
     print('Platform: ${_getPlatformName()}');
+    print('Server Port: $_serverPort');
     print('Cached URL: $_cachedBaseUrl');
     print('Cache Valid: ${_isCacheValid()}');
     print('');
@@ -336,6 +341,7 @@ class NetworkConfig {
       'cached_url': _cachedBaseUrl,
       'cache_valid': _isCacheValid(),
       'cache_expiry': _cacheExpiry?.toIso8601String(),
+      'server_port': _serverPort,
       'available_urls': {
         'android_emulator': _androidEmulatorUrl,
         'network_ip': _networkIpUrl,
@@ -343,5 +349,64 @@ class NetworkConfig {
         'localhost_alt': _localhostAltUrl,
       },
     };
+  }
+  
+  // ==========================================
+  // UTILITY METHODS
+  // ==========================================
+  
+  // Test specific URL manually
+  static Future<bool> testSpecificUrl(String url) async {
+    return await _testConnection(url);
+  }
+  
+  // Set manual override (for testing)
+  static void setManualOverride(String baseUrl) {
+    print('[NetworkConfig] 🔧 Manual override set: $baseUrl');
+    _cachedBaseUrl = baseUrl;
+    _cacheExpiry = DateTime.now().add(const Duration(hours: 1)); // Longer cache for manual override
+  }
+  
+  // Check if backend is reachable
+  static Future<bool> isBackendReachable() async {
+    if (_cachedBaseUrl == null) {
+      await _discoverBestUrl();
+    }
+    
+    return _cachedBaseUrl != null && await _testConnection(_cachedBaseUrl!);
+  }
+  
+  // Manual IP override for troubleshooting
+  static void setManualIP(String ip) {
+    final manualUrl = 'http://$ip:$_serverPort';
+    print('[NetworkConfig] 🔧 Setting manual IP override: $manualUrl');
+    _cachedBaseUrl = manualUrl;
+    _cacheExpiry = DateTime.now().add(const Duration(hours: 1));
+  }
+  
+  // Quick connectivity test
+  static Future<bool> quickConnectivityTest() async {
+    try {
+      final testUrls = [
+        _androidEmulatorUrl,
+        _networkIpUrl,
+        _localhostUrl,
+      ];
+      
+      for (final url in testUrls) {
+        if (await _testConnection(url)) {
+          print('[NetworkConfig] ✅ Quick test passed for: $url');
+          _cachedBaseUrl = url;
+          _cacheExpiry = DateTime.now().add(_cacheValidDuration);
+          return true;
+        }
+      }
+      
+      print('[NetworkConfig] ❌ Quick connectivity test failed for all URLs');
+      return false;
+    } catch (e) {
+      print('[NetworkConfig] ❌ Quick connectivity test error: $e');
+      return false;
+    }
   }
 }

@@ -1,13 +1,14 @@
 // tiktok_frontend/lib/src/features/upload/presentation/pages/upload_video_page.dart
-import 'dart:convert'; // Cho jsonDecode (nếu cần xử lý response lỗi)
-import 'dart:io';     // Cho File (chỉ dùng cho mobile/desktop)
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart'; // Cho MediaType
+import 'package:http_parser/http_parser.dart';
 import 'package:provider/provider.dart';
-import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart'; // Để lấy userId
+import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 
 class UploadVideoPage extends StatefulWidget {
   const UploadVideoPage({super.key});
@@ -21,40 +22,48 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
   String? _videoFileName;
   final TextEditingController _descriptionController = TextEditingController();
   bool _isLoading = false;
+  String? _uploadUrl;
+  String? _debugInfo;
 
-  // CẤU HÌNH IP CHO ANDROID THẬT
-  static const String _backendPort = "8080";
-  static const String _realDeviceIP = '10.21.12.255'; // IP thực của máy tính
-  static const String _apiPath = "/api/videos/upload";
+  @override
+  void initState() {
+    super.initState();
+    _initializeUploadUrl();
+  }
 
-  // Hàm kiểm tra xem có phải Android emulator không
-  bool _isAndroidEmulator() {
+  Future<void> _initializeUploadUrl() async {
     try {
-      return Platform.environment.containsKey('ANDROID_EMULATOR') ||
-             Platform.environment['ANDROID_EMULATOR'] == 'true';
+      _uploadUrl = await NetworkConfig.getBaseUrl('/api/videos/upload');
+      final status = NetworkConfig.getStatus();
+      
+      setState(() {
+        _debugInfo = 'Platform: ${_getPlatformName()}\n'
+                   'Upload URL: $_uploadUrl\n'
+                   'Cached URL: ${status['cached_url']}\n'
+                   'Cache Valid: ${status['cache_valid']}';
+      });
+      
+      print('[UploadPage] Initialized upload URL: $_uploadUrl');
     } catch (e) {
-      print("[UploadPage] Cannot determine if emulator, assuming real device: $e");
-      return false;
+      print('[UploadPage] Error initializing upload URL: $e');
+      setState(() {
+        _debugInfo = 'Error: Could not initialize upload URL\n$e';
+      });
     }
   }
 
-  String get _uploadUrl {
-    if (kIsWeb) {
-      return 'http://localhost:$_backendPort$_apiPath';
-    } else {
+  String _getPlatformName() {
+    if (kIsWeb) return 'Web';
+    if (!kIsWeb) {
       try {
-        if (Platform.isAndroid) {
-          // KIỂM TRA XEM CÓ PHẢI ANDROID EMULATOR KHÔNG
-          final host = _isAndroidEmulator() ? '10.0.2.2' : _realDeviceIP;
-          return 'http://$host:$_backendPort$_apiPath';
-        } else if (Platform.isIOS) {
-          return 'http://$_realDeviceIP:$_backendPort$_apiPath';
-        }
-      } catch (e) { 
-        print("[UploadPage] Error checking platform for URL: $e");
+        if (Platform.isAndroid) return 'Android';
+        if (Platform.isIOS) return 'iOS';
+        return Platform.operatingSystem;
+      } catch (e) {
+        return 'Unknown';
       }
-      return 'http://localhost:$_backendPort$_apiPath';
     }
+    return 'Unknown';
   }
 
   Future<void> _pickVideo() async {
@@ -68,25 +77,25 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
         setState(() {
           _selectedPlatformFile = result.files.single;
           _videoFileName = _selectedPlatformFile!.name;
-          print('Video selected: $_videoFileName');
+          print('[UploadPage] Video selected: $_videoFileName');
           if (!kIsWeb && _selectedPlatformFile!.path != null) {
-             print('Video path (mobile/desktop): ${_selectedPlatformFile!.path}');
+             print('[UploadPage] Video path (mobile/desktop): ${_selectedPlatformFile!.path}');
           } else if (kIsWeb && _selectedPlatformFile!.bytes != null) {
-             print('Video bytes selected (web): ${_selectedPlatformFile!.bytes!.length}');
+             print('[UploadPage] Video bytes selected (web): ${_selectedPlatformFile!.bytes!.length}');
           }
         });
       } else {
-        print('No video selected.');
+        print('[UploadPage] No video selected.');
         setState(() {
           _selectedPlatformFile = null;
           _videoFileName = null;
         });
       }
     } catch (e) {
-      print('Error picking video: $e');
-      if(mounted) {
+      print('[UploadPage] Error picking video: $e');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi chọn video: $e')),
+          SnackBar(content: Text('Error selecting video: $e')),
         );
       }
     }
@@ -94,55 +103,70 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
 
   Future<void> _uploadVideo() async {
     if (_selectedPlatformFile == null) {
-      if(mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn một video để upload.')),
-      );
+          const SnackBar(content: Text('Please select a video to upload.')),
+        );
       }
       return;
     }
     if (_descriptionController.text.isEmpty) {
-      if(mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập mô tả cho video.')),
-      );
+          const SnackBar(content: Text('Please enter a description for the video.')),
+        );
       }
       return;
+    }
+
+    // Ensure upload URL is available
+    if (_uploadUrl == null) {
+      await _initializeUploadUrl();
+      if (_uploadUrl == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not determine upload URL. Please try again.')),
+          );
+        }
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
 
     String userIdToUpload;
     try {
-        final authService = Provider.of<AuthService>(context, listen: false); 
-        if (!authService.isAuthenticated || authService.currentUser == null) {
-          if(mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bạn cần đăng nhập để upload video.')),
+      final authService = Provider.of<AuthService>(context, listen: false); 
+      if (!authService.isAuthenticated || authService.currentUser == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('You need to login to upload video.')),
           );
-          }
-          setState(() => _isLoading = false);
-          return;
         }
-        userIdToUpload = authService.currentUser!.id; 
-    } catch (e) {
-        print("[UploadPage] Error getting user from AuthService: $e. Upload aborted.");
-         if(mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể xác thực người dùng. Vui lòng thử đăng nhập lại.')),
-        );
-         }
         setState(() => _isLoading = false);
         return;
+      }
+      userIdToUpload = authService.currentUser!.id; 
+    } catch (e) {
+      print('[UploadPage] Error getting user from AuthService: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not authenticate user. Please try logging in again.')),
+        );
+      }
+      setState(() => _isLoading = false);
+      return;
     }
 
-    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl));
+    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
     request.fields['description'] = _descriptionController.text;
     request.fields['userId'] = userIdToUpload;
 
     print('[UploadPage] Upload URL: $_uploadUrl');
-    print('[UploadPage] Platform info: ${kIsWeb ? "Web" : Platform.operatingSystem}, isEmulator: ${!kIsWeb ? _isAndroidEmulator() : "N/A"}');
+    print('[UploadPage] Platform: ${_getPlatformName()}');
+    print('[UploadPage] Fields: ${request.fields}');
 
+    // Add file based on platform
     if (kIsWeb && _selectedPlatformFile!.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
         'videoFile', 
@@ -150,6 +174,7 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
         filename: _videoFileName ?? 'video_from_web.mp4',
         contentType: MediaType('video', _videoFileName?.split('.').last ?? 'mp4'), 
       ));
+      print('[UploadPage] Added file from bytes (web)');
     } else if (!kIsWeb && _selectedPlatformFile!.path != null) {
       request.files.add(
         await http.MultipartFile.fromPath(
@@ -159,19 +184,20 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
           contentType: MediaType('video', _selectedPlatformFile!.path!.split('.').lastOrNull ?? 'mp4'),
         ),
       );
+      print('[UploadPage] Added file from path (mobile/desktop)');
     } else {
-      if(mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không tìm thấy file video hợp lệ để upload.')),
-      );
+          const SnackBar(content: Text('Could not find valid video file to upload.')),
+        );
       }
       setState(() => _isLoading = false);
       return;
     }
     
     try {
-      print('[UploadPage] Sending upload request to $_uploadUrl with fields: ${request.fields} and file: ${request.files.isNotEmpty ? request.files.first.filename : "no file"}');
-      final streamedResponse = await request.send();
+      print('[UploadPage] Sending upload request to $_uploadUrl');
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
 
       print('[UploadPage] Upload Response status: ${response.statusCode}');
@@ -181,7 +207,10 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Video đã được upload thành công!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Video uploaded successfully!'), 
+            backgroundColor: Colors.green
+          ),
         );
         setState(() {
           _selectedPlatformFile = null;
@@ -190,7 +219,7 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
         });
         Navigator.of(context).pop(); 
       } else {
-        String errorMessage = 'Upload video thất bại. Status: ${response.statusCode}';
+        String errorMessage = 'Video upload failed. Status: ${response.statusCode}';
         try {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error'] ?? errorMessage;
@@ -202,10 +231,13 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
     } catch (e) {
       print('[UploadPage] Error uploading video: $e');
       if (mounted) {
-        String errorMessage = 'Lỗi khi upload video: $e';
+        String errorMessage = 'Error uploading video: $e';
         if (e.toString().contains('Connection refused') || 
-            e.toString().contains('Failed host lookup')) {
-          errorMessage = 'Không thể kết nối đến server. Kiểm tra kết nối mạng.';
+            e.toString().contains('Failed host lookup') ||
+            e.toString().contains('No address associated with hostname')) {
+          errorMessage = 'Cannot connect to server. Please check your network connection.';
+          // Clear cache and try to refresh URL for next attempt
+          NetworkConfig.clearCache();
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
@@ -216,6 +248,22 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _refreshConnection() async {
+    setState(() {
+      _debugInfo = 'Refreshing connection...';
+    });
+    
+    NetworkConfig.clearCache();
+    await _initializeUploadUrl();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Connection refreshed'),
+        duration: Duration(seconds: 1),
+      ),
+    );
   }
   
   @override
@@ -228,18 +276,27 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upload Video Mới'),
+        title: const Text('Upload New Video'),
         actions: [
           if (!_isLoading)
             IconButton(
               icon: const Icon(Icons.check_circle_outline),
-              onPressed: (_selectedPlatformFile != null && _descriptionController.text.isNotEmpty) ? _uploadVideo : null, // Chỉ enable khi có file và mô tả
+              onPressed: (_selectedPlatformFile != null && 
+                        _descriptionController.text.isNotEmpty &&
+                        _uploadUrl != null) ? _uploadVideo : null,
               tooltip: 'Upload Video',
             )
           else
             const Padding(
               padding: EdgeInsets.all(16.0),
-              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+              child: SizedBox(
+                width: 20, 
+                height: 20, 
+                child: CircularProgressIndicator(
+                  strokeWidth: 2, 
+                  color: Colors.white
+                )
+              ),
             )
         ],
       ),
@@ -248,54 +305,68 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Debug info for connection
-            if (!kIsWeb) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
+            // Connection Status Card
+            Card(
+              color: _uploadUrl != null ? Colors.green.shade50 : Colors.orange.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Debug Info:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          _uploadUrl != null ? Icons.check_circle : Icons.warning,
+                          color: _uploadUrl != null ? Colors.green : Colors.orange,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Connection Status',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _uploadUrl != null ? Colors.green.shade700 : Colors.orange.shade700,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.refresh, size: 20),
+                          onPressed: _refreshConnection,
+                          tooltip: 'Refresh Connection',
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      'Platform: ${Platform.operatingSystem}',
-                      style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
-                    ),
-                    Text(
-                      'Is Emulator: ${_isAndroidEmulator()}',
-                      style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
-                    ),
-                    Text(
-                      'Upload URL: $_uploadUrl',
-                      style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
-                    ),
+                    if (_debugInfo != null)
+                      Text(
+                        _debugInfo!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _uploadUrl != null ? Colors.green.shade600 : Colors.orange.shade600,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ],
+            ),
             
+            const SizedBox(height: 16),
+            
+            // Video Selection
             ElevatedButton.icon(
               onPressed: _pickVideo,
               icon: const Icon(Icons.video_library_outlined),
-              label: const Text('Chọn Video từ Thiết Bị'),
+              label: const Text('Select Video from Device'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 textStyle: const TextStyle(fontSize: 16)
               ),
             ),
+            
             const SizedBox(height: 20),
+            
+            // Selected Video Display
             if (_selectedPlatformFile != null)
               Card(
                 elevation: 2,
@@ -306,18 +377,26 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Video đã chọn:',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        'Selected Video:',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.movie_creation_outlined, color: Theme.of(context).hintColor),
+                          Icon(
+                            Icons.movie_creation_outlined, 
+                            color: Theme.of(context).hintColor
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _videoFileName ?? 'Không có tên file',
-                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                              _videoFileName ?? 'No filename',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500, 
+                                fontSize: 15
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -331,20 +410,27 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                           color: Colors.black12,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Center(child: Icon(Icons.play_circle_fill_rounded, size: 60, color: Colors.grey[400])),
-                        // TODO: Hiển thị video preview thực tế bằng video_player nếu là web (cho bytes)
-                        // hoặc nếu là mobile và có path. Điều này sẽ phức tạp hơn.
+                        child: Center(
+                          child: Icon(
+                            Icons.play_circle_fill_rounded, 
+                            size: 60, 
+                            color: Colors.grey[400]
+                          )
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-             if (_selectedPlatformFile != null) const SizedBox(height: 20),
+             
+            if (_selectedPlatformFile != null) const SizedBox(height: 20),
+            
+            // Description Input
             TextFormField(
               controller: _descriptionController,
               decoration: InputDecoration(
-                labelText: 'Mô tả video',
-                hintText: 'Thêm mô tả, #hashtags...',
+                labelText: 'Video Description',
+                hintText: 'Add description, #hashtags...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.0),
                 ),
@@ -352,26 +438,41 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
               ),
               maxLines: 4,
               maxLength: 250,
-              onChanged: (_) => setState(() {}), // Để cập nhật trạng thái nút Upload
+              onChanged: (_) => setState(() {}), // Update upload button state
             ),
+            
             const SizedBox(height: 30),
+            
+            // Upload Button or Loading
             if (_isLoading)
-              const Center(child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              ))
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 8),
+                      Text('Uploading video...'),
+                    ],
+                  ),
+                )
+              )
             else 
               ElevatedButton.icon(
                 icon: const Icon(Icons.cloud_upload_rounded),
-                label: const Text('Đăng Video'),
+                label: const Text('Upload Video'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                  textStyle: const TextStyle(
+                    fontSize: 16, 
+                    fontWeight: FontWeight.bold
+                  )
                 ),
-                // Chỉ bật nút khi đã chọn file và có mô tả
-                onPressed: (_selectedPlatformFile != null && _descriptionController.text.isNotEmpty) ? _uploadVideo : null,
+                onPressed: (_selectedPlatformFile != null && 
+                          _descriptionController.text.isNotEmpty &&
+                          _uploadUrl != null) ? _uploadVideo : null,
               ),
           ],
         ),

@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/search/domain/services/search_follow_sync_service.dart';
 import 'package:tiktok_frontend/src/features/search/presentation/widgets/optimized_user_search_item.dart';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 
 class EnhancedSearchPage extends StatefulWidget {
   const EnhancedSearchPage({super.key});
@@ -36,9 +37,6 @@ class _EnhancedSearchPageState extends State<EnhancedSearchPage>
   String? _errorMessage;
   int _userCount = 0;
   int _videoCount = 0;
-
-  // API configuration
-  static const String _baseUrl = 'http://localhost:8080/api';
 
   @override
   bool get wantKeepAlive => true;
@@ -86,7 +84,9 @@ class _EnhancedSearchPageState extends State<EnhancedSearchPage>
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.id;
 
-      final uri = Uri.parse('$_baseUrl/search/trending').replace(
+      // Use NetworkConfig to get proper URL
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/search/trending');
+      final uri = Uri.parse(baseUrl).replace(
         queryParameters: {
           'limit': '10',
           'timeframe': '7d',
@@ -129,7 +129,11 @@ class _EnhancedSearchPageState extends State<EnhancedSearchPage>
 
   Future<void> _loadFallbackUsers() async {
     try {
-      final uri = Uri.parse('$_baseUrl/users');
+      // Use NetworkConfig for fallback URL too
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final uri = Uri.parse(baseUrl);
+      
+      print('[EnhancedSearchPage] Loading fallback users from: $uri');
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -259,7 +263,8 @@ class _EnhancedSearchPageState extends State<EnhancedSearchPage>
 
   Future<Map<String, dynamic>> _searchUsers(String query, String? currentUserId) async {
     try {
-      final uri = Uri.parse('$_baseUrl/search/users').replace(
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/search/users');
+      final uri = Uri.parse(baseUrl).replace(
         queryParameters: {
           'q': query,
           'page': '1',
@@ -286,7 +291,8 @@ class _EnhancedSearchPageState extends State<EnhancedSearchPage>
 
   Future<Map<String, dynamic>> _searchVideos(String query, String? currentUserId) async {
     try {
-      final uri = Uri.parse('$_baseUrl/search/videos').replace(
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/search/videos');
+      final uri = Uri.parse(baseUrl).replace(
         queryParameters: {
           'q': query,
           'page': '1',
@@ -323,7 +329,10 @@ class _EnhancedSearchPageState extends State<EnhancedSearchPage>
   String _getVideoUrl(String? videoUrl) {
     if (videoUrl == null || videoUrl.isEmpty) return '';
     if (videoUrl.startsWith('http')) return videoUrl;
-    return 'http://localhost:8080$videoUrl';
+    
+    // Use NetworkConfig for file URLs
+    final cachedUrl = NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080';
+    return '$cachedUrl$videoUrl';
   }
 
   void _onFollowChanged() {

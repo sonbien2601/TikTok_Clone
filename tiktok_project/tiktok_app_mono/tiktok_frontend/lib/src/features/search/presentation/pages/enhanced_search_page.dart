@@ -1,54 +1,66 @@
-// tiktok_frontend/lib/src/features/search/presentation/pages/search_page.dart
+// tiktok_frontend/lib/src/features/search/presentation/pages/enhanced_search_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
-import 'package:tiktok_frontend/src/features/follow/domain/services/follow_service.dart';
-import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart';
-import 'package:tiktok_frontend/src/features/follow/presentation/widgets/follow_button_widget.dart';
+import 'package:tiktok_frontend/src/features/search/domain/services/search_follow_sync_service.dart';
+import 'package:tiktok_frontend/src/features/search/presentation/widgets/optimized_user_search_item.dart';
 
-class SearchPage extends StatefulWidget {
-  const SearchPage({super.key});
+class EnhancedSearchPage extends StatefulWidget {
+  const EnhancedSearchPage({super.key});
 
   @override
-  State<SearchPage> createState() => _SearchPageState();
+  State<EnhancedSearchPage> createState() => _EnhancedSearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateMixin {
-  final TextEditingController _searchController = TextEditingController();
-  final FollowService _followService = FollowService();
-  late TabController _tabController;
-  late FollowStateManager _followStateManager;
+class _EnhancedSearchPageState extends State<EnhancedSearchPage> 
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   
+  // Controllers and managers
+  final TextEditingController _searchController = TextEditingController();
+  final SearchFollowSyncService _syncService = SearchFollowSyncService();
+  late TabController _tabController;
+  
+  // Search debounce
+  Timer? _debounceTimer;
+  
+  // State variables
   bool _isSearching = false;
   bool _isLoadingTrending = false;
-  List<dynamic> _userResults = [];
-  List<dynamic> _videoResults = [];
-  List<dynamic> _trendingUsers = [];
+  List<Map<String, dynamic>> _userResults = [];
+  List<Map<String, dynamic>> _videoResults = [];
+  List<Map<String, dynamic>> _trendingUsers = [];
   String _currentQuery = '';
   String? _errorMessage;
   int _userCount = 0;
   int _videoCount = 0;
 
-  // Base URL for API
+  // API configuration
   static const String _baseUrl = 'http://localhost:8080/api';
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _followStateManager = FollowStateManager();
     
-    // Listen to follow state changes
-    _followStateManager.addListener(_onFollowStateChanged);
+    // Subscribe to follow state changes
+    _syncService.subscribeToFollowStateChanges(_onFollowStateChanged);
     
-    _loadTrendingUsers();
+    // Load trending users on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadTrendingUsers();
+    });
   }
 
   @override
   void dispose() {
-    _followStateManager.removeListener(_onFollowStateChanged);
+    _syncService.unsubscribeFromFollowStateChanges(_onFollowStateChanged);
+    _debounceTimer?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -57,39 +69,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   void _onFollowStateChanged() {
     if (mounted) {
       setState(() {
-        // Update UI when follow states change
-        _updateUserFollowStates();
+        // UI will update automatically as the data references are maintained
       });
     }
   }
 
-  void _updateUserFollowStates() {
-    // Update user results
-    for (var user in _userResults) {
-      final userId = user['id'] as String?;
-      if (userId != null) {
-        final followInfo = _followStateManager.getFollowInfo(userId);
-        if (followInfo['hasData'] == true) {
-          user['isFollowing'] = followInfo['isFollowing'];
-          user['followersCount'] = followInfo['followerCount'];
-        }
-      }
-    }
-
-    // Update trending users
-    for (var user in _trendingUsers) {
-      final userId = user['id'] as String?;
-      if (userId != null) {
-        final followInfo = _followStateManager.getFollowInfo(userId);
-        if (followInfo['hasData'] == true) {
-          user['isFollowing'] = followInfo['isFollowing'];
-          user['followersCount'] = followInfo['followerCount'];
-        }
-      }
-    }
-  }
-
   Future<void> _loadTrendingUsers() async {
+    if (_isLoadingTrending) return;
+    
     setState(() {
       _isLoadingTrending = true;
       _errorMessage = null;
@@ -107,40 +94,51 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         },
       );
 
-      print('[SearchPage] Loading trending users from: $uri');
-      final response = await http.get(uri);
+      print('[EnhancedSearchPage] Loading trending users from: $uri');
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final trendingUsers = List<Map<String, dynamic>>.from(
+          (data['trendingUsers'] ?? []).map((user) => Map<String, dynamic>.from(user))
+        );
+        
         if (mounted) {
           setState(() {
-            _trendingUsers = data['trendingUsers'] ?? [];
+            _trendingUsers = trendingUsers;
             _isLoadingTrending = false;
             _errorMessage = null;
           });
           
-          // Initialize follow states
-          _initializeFollowStates(_trendingUsers);
+          // Sync follow states
+          await _syncService.syncFollowStatesForUsers(_trendingUsers, currentUserId);
+          
+          if (mounted) {
+            setState(() {}); // Refresh UI after sync
+          }
         }
-        print('[SearchPage] ✅ Loaded ${_trendingUsers.length} trending users');
+        print('[EnhancedSearchPage] ✅ Loaded ${_trendingUsers.length} trending users');
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      print('[SearchPage] ❌ Error loading trending users: $e');
-      await _loadRealUsersFromDB();
+      print('[EnhancedSearchPage] ❌ Error loading trending users: $e');
+      await _loadFallbackUsers();
     }
   }
 
-  Future<void> _loadRealUsersFromDB() async {
+  Future<void> _loadFallbackUsers() async {
     try {
       final uri = Uri.parse('$_baseUrl/users');
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        List<dynamic> users = data['users'] ?? data ?? [];
+        List<Map<String, dynamic>> users = List<Map<String, dynamic>>.from(
+          (data['users'] ?? data ?? []).map((user) => Map<String, dynamic>.from(user))
+        );
         
+        // Sort by followers count
         users.sort((a, b) {
           final aFollowers = a['followersCount'] ?? 0;
           final bFollowers = b['followersCount'] ?? 0;
@@ -154,45 +152,46 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             _errorMessage = null;
           });
           
-          // Initialize follow states
-          _initializeFollowStates(_trendingUsers);
+          // Sync follow states
+          final authService = Provider.of<AuthService>(context, listen: false);
+          await _syncService.syncFollowStatesForUsers(_trendingUsers, authService.currentUser?.id);
+          
+          if (mounted) {
+            setState(() {}); // Refresh UI after sync
+          }
         }
-        print('[SearchPage] ✅ Loaded ${_trendingUsers.length} real users from DB');
+        print('[EnhancedSearchPage] ✅ Loaded ${_trendingUsers.length} fallback users from DB');
       } else {
         throw Exception('Failed to load users');
       }
     } catch (e) {
-      print('[SearchPage] ❌ Error loading real users: $e');
+      print('[EnhancedSearchPage] ❌ Error loading fallback users: $e');
       if (mounted) {
         setState(() {
           _isLoadingTrending = false;
-          _errorMessage = 'Failed to load users. Please check your backend connection.';
+          _errorMessage = 'Unable to load users. Please check your connection and try again.';
         });
       }
     }
   }
 
-  void _initializeFollowStates(List<dynamic> users) {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    if (!authService.isAuthenticated) return;
-
-    for (var user in users) {
-      final userId = user['id'] as String?;
-      final isFollowing = user['isFollowing'] as bool? ?? false;
-      final followerCount = user['followersCount'] as int? ?? 0;
-      
-      if (userId != null) {
-        _followStateManager.updateFollowState(
-          userId: userId,
-          isFollowing: isFollowing,
-          followerCount: followerCount,
-        );
-      }
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+    
+    if (value.trim().length < 2) {
+      _performSearch('');
+      return;
     }
+    
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_searchController.text == value && mounted) {
+        _performSearch(value.trim());
+      }
+    });
   }
 
   Future<void> _performSearch(String query) async {
-    if (query.trim().isEmpty || query.trim().length < 2) {
+    if (query.isEmpty) {
       setState(() {
         _userResults = [];
         _videoResults = [];
@@ -204,9 +203,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       return;
     }
 
+    if (_isSearching) return;
+
     setState(() {
       _isSearching = true;
-      _currentQuery = query.trim();
+      _currentQuery = query;
       _errorMessage = null;
     });
 
@@ -216,25 +217,37 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
 
       // Search both users and videos concurrently
       final futures = await Future.wait([
-        _searchUsers(query.trim(), currentUserId),
-        _searchVideos(query.trim(), currentUserId),
+        _searchUsers(query, currentUserId),
+        _searchVideos(query, currentUserId),
       ]);
 
       if (mounted) {
+        final userResults = List<Map<String, dynamic>>.from(
+          (futures[0]['users'] ?? []).map((user) => Map<String, dynamic>.from(user))
+        );
+        final videoResults = List<Map<String, dynamic>>.from(
+          (futures[1]['videos'] ?? []).map((video) => Map<String, dynamic>.from(video))
+        );
+
         setState(() {
-          _userResults = futures[0]['users'] ?? [];
-          _videoResults = futures[1]['videos'] ?? [];
-          _userCount = _userResults.length;
-          _videoCount = _videoResults.length;
+          _userResults = userResults;
+          _videoResults = videoResults;
+          _userCount = userResults.length;
+          _videoCount = videoResults.length;
           _isSearching = false;
           _errorMessage = null;
         });
         
-        // Initialize follow states for search results
-        _initializeFollowStates(_userResults);
+        // Sync follow states for search results
+        if (userResults.isNotEmpty) {
+          await _syncService.syncFollowStatesForUsers(userResults, currentUserId);
+          if (mounted) {
+            setState(() {}); // Refresh UI after sync
+          }
+        }
       }
     } catch (e) {
-      print('[SearchPage] ❌ Error performing search: $e');
+      print('[EnhancedSearchPage] ❌ Error performing search: $e');
       if (mounted) {
         setState(() {
           _isSearching = false;
@@ -255,18 +268,18 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         },
       );
 
-      print('[SearchPage] Searching users: $uri');
-      final response = await http.get(uri);
+      print('[EnhancedSearchPage] Searching users: $uri');
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('[SearchPage] ✅ Found ${(data['users'] as List?)?.length ?? 0} users for "$query"');
+        print('[EnhancedSearchPage] ✅ Found ${(data['users'] as List?)?.length ?? 0} users for "$query"');
         return data;
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      print('[SearchPage] ❌ Error searching users: $e');
+      print('[EnhancedSearchPage] ❌ Error searching users: $e');
       return {'users': []};
     }
   }
@@ -282,18 +295,18 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         },
       );
 
-      print('[SearchPage] Searching videos: $uri');
-      final response = await http.get(uri);
+      print('[EnhancedSearchPage] Searching videos: $uri');
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('[SearchPage] ✅ Found ${(data['videos'] as List?)?.length ?? 0} videos for "$query"');
+        print('[EnhancedSearchPage] ✅ Found ${(data['videos'] as List?)?.length ?? 0} videos for "$query"');
         return data;
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      print('[SearchPage] ❌ Error searching videos: $e');
+      print('[EnhancedSearchPage] ❌ Error searching videos: $e');
       return {'videos': []};
     }
   }
@@ -307,12 +320,6 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     return count.toString();
   }
 
-  String _getAvatarUrl(String? avatarUrl) {
-    if (avatarUrl == null || avatarUrl.isEmpty) return '';
-    if (avatarUrl.startsWith('http')) return avatarUrl;
-    return 'http://localhost:8080$avatarUrl';
-  }
-
   String _getVideoUrl(String? videoUrl) {
     if (videoUrl == null || videoUrl.isEmpty) return '';
     if (videoUrl.startsWith('http')) return videoUrl;
@@ -320,22 +327,37 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   }
 
   void _onFollowChanged() {
-    // This will be called when follow state changes
-    // The FollowStateManager will handle the UI updates automatically
-    print('[SearchPage] Follow state changed - UI will update automatically');
+    // This callback is triggered when any follow button state changes
+    print('[EnhancedSearchPage] Follow state changed - UI updated automatically');
+  }
+
+  void _onUserTap(Map<String, dynamic> user) {
+    final username = user['username'] ?? 'unknown';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('View profile: @$username'),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Search & Discover'),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
         elevation: 0,
         bottom: _currentQuery.isNotEmpty ? PreferredSize(
           preferredSize: const Size.fromHeight(50),
           child: TabBar(
             controller: _tabController,
+            indicatorColor: Theme.of(context).primaryColor,
+            labelColor: Theme.of(context).primaryColor,
+            unselectedLabelColor: Colors.grey[600],
             tabs: [
               Tab(
                 child: Row(
@@ -373,57 +395,74 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       ),
       body: Column(
         children: [
-          // Search Bar
-          Padding(
+          // Enhanced Search Bar
+          Container(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search users, videos...',
-                prefixIcon: _isSearching
-                    ? const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: SizedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  offset: const Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey.withOpacity(0.2),
+                ),
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search users, videos...',
+                  hintStyle: TextStyle(color: Colors.grey[500]),
+                  prefixIcon: _isSearching
+                      ? Container(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          padding: const EdgeInsets.all(12),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.search,
+                          color: Colors.grey[600],
                         ),
-                      )
-                    : const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _performSearch('');
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.clear, color: Colors.grey[600]),
+                          onPressed: () {
+                            _searchController.clear();
+                            _performSearch('');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
-                filled: true,
-                fillColor: Theme.of(context).cardColor,
+                onChanged: _onSearchChanged,
+                textInputAction: TextInputAction.search,
+                onSubmitted: _performSearch,
               ),
-              onChanged: (value) {
-                // Debounce search - chỉ search khi dừng gõ 500ms
-                Future.delayed(const Duration(milliseconds: 500), () {
-                  if (_searchController.text == value && value.length >= 2) {
-                    _performSearch(value);
-                  } else if (value.length < 2) {
-                    _performSearch(''); // Clear results if less than 2 characters
-                  }
-                });
-              },
-              textInputAction: TextInputAction.search,
-              onSubmitted: _performSearch,
             ),
           ),
 
-          // Error message
+          // Error Message
           if (_errorMessage != null)
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.orange.withOpacity(0.1),
@@ -439,6 +478,15 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                       _errorMessage!,
                       style: TextStyle(color: Colors.orange[700], fontSize: 12),
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16),
+                    color: Colors.orange[700],
+                    onPressed: () {
+                      setState(() {
+                        _errorMessage = null;
+                      });
+                    },
                   ),
                 ],
               ),
@@ -459,24 +507,52 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     return Column(
       children: [
         // Header
-        Padding(
+        Container(
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              Icon(Icons.trending_up, color: Theme.of(context).primaryColor),
-              const SizedBox(width: 8),
-              Text(
-                'Trending Users',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.trending_up, 
+                  color: Theme.of(context).primaryColor,
+                  size: 20,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Trending Users',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Discover popular creators',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               if (_isLoadingTrending)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                Container(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -501,15 +577,22 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildUsersList(List<dynamic> users, {bool showTrendingBadges = false}) {
+  Widget _buildUsersList(List<Map<String, dynamic>> users, {bool showTrendingBadges = false}) {
     if (_isSearching || _isLoadingTrending) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Loading...'),
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).primaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _isSearching ? 'Searching...' : 'Loading trending users...',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
           ],
         ),
       );
@@ -520,19 +603,31 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.search_off, size: 64, color: Colors.grey),
+            Icon(
+              _currentQuery.isNotEmpty ? Icons.search_off : Icons.people_outline,
+              size: 64,
+              color: Colors.grey[400],
+            ),
             const SizedBox(height: 16),
             Text(
               _currentQuery.isNotEmpty 
                   ? 'No users found for "$_currentQuery"'
-                  : 'No users to display',
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  : 'No trending users available',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
             ),
             if (_currentQuery.isNotEmpty) ...[
               const SizedBox(height: 8),
-              const Text(
-                'Try different keywords',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+              Text(
+                'Try different keywords or check your spelling',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+                textAlign: TextAlign.center,
               ),
             ],
           ],
@@ -542,160 +637,42 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
 
     return RefreshIndicator(
       onRefresh: _currentQuery.isEmpty ? _loadTrendingUsers : () => _performSearch(_currentQuery),
+      color: Theme.of(context).primaryColor,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: users.length,
         itemBuilder: (context, index) {
           final user = users[index];
-          final isTopUser = showTrendingBadges && index < 3;
-          final avatarUrl = _getAvatarUrl(user['avatarUrl']);
-          final userId = user['id'] as String?;
           
-          if (userId == null) return const SizedBox.shrink();
-          
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            elevation: isTopUser ? 4 : 1,
-            child: ListTile(
-              leading: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Theme.of(context).primaryColor,
-                    backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                    child: avatarUrl.isEmpty
-                        ? Text(
-                            (user['username']?[0] ?? '?').toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          )
-                        : null,
-                  ),
-                  if (isTopUser)
-                    Positioned(
-                      bottom: -2,
-                      right: -2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: index == 0 ? Colors.amber : 
-                                 index == 1 ? Colors.grey[400] : Colors.brown[300],
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1),
-                        ),
-                        child: const Icon(
-                          Icons.emoji_events,
-                          size: 12,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      user['displayName'] ?? user['username'] ?? 'Unknown User',
-                      style: TextStyle(
-                        fontWeight: isTopUser ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                  if (user['isVerified'] == true) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.verified,
-                      size: 16,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ],
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('@${user['username'] ?? 'unknown'}'),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.people, size: 14, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_formatCount(user['followersCount'] ?? 0)} followers',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontWeight: isTopUser ? FontWeight.w500 : FontWeight.normal,
-                        ),
-                      ),
-                      if (user['videosCount'] != null && user['videosCount'] > 0) ...[
-                        const SizedBox(width: 12),
-                        Icon(Icons.video_library, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${user['videosCount']} videos',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        ),
-                      ],
-                      if (isTopUser) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'Trending',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-              trailing: SizedBox(
-                width: 90,
-                height: 36,
-                child: FollowButtonWidget(
-                  targetUserId: userId,
-                  targetUsername: user['username'] ?? 'user',
-                  initialIsFollowing: user['isFollowing'] == true,
-                  initialFollowerCount: user['followersCount'] ?? 0,
-                  style: FollowButtonStyle.compact,
-                  onFollowChanged: _onFollowChanged,
-                  fontSize: 11,
-                ),
-              ),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('View profile: @${user['username']}'),
-                    duration: const Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
+          return OptimizedUserSearchItem(
+            user: user,
+            onTap: () => _onUserTap(user),
+            showTrendingBadge: showTrendingBadges,
+            trendingRank: showTrendingBadges ? index : null,
+            showRecentActivity: showTrendingBadges,
+            onFollowChanged: _onFollowChanged,
           );
         },
       ),
     );
   }
 
-  Widget _buildVideosList(List<dynamic> videos) {
+  Widget _buildVideosList(List<Map<String, dynamic>> videos) {
     if (_isSearching) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Searching videos...'),
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).primaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Searching videos...',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
           ],
         ),
       );
@@ -706,16 +683,27 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.video_library_outlined, size: 64, color: Colors.grey),
+            Icon(
+              Icons.video_library_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
             const SizedBox(height: 16),
             Text(
               'No videos found for "$_currentQuery"',
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Try searching with different keywords',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
             ),
           ],
         ),
@@ -726,24 +714,28 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
       ),
       itemCount: videos.length,
       itemBuilder: (context, index) {
         final video = videos[index];
-        final videoUrl = _getVideoUrl(video['videoUrl']);
         final thumbnailUrl = _getVideoUrl(video['thumbnailUrl']);
 
         return Card(
           clipBehavior: Clip.antiAlias,
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: InkWell(
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Play video: ${video['description'] ?? 'Untitled'}'),
                   duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
@@ -755,7 +747,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: Colors.grey[900],
                       image: thumbnailUrl.isNotEmpty
                           ? DecorationImage(
                               image: NetworkImage(thumbnailUrl),
@@ -770,16 +762,23 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                             child: Icon(
                               Icons.play_circle_outline,
                               size: 48,
-                              color: Colors.white,
+                              color: Colors.white70,
                             ),
                           ),
                         
                         // Play overlay
-                        const Center(
-                          child: Icon(
-                            Icons.play_circle_filled,
-                            size: 48,
-                            color: Colors.white,
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              size: 32,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         
@@ -788,9 +787,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                           bottom: 8,
                           left: 8,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.7),
+                              color: Colors.black.withOpacity(0.8),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -807,6 +806,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],

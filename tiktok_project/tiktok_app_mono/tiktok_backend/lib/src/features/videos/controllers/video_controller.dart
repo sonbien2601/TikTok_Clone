@@ -1046,6 +1046,554 @@ static Future<Response> getVideoShareAnalyticsHandler(Request request, String vi
   }
 }
 
+// Addition to existing video_controller.dart - Enhanced hashtag processing methods
+
+// Add these methods to the existing VideoController class:
+
+  // --- ENHANCED HASHTAG EXTRACTION ---
+  static List<String> _extractHashtags(String description) {
+    if (description.isEmpty) return [];
+    
+    // Enhanced regex to match hashtags more accurately
+    final hashtagRegex = RegExp(r'#[a-zA-Z0-9_\u00C0-\u017F\u1EA0-\u1EF9]+', unicode: true);
+    final matches = hashtagRegex.allMatches(description);
+    
+    Set<String> hashtags = {};
+    
+    for (final match in matches) {
+      String hashtag = match.group(0)!.toLowerCase();
+      
+      // Remove # for storage but keep for display
+      String cleanHashtag = hashtag.substring(1);
+      
+      // Only add hashtags with length >= 2 and <= 50
+      if (cleanHashtag.length >= 2 && cleanHashtag.length <= 50) {
+        hashtags.add(cleanHashtag);
+      }
+    }
+    
+    print('[VideoController] Extracted hashtags: ${hashtags.toList()}');
+    return hashtags.toList();
+  }
+
+  // --- GET VIDEOS BY HASHTAG ---
+  static Future<Response> getVideosByHashtagHandler(Request request, String hashtag) async {
+    print('[VideoController] Getting videos by hashtag: #$hashtag');
+    
+    try {
+      final page = int.tryParse(request.url.queryParameters['page'] ?? '1') ?? 1;
+      final limit = int.tryParse(request.url.queryParameters['limit'] ?? '20') ?? 20;
+      final sortBy = request.url.queryParameters['sortBy'] ?? 'newest'; // newest, popular, views
+      final currentUserId = request.url.queryParameters['currentUserId'];
+      
+      // Validate hashtag
+      if (hashtag.isEmpty) {
+        return Response(400,
+          body: jsonEncode({'error': 'Hashtag is required'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      final videosCollection = DatabaseService.db.collection('videos');
+      final usersCollection = DatabaseService.db.collection('users');
+      
+      final skip = (page - 1) * limit;
+      
+      // Normalize hashtag (remove # if present, convert to lowercase)
+      final normalizedHashtag = hashtag.toLowerCase().replaceFirst('#', '');
+      
+      print('[VideoController] Searching for normalized hashtag: "$normalizedHashtag"');
+      
+      // Create selector based on sorting preference
+      SelectorBuilder selector = where.oneFrom('hashtags', [normalizedHashtag]);
+      
+      switch (sortBy) {
+        case 'popular':
+          selector = selector.sortBy('likesCount', descending: true);
+          break;
+        case 'views':
+          selector = selector.sortBy('viewsCount', descending: true);
+          break;
+        case 'trending':
+          // Sort by a combination of recent engagement
+          selector = selector.sortBy('updatedAt', descending: true);
+          break;
+        default: // newest
+          selector = selector.sortBy('createdAt', descending: true);
+          break;
+      }
+      
+      selector = selector.skip(skip).limit(limit);
+
+      final videoDocs = await videosCollection.find(selector).toList();
+      
+      // Count total videos with this hashtag
+      final totalVideos = await videosCollection.count(
+        where.oneFrom('hashtags', [normalizedHashtag])
+      );
+
+      print('[VideoController] Found ${videoDocs.length} videos for hashtag, total: $totalVideos');
+
+      // Format videos for response
+      List<Map<String, dynamic>> formattedVideos = [];
+      
+      for (var videoDoc in videoDocs) {
+        final video = Map<String, dynamic>.from(videoDoc);
+        
+        // Convert ObjectIds to strings
+        video['_id'] = (videoDoc['_id'] as ObjectId).toHexString();
+        video['userId'] = (videoDoc['userId'] as ObjectId).toHexString();
+        
+        // Convert arrays
+        video['likes'] = (videoDoc['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+        video['saves'] = (videoDoc['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+        video['uniqueViewers'] = (videoDoc['uniqueViewers'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+        
+        // Get user info
+        String username = videoDoc['username'] as String? ?? '';
+        String? userAvatarUrl = videoDoc['userAvatarUrl'] as String?;
+        
+        // If username is missing, fetch from users collection
+        if (username.isEmpty || username == 'Unknown User') {
+          try {
+            final userId = ObjectId.fromHexString(video['userId']);
+            final userDoc = await usersCollection.findOne(where.id(userId));
+            if (userDoc != null) {
+              username = userDoc['username'] as String? ?? 'Unknown User';
+              userAvatarUrl = userDoc['avatarUrl'] as String?;
+            }
+          } catch (e) {
+            print('[VideoController] Error fetching user info: $e');
+            username = 'Unknown User';
+          }
+        }
+        
+        // Add user object
+        video['user'] = {
+          'id': video['userId'],
+          'username': username,
+          'displayName': username,
+          'avatarUrl': userAvatarUrl,
+          'isVerified': false,
+        };
+        
+        // Remove denormalized fields
+        video.remove('username');
+        video.remove('userAvatarUrl');
+        
+        // Ensure analytics fields are present
+        video['viewsCount'] = videoDoc['viewsCount'] ?? 0;
+        video['uniqueViewsCount'] = videoDoc['uniqueViewsCount'] ?? 0;
+        video['analyticsData'] = videoDoc['analyticsData'] ?? {};
+        
+        formattedVideos.add(video);
+      }
+
+      // Calculate hashtag statistics
+      final hashtagStats = await _calculateHashtagStatistics(normalizedHashtag, videosCollection);
+
+      final totalPages = (totalVideos / limit).ceil();
+      
+      final response = {
+        'hashtag': normalizedHashtag,
+        'displayHashtag': '#$normalizedHashtag',
+        'videos': formattedVideos,
+        'statistics': hashtagStats,
+        'pagination': {
+          'currentPage': page,
+          'totalPages': totalPages,
+          'totalVideos': totalVideos,
+          'limit': limit,
+          'hasNextPage': page < totalPages,
+          'hasPrevPage': page > 1,
+        },
+        'sortBy': sortBy,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      return Response.ok(
+        jsonEncode(response),
+        headers: {'Content-Type': 'application/json'}
+      );
+
+    } catch (e, s) {
+      print('[VideoController.getVideosByHashtagHandler] Error: $e\n$s');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to get videos by hashtag: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+  }
+
+  // --- CALCULATE HASHTAG STATISTICS ---
+  static Future<Map<String, dynamic>> _calculateHashtagStatistics(String hashtag, dynamic videosCollection) async {
+    try {
+      print('[VideoController] Calculating statistics for hashtag: $hashtag');
+      
+      final videos = await videosCollection.find(
+        where.oneFrom('hashtags', [hashtag])
+      ).toList();
+
+      int totalVideos = videos.length;
+      int totalLikes = 0;
+      int totalViews = 0;
+      int totalShares = 0;
+      int totalComments = 0;
+      Map<String, int> creatorCounts = {};
+      Map<String, int> dailyCounts = {};
+
+      for (var video in videos) {
+        totalLikes += video['likesCount'] as int? ?? 0;
+        totalViews += video['viewsCount'] as int? ?? 0;
+        totalShares += video['sharesCount'] as int? ?? 0;
+        totalComments += video['commentsCount'] as int? ?? 0;
+        
+        final username = video['username'] as String? ?? 'Unknown';
+        creatorCounts[username] = (creatorCounts[username] ?? 0) + 1;
+        
+        // Count videos by day for trending analysis
+        final createdAt = video['createdAt'] as String?;
+        if (createdAt != null) {
+          final date = DateTime.tryParse(createdAt);
+          if (date != null) {
+            final dayKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+            dailyCounts[dayKey] = (dailyCounts[dayKey] ?? 0) + 1;
+          }
+        }
+      }
+
+      // Get top creators (limit to top 10)
+      final topCreators = creatorCounts.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value))
+        ..take(10);
+
+      // Calculate trending score based on recent activity
+      final now = DateTime.now();
+      final last7Days = now.subtract(const Duration(days: 7));
+      int recentVideos = 0;
+      int recentEngagement = 0;
+
+      for (var video in videos) {
+        final createdAt = video['createdAt'] as String?;
+        if (createdAt != null) {
+          final date = DateTime.tryParse(createdAt);
+          if (date != null && date.isAfter(last7Days)) {
+            recentVideos++;
+            recentEngagement += (video['likesCount'] as int? ?? 0) + 
+                               (video['commentsCount'] as int? ?? 0) + 
+                               (video['sharesCount'] as int? ?? 0);
+          }
+        }
+      }
+
+      final trendingScore = recentVideos * 10 + recentEngagement;
+
+      // Get daily trend data (last 30 days)
+      final trendData = <Map<String, dynamic>>[];
+      for (int i = 29; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final dayKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        trendData.add({
+          'date': dayKey,
+          'count': dailyCounts[dayKey] ?? 0,
+        });
+      }
+
+      final statistics = {
+        'totalVideos': totalVideos,
+        'totalLikes': totalLikes,
+        'totalViews': totalViews,
+        'totalShares': totalShares,
+        'totalComments': totalComments,
+        'averageLikes': totalVideos > 0 ? (totalLikes / totalVideos).round() : 0,
+        'averageViews': totalVideos > 0 ? (totalViews / totalVideos).round() : 0,
+        'averageEngagement': totalVideos > 0 ? ((totalLikes + totalComments + totalShares) / totalVideos).round() : 0,
+        'recentVideos': recentVideos,
+        'trendingScore': trendingScore,
+        'topCreators': topCreators.map((e) => {
+          'username': e.key,
+          'videoCount': e.value,
+          'percentage': totalVideos > 0 ? ((e.value / totalVideos) * 100).round() : 0,
+        }).toList(),
+        'trendData': trendData,
+        'peakDay': dailyCounts.isNotEmpty 
+          ? dailyCounts.entries.reduce((a, b) => a.value > b.value ? a : b).key
+          : null,
+        'isActive': recentVideos > 0,
+        'isTrending': trendingScore > 50, // Threshold for trending
+      };
+
+      print('[VideoController] Hashtag statistics calculated: ${statistics['totalVideos']} videos, trending score: ${statistics['trendingScore']}');
+      
+      return statistics;
+    } catch (e) {
+      print('[VideoController] Error calculating hashtag statistics: $e');
+      return {
+        'totalVideos': 0,
+        'totalLikes': 0,
+        'totalViews': 0,
+        'totalShares': 0,
+        'totalComments': 0,
+        'averageLikes': 0,
+        'averageViews': 0,
+        'averageEngagement': 0,
+        'recentVideos': 0,
+        'trendingScore': 0,
+        'topCreators': [],
+        'trendData': [],
+        'peakDay': null,
+        'isActive': false,
+        'isTrending': false,
+      };
+    }
+  }
+
+  // --- GET RELATED HASHTAGS ---
+  static Future<Response> getRelatedHashtagsHandler(Request request, String hashtag) async {
+    print('[VideoController] Getting related hashtags for: #$hashtag');
+    
+    try {
+      final limit = int.tryParse(request.url.queryParameters['limit'] ?? '10') ?? 10;
+      
+      if (hashtag.isEmpty) {
+        return Response(400,
+          body: jsonEncode({'error': 'Hashtag is required'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      final videosCollection = DatabaseService.db.collection('videos');
+      
+      // Normalize hashtag
+      final normalizedHashtag = hashtag.toLowerCase().replaceFirst('#', '');
+      
+      print('[VideoController] Finding videos with hashtag: $normalizedHashtag');
+      
+      // Find videos that contain this hashtag
+      final videosWithHashtag = await videosCollection.find(
+        where.oneFrom('hashtags', [normalizedHashtag])
+      ).toList();
+
+      print('[VideoController] Found ${videosWithHashtag.length} videos with this hashtag');
+
+      // Count co-occurring hashtags
+      Map<String, int> hashtagCounts = {};
+      Map<String, Set<String>> hashtagCoOccurrence = {};
+
+      for (var video in videosWithHashtag) {
+        final hashtags = video['hashtags'] as List?;
+        if (hashtags != null) {
+          final videoHashtags = hashtags.map((h) => h.toString().toLowerCase()).toSet();
+          
+          // Remove the original hashtag from the set
+          videoHashtags.remove(normalizedHashtag);
+          
+          for (String relatedHashtag in videoHashtags) {
+            if (relatedHashtag.isNotEmpty && relatedHashtag.length > 1) {
+              hashtagCounts[relatedHashtag] = (hashtagCounts[relatedHashtag] ?? 0) + 1;
+              
+              // Track which hashtags appear together
+              hashtagCoOccurrence[relatedHashtag] ??= {};
+              hashtagCoOccurrence[relatedHashtag]!.addAll(videoHashtags);
+            }
+          }
+        }
+      }
+
+      print('[VideoController] Found ${hashtagCounts.length} related hashtags');
+
+      // Calculate relevance scores and sort
+      final relatedHashtags = hashtagCounts.entries.map((entry) {
+        final relatedTag = entry.key;
+        final coOccurrenceCount = entry.value;
+        
+        // Calculate relevance score based on:
+        // 1. Co-occurrence frequency
+        // 2. Overall popularity of the related hashtag
+        // 3. Semantic similarity (basic implementation)
+        
+        double relevanceScore = coOccurrenceCount.toDouble();
+        
+        // Boost score for hashtags that appear frequently with this one
+        final coOccurrenceRatio = coOccurrenceCount / videosWithHashtag.length;
+        relevanceScore *= (1 + coOccurrenceRatio);
+        
+        // Basic semantic similarity boost
+        if (relatedTag.contains(normalizedHashtag) || normalizedHashtag.contains(relatedTag)) {
+          relevanceScore *= 1.5;
+        }
+
+        return {
+          'hashtag': relatedTag,
+          'displayHashtag': '#$relatedTag',
+          'coOccurrenceCount': coOccurrenceCount,
+          'relevanceScore': relevanceScore,
+          'coOccurrenceRatio': (coOccurrenceRatio * 100).round(),
+        };
+      }).toList();
+
+      // Sort by relevance score and limit results
+      relatedHashtags.sort((a, b) => (b['relevanceScore'] as double).compareTo(a['relevanceScore'] as double));
+      
+      final limitedResults = relatedHashtags.take(limit).toList();
+
+      final response = {
+        'hashtag': normalizedHashtag,
+        'displayHashtag': '#$normalizedHashtag',
+        'relatedHashtags': limitedResults,
+        'totalVideosAnalyzed': videosWithHashtag.length,
+        'totalRelatedHashtagsFound': hashtagCounts.length,
+        'limit': limit,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      return Response.ok(
+        jsonEncode(response),
+        headers: {'Content-Type': 'application/json'}
+      );
+
+    } catch (e, s) {
+      print('[VideoController.getRelatedHashtagsHandler] Error: $e\n$s');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to get related hashtags: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+  }
+
+  // --- UPDATE VIDEO HASHTAGS ---
+  static Future<Response> updateVideoHashtagsHandler(Request request, String videoId) async {
+    print('[VideoController] Updating hashtags for video: $videoId');
+    
+    try {
+      // Validate videoId format
+      if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
+        return Response(400,
+          body: jsonEncode({'error': 'Invalid video ID format'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      final requestBody = await request.readAsString();
+      if (requestBody.isEmpty) {
+        return Response(400,
+          body: jsonEncode({'error': 'Request body is required'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      Map<String, dynamic> updateData;
+      try {
+        updateData = jsonDecode(requestBody);
+      } catch (e) {
+        return Response(400,
+          body: jsonEncode({'error': 'Invalid JSON in request body'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      final newDescription = updateData['description'] as String?;
+      final userId = updateData['userId'] as String?;
+
+      if (newDescription == null || newDescription.isEmpty) {
+        return Response(400,
+          body: jsonEncode({'error': 'Description is required'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      if (userId == null || userId.isEmpty) {
+        return Response(400,
+          body: jsonEncode({'error': 'User ID is required'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      final videoObjectId = ObjectId.fromHexString(videoId);
+      final userObjectId = ObjectId.fromHexString(userId);
+      
+      final videosCollection = DatabaseService.db.collection('videos');
+      
+      // Verify video exists and user owns it
+      final video = await videosCollection.findOne(where.id(videoObjectId));
+      if (video == null) {
+        return Response(404,
+          body: jsonEncode({'error': 'Video not found'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      final videoUserId = video['userId'] as ObjectId;
+      if (videoUserId != userObjectId) {
+        return Response(403,
+          body: jsonEncode({'error': 'You can only update your own videos'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+      // Extract new hashtags from description
+      final newHashtags = _extractHashtags(newDescription);
+      
+      print('[VideoController] Updating video with new hashtags: $newHashtags');
+
+      // Update video document
+      final updateResult = await videosCollection.updateOne(
+        where.id(videoObjectId),
+        modify
+          .set('description', newDescription)
+          .set('hashtags', newHashtags)
+          .set('updatedAt', DateTime.now().toIso8601String())
+      );
+
+      if (updateResult.isSuccess) {
+        // Get updated video for response
+        final updatedVideo = await videosCollection.findOne(where.id(videoObjectId));
+        if (updatedVideo == null) {
+          return Response(404,
+            body: jsonEncode({'error': 'Video not found after update'}),
+            headers: {'Content-Type': 'application/json'}
+          );
+        }
+
+        // Format response
+        final responseVideo = Map<String, dynamic>.from(updatedVideo);
+        responseVideo['_id'] = (updatedVideo['_id'] as ObjectId).toHexString();
+        responseVideo['userId'] = (updatedVideo['userId'] as ObjectId).toHexString();
+        responseVideo['likes'] = (updatedVideo['likes'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+        responseVideo['saves'] = (updatedVideo['saves'] as List?)?.whereType<ObjectId>().map((id) => id.toHexString()).toList() ?? [];
+
+        // Add user info
+        responseVideo['user'] = {
+          'username': updatedVideo['username'] ?? 'Unknown User',
+          'avatarUrl': updatedVideo['userAvatarUrl']
+        };
+        responseVideo.remove('username');
+        responseVideo.remove('userAvatarUrl');
+
+        print('[VideoController] Video hashtags updated successfully');
+        
+        return Response.ok(jsonEncode({
+          'message': 'Video hashtags updated successfully',
+          'video': responseVideo,
+          'extractedHashtags': newHashtags,
+        }), headers: {'Content-Type': 'application/json'});
+      } else {
+        print('[VideoController] Failed to update video hashtags: ${updateResult.writeError?.errmsg}');
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Failed to update video hashtags'}),
+          headers: {'Content-Type': 'application/json'}
+        );
+      }
+
+    } catch (e, s) {
+      print('[VideoController.updateVideoHashtagsHandler] Error: $e\n$s');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to update video hashtags: $e'}),
+        headers: {'Content-Type': 'application/json'}
+      );
+    }
+  }
+
 
   // --- CÁC HÀM HELPER ---
   
@@ -1085,12 +1633,6 @@ static Future<Response> getVideoShareAnalyticsHandler(Request request, String vi
     return bytes;
   }
 
-  /// Extract hashtags từ description
-  static List<String> _extractHashtags(String description) {
-    final hashtagRegex = RegExp(r'#\w+');
-    final matches = hashtagRegex.allMatches(description);
-    return matches.map((match) => match.group(0)!).toList();
-  }
 
   static Future<Router> getUserVideosHandler(Request request, String userId, int page, int limit) async {
     throw UnimplementedError();

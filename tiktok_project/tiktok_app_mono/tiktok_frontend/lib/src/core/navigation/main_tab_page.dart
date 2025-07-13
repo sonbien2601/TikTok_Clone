@@ -1,4 +1,4 @@
-// tiktok_frontend/lib/src/core/navigation/main_tab_page.dart
+// tiktok_frontend/lib/src/core/navigation/main_tab_page.dart - UPDATED WITH NOTIFICATION POPUP
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -36,10 +36,30 @@ class _MainTabPageState extends State<MainTabPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final authService = Provider.of<AuthService>(context, listen: false);
+      
       if (!authService.isAuthenticated || authService.currentUser == null) {
         print("[MainTabPage] User not authenticated");
+        return;
       }
+
+      // NEW: Initialize notification popup service with context
+      _initializeNotificationPopup();
     });
+  }
+
+  // NEW: Initialize notification popup service
+  void _initializeNotificationPopup() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    if (authService.isAuthenticated && authService.currentUser != null) {
+      print('[MainTabPage] 🔔 Initializing notification popup service');
+      authService.initializeNotificationPopup(context);
+      
+      // Enable notification popups by default
+      authService.setNotificationPopupsEnabled(true);
+      
+      print('[MainTabPage] ✅ Notification popup service initialized for user: ${authService.currentUser!.username}');
+    }
   }
 
   void _onItemTapped(int index) {
@@ -74,6 +94,53 @@ class _MainTabPageState extends State<MainTabPage> {
               backgroundColor: Colors.transparent,
               elevation: 0,
               actions: [
+                // NEW: Notification popup toggle button for debug
+                Consumer<AuthService>(
+                  builder: (context, authService, child) {
+                    if (!authService.isAuthenticated) return const SizedBox.shrink();
+                    
+                    return PopupMenuButton<String>(
+                      icon: const Icon(Icons.notifications_outlined),
+                      tooltip: 'Notification Settings',
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'toggle':
+                            // Toggle notification popups
+                            final currentState = authService.notificationPopupService;
+                            // You might want to add a getter for enabled state
+                            print('[MainTabPage] 🔔 Toggling notification popups');
+                            break;
+                          case 'test':
+                            // Test notification popup
+                            _testNotificationPopup();
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'toggle',
+                          child: Row(
+                            children: [
+                              Icon(Icons.notifications_active),
+                              SizedBox(width: 8),
+                              Text('Toggle Popups'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'test',
+                          child: Row(
+                            children: [
+                              Icon(Icons.bug_report),
+                              SizedBox(width: 8),
+                              Text('Test Popup'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.network_check),
                   onPressed: () => NetworkDebugHelper.showDebugDialog(context),
@@ -119,6 +186,31 @@ class _MainTabPageState extends State<MainTabPage> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
+  }
+
+  // NEW: Test notification popup for debugging
+  void _testNotificationPopup() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    if (authService.isAuthenticated && authService.currentUser != null) {
+      print('[MainTabPage] 🧪 Testing notification popup');
+      
+      // Trigger a test notification check
+      authService.notificationPopupService.checkNotificationsOnLogin(
+        authService.currentUser!.id
+      ).then((_) {
+        print('[MainTabPage] ✅ Test notification popup completed');
+      }).catchError((e) {
+        print('[MainTabPage] ❌ Test notification popup failed: $e');
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Test notification failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    }
   }
 
   String _getPageName(int index) {

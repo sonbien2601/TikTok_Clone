@@ -1,10 +1,11 @@
-// tiktok_frontend/lib/src/features/auth/domain/services/auth_service.dart
+// tiktok_frontend/lib/src/features/auth/domain/services/auth_service.dart - UPDATED WITH NOTIFICATION POPUP
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
-import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart'; // NEW IMPORT
+import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart';
+import 'package:tiktok_frontend/src/features/notifications/domain/services/notification_popup_service.dart'; // NEW IMPORT
 
 class UserFrontend {
   final String id;
@@ -49,7 +50,7 @@ class UserFrontend {
     );
   }
 
-  // NEW: Copy with method
+  // Copy with method
   UserFrontend copyWith({
     String? id,
     String? username,
@@ -98,21 +99,26 @@ class AuthService extends ChangeNotifier {
   bool _isAuthenticated = false;
   UserFrontend? _currentUser;
 
-  // NEW: FollowStateManager instance
+  // FollowStateManager instance
   final FollowStateManager _followStateManager = FollowStateManager();
+  
+  // NEW: NotificationPopupService instance
+  final NotificationPopupService _notificationPopupService = NotificationPopupService();
 
   bool get isAuthenticated => _isAuthenticated;
   UserFrontend? get currentUser => _currentUser;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
 
-  // NEW: Getter for FollowStateManager
+  // Getter for FollowStateManager
   FollowStateManager get followStateManager => _followStateManager;
+  
+  // NEW: Getter for NotificationPopupService
+  NotificationPopupService get notificationPopupService => _notificationPopupService;
 
-  // NEW: Method to update current user's follow counts from FollowStateManager
+  // Method to update current user's follow counts from FollowStateManager
   void updateCurrentUserFollowCounts() {
     if (_currentUser == null) return;
 
-    // Kiểm tra xem có cập nhật follow count nào cho current user không
     final currentUserId = _currentUser!.id;
     final followInfo = _followStateManager.getFollowInfo(currentUserId);
     
@@ -133,7 +139,6 @@ class AuthService extends ChangeNotifier {
 
   void notifyFollowCountsChanged() {
     print('[AuthService] Follow counts changed - triggering refresh');
-    // Refresh user data and notify listeners
     refreshUserData().then((_) {
       print('[AuthService] Follow counts refreshed successfully');
     }).catchError((e) {
@@ -153,7 +158,7 @@ class AuthService extends ChangeNotifier {
         this._currentUser = UserFrontend.fromJson(userDataFromApi);
         print('[AuthService] User data parsed. User: ${this._currentUser}');
         
-        // NEW: Sync with FollowStateManager
+        // Sync with FollowStateManager
         if (_currentUser != null) {
           _followStateManager.updateFollowState(
             userId: _currentUser!.id,
@@ -206,6 +211,12 @@ class AuthService extends ChangeNotifier {
             responseData.containsKey('user') &&
             responseData['user'] is Map<String, dynamic>) {
           _updateAuthState(true, responseData['user'] as Map<String, dynamic>);
+          
+          // NEW: Check for notifications after successful login
+          if (_currentUser != null) {
+            print('[AuthService] ✅ Login successful, checking for notifications...');
+            await _checkNotificationsAfterLogin();
+          }
         } else {
           _updateAuthState(false, null);
           throw Exception('Login response missing or invalid user data.');
@@ -230,6 +241,40 @@ class AuthService extends ChangeNotifier {
       _updateAuthState(false, null);
       rethrow;
     }
+  }
+
+  // NEW: Check for notifications after login
+  Future<void> _checkNotificationsAfterLogin() async {
+    if (_currentUser == null) return;
+
+    try {
+      print('[AuthService] 🔔 Checking for new notifications for user: ${_currentUser!.id}');
+      
+      // Delay to allow UI to settle after login
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // Check notifications and show popup if there are any
+      await _notificationPopupService.checkNotificationsOnLogin(_currentUser!.id);
+      
+      print('[AuthService] ✅ Notification check completed');
+    } catch (e) {
+      print('[AuthService] ❌ Error checking notifications after login: $e');
+      // Don't throw error - notifications are not critical for login flow
+    }
+  }
+
+  // NEW: Initialize notification popup service with context
+  void initializeNotificationPopup(context) {
+    if (_currentUser != null) {
+      _notificationPopupService.initialize(context);
+      print('[AuthService] 🔔 Notification popup service initialized');
+    }
+  }
+
+  // NEW: Enable/disable notification popups
+  void setNotificationPopupsEnabled(bool enabled) {
+    _notificationPopupService.setEnabled(enabled);
+    print('[AuthService] 🔔 Notification popups ${enabled ? 'enabled' : 'disabled'}');
   }
 
   Future<void> refreshUserData() async {
@@ -276,7 +321,7 @@ class AuthService extends ChangeNotifier {
         _currentUser = newUser;
         _isAuthenticated = true;
 
-        // NEW: Sync with FollowStateManager
+        // Sync with FollowStateManager
         _followStateManager.updateFollowState(
           userId: _currentUser!.id,
           isFollowing: false, // Current user doesn't follow themselves
@@ -391,8 +436,11 @@ class AuthService extends ChangeNotifier {
     print('[AuthService] Logging out...');
     await Future.delayed(const Duration(milliseconds: 100));
     
-    // NEW: Clear FollowStateManager when logging out
+    // Clear FollowStateManager when logging out
     _followStateManager.clearAll();
+    
+    // NEW: Reset notification popup service
+    _notificationPopupService.reset();
     
     _updateAuthState(false, null);
     print('[AuthService] User logged out.');
@@ -419,5 +467,12 @@ class AuthService extends ChangeNotifier {
   void refreshNetworkConfig() {
     NetworkConfig.clearCache();
     print('[AuthService] Network configuration refreshed');
+  }
+
+  // NEW: Dispose method to clean up notification service
+  @override
+  void dispose() {
+    _notificationPopupService.dispose();
+    super.dispose();
   }
 }

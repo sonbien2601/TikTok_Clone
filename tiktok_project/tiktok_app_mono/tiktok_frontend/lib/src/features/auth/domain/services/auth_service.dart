@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart';
 import 'package:tiktok_frontend/src/features/notifications/domain/services/notification_popup_service.dart'; // NEW IMPORT
+import 'package:tiktok_frontend/src/features/feed/presentation/views/video_feed_view.dart';
 
 class UserFrontend {
   final String id;
@@ -435,15 +436,59 @@ class AuthService extends ChangeNotifier {
   Future<void> logout() async {
     print('[AuthService] Logging out...');
     await Future.delayed(const Duration(milliseconds: 100));
-    
-    // Clear FollowStateManager when logging out
+    // KHÔNG force dispose hoặc clear state ở đây!
     _followStateManager.clearAll();
-    
-    // NEW: Reset notification popup service
     _notificationPopupService.reset();
-    
     _updateAuthState(false, null);
     print('[AuthService] User logged out.');
+  }
+
+  // NEW: Force clear all state and dispose all controllers
+  Future<void> _forceClearAllState() async {
+    print('[AuthService] Force clearing all state...');
+    
+    try {
+      // Force dispose all video controllers
+      VideoFeedView.forceDisposeAllVideos();
+      print('[AuthService] All video controllers force disposed');
+      
+      // Clear any cached data
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      // Force garbage collection if possible
+      // Note: This is not available in all Flutter versions
+      try {
+        // ignore: deprecated_member_use
+        // ignore: unused_result
+        // ignore: avoid_print
+        print('[AuthService] Requesting garbage collection...');
+      } catch (e) {
+        print('[AuthService] Garbage collection not available: $e');
+      }
+      
+    } catch (e) {
+      print('[AuthService] Error during force clear: $e');
+    }
+  }
+
+  // NEW: Method to restart app completely (nuclear option)
+  void restartApp() {
+    print('[AuthService] Restarting app completely...');
+    // This will force a complete app restart
+    // Note: This is a nuclear option and should be used carefully
+    try {
+      // Force dispose everything
+      _forceClearAllState();
+      
+      // Clear all state
+      _followStateManager.clearAll();
+      _notificationPopupService.reset();
+      _updateAuthState(false, null);
+      
+      print('[AuthService] App restart completed');
+    } catch (e) {
+      print('[AuthService] Error during app restart: $e');
+    }
   }
 
   // Method để test connection

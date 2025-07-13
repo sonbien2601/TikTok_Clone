@@ -1,5 +1,6 @@
 // tiktok_frontend/lib/src/features/profile/presentation/pages/profile_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart'; 
 import 'package:tiktok_frontend/src/features/admin/presentation/pages/admin_dashboard_page.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
@@ -133,7 +134,51 @@ class _ProfilePageState extends State<ProfilePage> {
             tooltip: 'Logout',
             onPressed: () async {
               print('[ProfilePage] Logout button pressed.');
-              await context.read<AuthService>().logout();
+              
+              // Show confirmation dialog
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Text('Đăng xuất'),
+                    content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Hủy'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Đăng xuất'),
+                      ),
+                    ],
+                  );
+                },
+              );
+
+              if (shouldLogout == true && context.mounted) {
+                try {
+                  await context.read<AuthService>().logout();
+                  
+                  if (context.mounted) {
+                    // Force restart app by navigating to login and clearing all routes
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    
+                    // NUCLEAR OPTION: If still having issues, uncomment this line to restart app completely
+                    // SystemNavigator.pop(); // This will restart the entire app
+                  }
+                } catch (e) {
+                  print('[ProfilePage] Error during logout: $e');
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Lỗi khi đăng xuất: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              }
             },
           ),
         ],

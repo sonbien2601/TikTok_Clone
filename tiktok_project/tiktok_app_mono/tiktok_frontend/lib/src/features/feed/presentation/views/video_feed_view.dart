@@ -13,6 +13,16 @@ class VideoFeedView extends StatefulWidget {
 
   @override
   State<VideoFeedView> createState() => _VideoFeedViewState();
+
+  // Static method to pause all video controllers across all instances
+  static void pauseAllVideos() {
+    _VideoFeedViewState.PauseAllVideos();
+  }
+
+  // NEW: Static method to force dispose all video controllers
+  static void forceDisposeAllVideos() {
+    _VideoFeedViewState.ForceDisposeAllVideos();
+  }
 }
 
 class _VideoFeedViewState extends State<VideoFeedView>
@@ -20,6 +30,9 @@ class _VideoFeedViewState extends State<VideoFeedView>
   final VideoService _videoService = VideoService();
   final PageController _pageController = PageController();
   final Map<int, VideoPlayerController> _videoControllers = {};
+
+  // Static reference to track all video feed instances
+  static final List<_VideoFeedViewState> _instances = [];
 
   List<VideoPost> _videos = [];
   int _currentVideoIndex = 0;
@@ -40,6 +53,10 @@ class _VideoFeedViewState extends State<VideoFeedView>
     super.initState();
     debugPrint('[VideoFeedView] Initializing video feed...');
     WidgetsBinding.instance.addObserver(this);
+    
+    // Add this instance to the static list
+    _instances.add(this);
+    
     _loadVideos();
   }
 
@@ -47,6 +64,10 @@ class _VideoFeedViewState extends State<VideoFeedView>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
+    
+    // Remove this instance from the static list
+    _instances.remove(this);
+    
     for (var controller in _videoControllers.values) {
       controller.dispose();
     }
@@ -361,6 +382,41 @@ class _VideoFeedViewState extends State<VideoFeedView>
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  // Static method to pause all video controllers across all instances
+  static void PauseAllVideos() {
+    debugPrint('[VideoFeedView] Pausing all videos across ${_instances.length} instances');
+    for (final instance in _instances) {
+      instance._pauseAllVideoControllers();
+    }
+  }
+
+  // NEW: Static method to force dispose all video controllers
+  static void ForceDisposeAllVideos() {
+    debugPrint('[VideoFeedView] Forcing dispose of all video controllers across ${_instances.length} instances');
+    for (final instance in _instances) {
+      instance._forceDisposeAllVideoControllers();
+    }
+  }
+
+  // Instance method to pause all video controllers in this instance
+  void _pauseAllVideoControllers() {
+    debugPrint('[VideoFeedView] Pausing all video controllers in this instance');
+    for (final controller in _videoControllers.values) {
+      if (controller.value.isInitialized && controller.value.isPlaying) {
+        controller.pause();
+      }
+    }
+  }
+
+  // NEW: Instance method to force dispose all video controllers in this instance
+  void _forceDisposeAllVideoControllers() {
+    debugPrint('[VideoFeedView] Forcing dispose of all video controllers in this instance');
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
+    _videoControllers.clear();
   }
 
   @override

@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/feed/presentation/widgets/full_screen_video_item.dart - WITH SHARE FUNCTIONALITY AND ANALYTICS
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +8,15 @@ import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.d
 import 'package:tiktok_frontend/src/features/analytics/domain/services/analytics_service.dart';
 import 'package:tiktok_frontend/src/features/share/presentation/widgets/share_bottom_sheet.dart';
 import 'package:tiktok_frontend/src/features/share/domain/services/share_service.dart';
+import 'package:tiktok_frontend/src/features/search/presentation/widgets/user_search_item.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_page.dart';
 
 class FullScreenVideoItem extends StatefulWidget {
   final VideoPost videoPost;
@@ -701,6 +709,21 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                 ),
               ),
             ),
+            Positioned(
+              right: 16,
+              bottom: 120,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.volunteer_activism),
+                label: const Text('Donate'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.pinkAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                ),
+                onPressed: () => _showDonateDialog(context),
+              ),
+            ),
           ],
         ),
       ),
@@ -752,5 +775,17 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     } else {
       return '${(count / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
     }
+  }
+
+  void _showDonateDialog(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DonatePage(
+          toUserId: widget.videoPost.user.id,
+          toUsername: widget.videoPost.user.username,
+        ),
+      ),
+    );
   }
 }

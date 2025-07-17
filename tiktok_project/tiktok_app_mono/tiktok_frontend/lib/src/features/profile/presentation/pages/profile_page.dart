@@ -11,6 +11,9 @@ import 'package:tiktok_frontend/src/features/profile/presentation/pages/saved_vi
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/followers_page.dart';
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/following_page.dart';
 import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart'; // NEW IMPORT
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -579,10 +582,30 @@ class _ProfilePageState extends State<ProfilePage> {
                   ],
                 ),
               ),
+              // Thông tin ngân hàng và QR
+              if (currentUser?.bankAccountNumber != null || currentUser?.bankName != null || currentUser?.bankQrImageUrl != null) ...[
+                const SizedBox(height: 24),
+                Text('Thông tin ngân hàng nhận donate:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                if (currentUser?.bankAccountNumber != null)
+                  Text('Số tài khoản: ${currentUser!.bankAccountNumber}', style: TextStyle(fontSize: 15)),
+                if (currentUser?.bankName != null)
+                  Text('Ngân hàng: ${currentUser!.bankName}', style: TextStyle(fontSize: 15)),
+                if (currentUser?.bankQrImageUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Image.network(
+                      currentUser!.bankQrImageUrl!,
+                      height: 120,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Text('Không hiển thị được ảnh QR'),
+                    ),
+                  ),
+              ],
+              // Lịch sử donate
+              const SizedBox(height: 24),
+              _DonateHistorySection(userId: currentUser?.id),
               
               const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
               
               // Menu options
               Column(
@@ -942,5 +965,62 @@ class _ProfilePageState extends State<ProfilePage> {
     } else {
       return '${(count / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
     }
+  }
+}
+
+class _DonateHistorySection extends StatefulWidget {
+  final String? userId;
+  const _DonateHistorySection({Key? key, required this.userId}) : super(key: key);
+  @override
+  State<_DonateHistorySection> createState() => _DonateHistorySectionState();
+}
+
+class _DonateHistorySectionState extends State<_DonateHistorySection> {
+  List<Map<String, dynamic>> _donateHistory = [];
+  bool _isLoading = false;
+  @override
+  void initState() {
+    super.initState();
+    _fetchDonateHistory();
+  }
+  Future<void> _fetchDonateHistory() async {
+    if (widget.userId == null) return;
+    setState(() { _isLoading = true; });
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final url = Uri.parse('$baseUrl/${widget.userId}/donate-history');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = List.from(jsonDecode(response.body));
+        setState(() { _donateHistory = data.cast<Map<String, dynamic>>(); });
+      }
+    } catch (e) {
+      // ignore
+    } finally {
+      setState(() { _isLoading = false; });
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_donateHistory.isEmpty) return const SizedBox();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Lịch sử donate của bạn:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 8),
+        ..._donateHistory.map((item) => Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: ListTile(
+            leading: item['donateProofImageUrl'] != null
+                ? Image.network(item['donateProofImageUrl'], width: 48, height: 48, fit: BoxFit.cover)
+                : const Icon(Icons.receipt_long),
+            title: Text('Số tiền: ${item['amount']}'),
+            subtitle: Text('Đã donate cho: ${item['toUserId']}'),
+            trailing: Text(item['createdAt'] != null ? item['createdAt'].toString().substring(0, 10) : ''),
+          ),
+        )),
+      ],
+    );
   }
 }

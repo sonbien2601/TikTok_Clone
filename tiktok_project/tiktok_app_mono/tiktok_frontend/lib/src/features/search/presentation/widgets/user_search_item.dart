@@ -1,6 +1,17 @@
 // tiktok_frontend/lib/src/features/search/presentation/widgets/user_search_item.dart
 import 'package:flutter/material.dart';
 import 'package:tiktok_frontend/src/features/search/domain/models/search_model.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
+import 'dart:convert';
+import 'package:provider/provider.dart';
+import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
+import 'package:http_parser/http_parser.dart';
 
 class UserSearchItem extends StatefulWidget {
   final SearchUser user;
@@ -344,6 +355,11 @@ class _UserSearchItemState extends State<UserSearchItem> {
                               ),
                       ),
                     ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.volunteer_activism),
+                    label: const Text('Donate'),
+                    onPressed: () => _showDonateDialog(context),
+                  ),
                 ],
               ),
               
@@ -353,6 +369,13 @@ class _UserSearchItemState extends State<UserSearchItem> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showDonateDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _DonateDialog(toUser: widget.user),
     );
   }
 
@@ -376,6 +399,467 @@ class _UserSearchItemState extends State<UserSearchItem> {
             fontWeight: FontWeight.w600,
             color: Colors.grey[700],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DonateDialog extends StatefulWidget {
+  final SearchUser toUser;
+  const _DonateDialog({Key? key, required this.toUser}) : super(key: key);
+  @override
+  State<_DonateDialog> createState() => _DonateDialogState();
+}
+
+class _DonateDialogState extends State<_DonateDialog> {
+  final _amountController = TextEditingController();
+  
+  // Synchronized upload variables (matching upload_video_page.dart pattern)
+  PlatformFile? _selectedImageFile;
+  String? _imageFileName;
+  String? _uploadUrl;
+  String? _proofImageUrl;
+  String? _debugInfo;
+  bool _isUploading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeUploadUrl();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  // Initialize upload URL (same pattern as upload_video_page.dart)
+  Future<void> _initializeUploadUrl() async {
+    try {
+      _uploadUrl = await NetworkConfig.getBaseUrl('/api/users/upload-image');
+      final status = NetworkConfig.getStatus();
+      
+      setState(() {
+        _debugInfo = 'Platform: ${_getPlatformName()}\n'
+                   'Upload URL: $_uploadUrl\n'
+                   'Cached URL: ${status['cached_url']}\n'
+                   'Cache Valid: ${status['cache_valid']}';
+      });
+      
+      print('[DonateDialog] Initialized upload URL: $_uploadUrl');
+    } catch (e) {
+      print('[DonateDialog] Error initializing upload URL: $e');
+      setState(() {
+        _debugInfo = 'Error: Could not initialize upload URL\n$e';
+      });
+    }
+  }
+
+  String _getPlatformName() {
+    if (kIsWeb) return 'Web';
+    if (!kIsWeb) {
+      try {
+        if (Platform.isAndroid) return 'Android';
+        if (Platform.isIOS) return 'iOS';
+        return Platform.operatingSystem;
+      } catch (e) {
+        return 'Unknown';
+      }
+    }
+    return 'Unknown';
+  }
+
+  // Pick image file (synchronized with upload_video_page.dart pattern)
+  Future<void> _pickProofImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null) {
+        setState(() {
+          _selectedImageFile = result.files.single;
+          _imageFileName = _selectedImageFile!.name;
+          print('[DonateDialog] Image selected: $_imageFileName');
+          if (!kIsWeb && _selectedImageFile!.path != null) {
+             print('[DonateDialog] Image path (mobile/desktop): ${_selectedImageFile!.path}');
+          } else if (kIsWeb && _selectedImageFile!.bytes != null) {
+             print('[DonateDialog] Image bytes selected (web): ${_selectedImageFile!.bytes!.length}');
+          }
+        });
+        
+        // Auto-upload after selection
+        await _uploadProofImage();
+      } else {
+        print('[DonateDialog] No image selected.');
+        setState(() {
+          _selectedImageFile = null;
+          _imageFileName = null;
+        });
+      }
+    } catch (e) {
+      print('[DonateDialog] Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting image: $e')),
+        );
+      }
+    }
+  }
+
+  // Upload image (synchronized with upload_video_page.dart pattern)
+  Future<void> _uploadProofImage() async {
+    if (_selectedImageFile == null) {
+      return;
+    }
+
+    // Ensure upload URL is available
+    if (_uploadUrl == null) {
+      await _initializeUploadUrl();
+      if (_uploadUrl == null) {
+        if (mounted) {
+          setState(() {
+            _error = 'Could not determine upload URL. Please try again.';
+          });
+        }
+        return;
+      }
+    }
+
+    setState(() => _isUploading = true);
+
+    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
+    
+    // Add userId if available
+    final currentUserId = Provider.of<AuthService>(context, listen: false).currentUser?.id;
+    if (currentUserId != null) {
+      request.fields['userId'] = currentUserId;
+    }
+
+    print('[DonateDialog] Upload URL: $_uploadUrl');
+    print('[DonateDialog] Platform: ${_getPlatformName()}');
+    print('[DonateDialog] Fields: ${request.fields}');
+
+    // Add file based on platform (same logic as upload_video_page.dart)
+    if (kIsWeb && _selectedImageFile!.bytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'imageFile', 
+        _selectedImageFile!.bytes!,
+        filename: _imageFileName ?? 'image_from_web.png',
+        contentType: MediaType('image', _imageFileName?.split('.').last ?? 'png'), 
+      ));
+      print('[DonateDialog] Added file from bytes (web)');
+    } else if (!kIsWeb && _selectedImageFile!.path != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'imageFile',
+          _selectedImageFile!.path!,
+          filename: _imageFileName ?? _selectedImageFile!.path!.split(Platform.pathSeparator).last,
+          contentType: MediaType('image', _selectedImageFile!.path!.split('.').lastOrNull ?? 'png'),
+        ),
+      );
+      print('[DonateDialog] Added file from path (mobile/desktop)');
+    } else {
+      if (mounted) {
+        setState(() {
+          _error = 'Could not find valid image file to upload.';
+        });
+      }
+      setState(() => _isUploading = false);
+      return;
+    }
+    
+    try {
+      print('[DonateDialog] Sending upload request to $_uploadUrl');
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('[DonateDialog] Upload Response status: ${response.statusCode}');
+      print('[DonateDialog] Upload Response body: ${response.body}');
+
+      if (!mounted) return; 
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['imageUrl'] != null) {
+          setState(() {
+            _proofImageUrl = data['imageUrl'];
+            _error = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image uploaded successfully!'), 
+              backgroundColor: Colors.green
+            ),
+          );
+        } else {
+          setState(() {
+            _error = 'Server did not return image URL';
+          });
+        }
+      } else {
+        String errorMessage = 'Image upload failed. Status: ${response.statusCode}';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['error'] ?? errorMessage;
+        } catch (_) {} 
+        setState(() {
+          _error = errorMessage;
+        });
+      }
+    } catch (e) {
+      print('[DonateDialog] Error uploading image: $e');
+      if (mounted) {
+        String errorMessage = 'Error uploading image: $e';
+        if (e.toString().contains('Connection refused') || 
+            e.toString().contains('Failed host lookup') ||
+            e.toString().contains('No address associated with hostname')) {
+          errorMessage = 'Cannot connect to server. Please check your network connection.';
+          // Clear cache and try to refresh URL for next attempt
+          NetworkConfig.clearCache();
+        }
+        setState(() {
+          _error = errorMessage;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  // Build image preview widget
+  Widget _buildImagePreview() {
+    if (_proofImageUrl != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          _proofImageUrl!,
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              width: 60,
+              height: 60,
+              color: Colors.grey[200],
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 60,
+              height: 60,
+              color: Colors.grey[200],
+              child: const Icon(Icons.error, color: Colors.red),
+            );
+          },
+        ),
+      );
+    } else if (kIsWeb && _selectedImageFile?.bytes != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          _selectedImageFile!.bytes!,
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else if (!kIsWeb && _selectedImageFile?.path != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(_selectedImageFile!.path!),
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else {
+      return Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Icon(
+          Icons.image_outlined,
+          color: Colors.grey,
+          size: 30,
+        ),
+      );
+    }
+  }
+
+  Future<void> _submitDonate() async {
+    setState(() { _error = null; });
+    final amount = int.tryParse(_amountController.text.trim());
+    if (amount == null || amount <= 0) {
+      setState(() { _error = 'Vui lòng nhập số tiền hợp lệ'; });
+      return;
+    }
+    if (_proofImageUrl == null) {
+      setState(() { _error = 'Vui lòng upload ảnh xác nhận'; });
+      return;
+    }
+    setState(() { _isUploading = true; });
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final url = Uri.parse('$baseUrl/donate');
+      final fromUserId = Provider.of<AuthService>(context, listen: false).currentUser?.id;
+      if (fromUserId == null) {
+        setState(() { _error = 'Không xác định được tài khoản của bạn'; });
+        return;
+      }
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'fromUserId': fromUserId,
+          'toUserId': widget.toUser.id,
+          'amount': amount,
+          'donateProofImageUrl': _proofImageUrl,
+        }),
+      );
+      if (response.statusCode == 200) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Donate thành công!'), backgroundColor: Colors.green));
+      } else {
+        setState(() { _error = 'Donate thất bại'; });
+      }
+    } catch (e) {
+      setState(() { _error = 'Lỗi: $e'; });
+    } finally {
+      setState(() { _isUploading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Donate cho ${widget.toUser.username}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.toUser.bankAccountNumber != null || widget.toUser.bankName != null || widget.toUser.bankQrImageUrl != null) ...[
+              const Text('Thông tin ngân hàng:', style: TextStyle(fontWeight: FontWeight.bold)),
+              if (widget.toUser.bankAccountNumber != null)
+                Text('Số tài khoản: ${widget.toUser.bankAccountNumber}'),
+              if (widget.toUser.bankName != null)
+                Text('Ngân hàng: ${widget.toUser.bankName}'),
+              if (widget.toUser.bankQrImageUrl != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Image.network(
+                    widget.toUser.bankQrImageUrl!,
+                    height: 100,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Text('Không hiển thị được ảnh QR'),
+                  ),
+                ),
+              const Divider(),
+            ],
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Số tiền'),
+            ),
+            const SizedBox(height: 8),
+            
+            // Proof image upload section with synchronized upload logic
+            const Text('Ảnh xác nhận chuyển khoản:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            
+            Row(
+              children: [
+                _buildImagePreview(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_imageFileName != null) ...[
+                        Text(
+                          'Đã chọn: $_imageFileName',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.upload_file, size: 16),
+                        label: Text(_proofImageUrl != null ? 'Đổi ảnh' : 'Chọn ảnh'),
+                        onPressed: _isUploading ? null : _pickProofImage,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                      
+                      if (_isUploading) ...[
+                        const SizedBox(height: 4),
+                        const LinearProgressIndicator(),
+                        const SizedBox(height: 2),
+                        const Text('Đang upload...', style: TextStyle(fontSize: 10)),
+                      ],
+                      
+                      if (_proofImageUrl != null) ...[
+                        const SizedBox(height: 4),
+                        const Text('✓ Uploaded successfully', style: TextStyle(fontSize: 10, color: Colors.green)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 8),
+            Text(
+              'Định dạng hỗ trợ: JPG, JPEG, PNG, GIF, WEBP\nKích thước tối đa: 5MB',
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+            
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Hủy')),
+        ElevatedButton(
+          onPressed: _isUploading ? null : _submitDonate,
+          child: _isUploading 
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Xác nhận'),
         ),
       ],
     );

@@ -20,6 +20,9 @@ class UserFrontend {
   // Follow count fields
   final int followersCount;
   final int followingCount;
+  final String? bankAccountNumber;
+  final String? bankName;
+  final String? bankQrImageUrl;
 
   UserFrontend({
     required this.id,
@@ -31,6 +34,9 @@ class UserFrontend {
     this.interests = const [],
     this.followersCount = 0,
     this.followingCount = 0,
+    this.bankAccountNumber,
+    this.bankName,
+    this.bankQrImageUrl,
   });
 
   factory UserFrontend.fromJson(Map<String, dynamic> json) {
@@ -48,6 +54,9 @@ class UserFrontend {
       interests: List<String>.from(json['interests'] as List? ?? []),
       followersCount: json['followersCount'] as int? ?? 0,
       followingCount: json['followingCount'] as int? ?? 0,
+      bankAccountNumber: json['bankAccountNumber'] as String?,
+      bankName: json['bankName'] as String?,
+      bankQrImageUrl: json['bankQrImageUrl'] as String?,
     );
   }
 
@@ -62,6 +71,9 @@ class UserFrontend {
     List<String>? interests,
     int? followersCount,
     int? followingCount,
+    String? bankAccountNumber,
+    String? bankName,
+    String? bankQrImageUrl,
   }) {
     return UserFrontend(
       id: id ?? this.id,
@@ -73,6 +85,9 @@ class UserFrontend {
       interests: interests ?? this.interests,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
+      bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
+      bankName: bankName ?? this.bankName,
+      bankQrImageUrl: bankQrImageUrl ?? this.bankQrImageUrl,
     );
   }
 
@@ -87,6 +102,9 @@ class UserFrontend {
       'interests': interests,
       'followersCount': followersCount,
       'followingCount': followingCount,
+      'bankAccountNumber': bankAccountNumber,
+      'bankName': bankName,
+      'bankQrImageUrl': bankQrImageUrl,
     };
   }
 
@@ -428,6 +446,65 @@ class AuthService extends ChangeNotifier {
         NetworkConfig.clearCache();
         print(
             '[AuthService] ❌ Connection failed during register, cleared IP cache');
+      }
+      rethrow;
+    }
+  }
+
+  Future<bool> registerWithBank(
+    String username,
+    String email,
+    String password,
+    DateTime? dateOfBirth,
+    String? gender,
+    List<String> interests,
+    String? bankAccountNumber,
+    String? bankName,
+    String? bankQrImageUrl,
+  ) async {
+    final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+    final targetUrl = Uri.parse('$baseUrl/register');
+    print('[AuthService] Auto-detected backend URL for register: $baseUrl');
+    try {
+      final response = await http
+          .post(
+            targetUrl,
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(<String, dynamic>{
+              'username': username,
+              'email': email,
+              'password': password,
+              'dateOfBirth': dateOfBirth?.toIso8601String(),
+              'gender': gender,
+              'interests': interests,
+              'bankAccountNumber': bankAccountNumber,
+              'bankName': bankName,
+              'bankQrImageUrl': bankQrImageUrl,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      print('[AuthService] RegisterWithBank Response status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        print('[AuthService] Registration with bank info successful.');
+        return true;
+      } else {
+        String errorMessage =
+            'Failed to register. Status: ${response.statusCode}';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['error'] ?? errorMessage;
+        } catch (_) {}
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      print('[AuthService] RegisterWithBank error: $e');
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('Failed host lookup')) {
+        NetworkConfig.clearCache();
+        print('[AuthService] ❌ Connection failed during registerWithBank, cleared IP cache');
       }
       rethrow;
     }

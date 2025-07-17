@@ -14,6 +14,9 @@ class SearchUser {
   final double? trendingScore;
   final RecentActivity? recentActivity;
   final String? createdAt;
+  final String? bankAccountNumber;
+  final String? bankName;
+  final String? bankQrImageUrl;
 
   SearchUser({
     required this.id,
@@ -29,6 +32,9 @@ class SearchUser {
     this.trendingScore,
     this.recentActivity,
     this.createdAt,
+    this.bankAccountNumber,
+    this.bankName,
+    this.bankQrImageUrl,
   });
 
   factory SearchUser.fromJson(Map<String, dynamic> json) {
@@ -48,6 +54,9 @@ class SearchUser {
           ? RecentActivity.fromJson(json['recentActivity'])
           : null,
       createdAt: json['createdAt'] as String?,
+      bankAccountNumber: json['bankAccountNumber'] as String?,
+      bankName: json['bankName'] as String?,
+      bankQrImageUrl: json['bankQrImageUrl'] as String?,
     );
   }
 
@@ -66,6 +75,9 @@ class SearchUser {
       'trendingScore': trendingScore,
       'recentActivity': recentActivity?.toJson(),
       'createdAt': createdAt,
+      'bankAccountNumber': bankAccountNumber,
+      'bankName': bankName,
+      'bankQrImageUrl': bankQrImageUrl,
     };
   }
 }

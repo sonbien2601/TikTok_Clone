@@ -5,6 +5,17 @@ import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/auth/presentation/pages/login_page.dart';
 import 'package:tiktok_frontend/src/features/auth/presentation/widgets/auth_text_field.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
+import 'package:mime/mime.dart';
+import 'package:path/path.dart' as path;
+import 'package:http_parser/http_parser.dart';
 
 enum Gender { male, female, other }
 
@@ -22,7 +33,16 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _dobController = TextEditingController(); 
-
+  final _bankAccountController = TextEditingController();
+  final _bankNameController = TextEditingController();
+  
+  // Synchronized upload variables (matching upload_video_page.dart pattern)
+  PlatformFile? _selectedImageFile;
+  String? _imageFileName;
+  String? _uploadUrl;
+  String? _bankQrImageUrl;
+  String? _debugInfo;
+  bool _isUploadingQr = false;
   bool _isLoading = false;
   DateTime? _selectedDateOfBirth;
   bool _isOver18 = false; 
@@ -34,13 +54,57 @@ class _RegisterPageState extends State<RegisterPage> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _initializeUploadUrl();
+  }
+
+  @override
   void dispose() {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _dobController.dispose(); 
+    _dobController.dispose();
+    _bankAccountController.dispose();
+    _bankNameController.dispose();
     super.dispose();
+  }
+
+  // Initialize upload URL (same pattern as upload_video_page.dart)
+  Future<void> _initializeUploadUrl() async {
+    try {
+      _uploadUrl = await NetworkConfig.getBaseUrl('/api/users/upload-image');
+      final status = NetworkConfig.getStatus();
+      
+      setState(() {
+        _debugInfo = 'Platform: ${_getPlatformName()}\n'
+                   'Upload URL: $_uploadUrl\n'
+                   'Cached URL: ${status['cached_url']}\n'
+                   'Cache Valid: ${status['cache_valid']}';
+      });
+      
+      print('[RegisterPage] Initialized upload URL: $_uploadUrl');
+    } catch (e) {
+      print('[RegisterPage] Error initializing upload URL: $e');
+      setState(() {
+        _debugInfo = 'Error: Could not initialize upload URL\n$e';
+      });
+    }
+  }
+
+  String _getPlatformName() {
+    if (kIsWeb) return 'Web';
+    if (!kIsWeb) {
+      try {
+        if (Platform.isAndroid) return 'Android';
+        if (Platform.isIOS) return 'iOS';
+        return Platform.operatingSystem;
+      } catch (e) {
+        return 'Unknown';
+      }
+    }
+    return 'Unknown';
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -59,25 +123,293 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  // Pick image file (synchronized with upload_video_page.dart pattern)
+  Future<void> _pickQrImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null) {
+        setState(() {
+          _selectedImageFile = result.files.single;
+          _imageFileName = _selectedImageFile!.name;
+          print('[RegisterPage] Image selected: $_imageFileName');
+          if (!kIsWeb && _selectedImageFile!.path != null) {
+             print('[RegisterPage] Image path (mobile/desktop): ${_selectedImageFile!.path}');
+          } else if (kIsWeb && _selectedImageFile!.bytes != null) {
+             print('[RegisterPage] Image bytes selected (web): ${_selectedImageFile!.bytes!.length}');
+          }
+        });
+      } else {
+        print('[RegisterPage] No image selected.');
+        setState(() {
+          _selectedImageFile = null;
+          _imageFileName = null;
+        });
+      }
+    } catch (e) {
+      print('[RegisterPage] Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting image: $e')),
+        );
+      }
+    }
+  }
+
+  // Upload image (synchronized with upload_video_page.dart pattern)
+  Future<void> _uploadQrImage() async {
+    if (_selectedImageFile == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select an image to upload.')),
+        );
+      }
+      return;
+    }
+
+    // Ensure upload URL is available
+    if (_uploadUrl == null) {
+      await _initializeUploadUrl();
+      if (_uploadUrl == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not determine upload URL. Please try again.')),
+          );
+        }
+        return;
+      }
+    }
+
+    setState(() => _isUploadingQr = true);
+
+    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
+    
+    // Add userId if available
+    if (_usernameController.text.isNotEmpty) {
+      request.fields['userId'] = _usernameController.text.trim();
+    }
+
+    print('[RegisterPage] Upload URL: $_uploadUrl');
+    print('[RegisterPage] Platform: ${_getPlatformName()}');
+    print('[RegisterPage] Fields: ${request.fields}');
+
+    // Add file based on platform (same logic as upload_video_page.dart)
+    if (kIsWeb && _selectedImageFile!.bytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'imageFile', 
+        _selectedImageFile!.bytes!,
+        filename: _imageFileName ?? 'image_from_web.png',
+        contentType: MediaType('image', _imageFileName?.split('.').last ?? 'png'), 
+      ));
+      print('[RegisterPage] Added file from bytes (web)');
+    } else if (!kIsWeb && _selectedImageFile!.path != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'imageFile',
+          _selectedImageFile!.path!,
+          filename: _imageFileName ?? _selectedImageFile!.path!.split(Platform.pathSeparator).last,
+          contentType: MediaType('image', _selectedImageFile!.path!.split('.').lastOrNull ?? 'png'),
+        ),
+      );
+      print('[RegisterPage] Added file from path (mobile/desktop)');
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not find valid image file to upload.')),
+        );
+      }
+      setState(() => _isUploadingQr = false);
+      return;
+    }
+    
+    try {
+      print('[RegisterPage] Sending upload request to $_uploadUrl');
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('[RegisterPage] Upload Response status: ${response.statusCode}');
+      print('[RegisterPage] Upload Response body: ${response.body}');
+
+      if (!mounted) return; 
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['imageUrl'] != null) {
+          setState(() {
+            _bankQrImageUrl = data['imageUrl'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image uploaded successfully!'), 
+              backgroundColor: Colors.green
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Server did not return image URL'), 
+              backgroundColor: Colors.red
+            ),
+          );
+        }
+      } else {
+        String errorMessage = 'Image upload failed. Status: ${response.statusCode}';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['error'] ?? errorMessage;
+        } catch (_) {} 
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      print('[RegisterPage] Error uploading image: $e');
+      if (mounted) {
+        String errorMessage = 'Error uploading image: $e';
+        if (e.toString().contains('Connection refused') || 
+            e.toString().contains('Failed host lookup') ||
+            e.toString().contains('No address associated with hostname')) {
+          errorMessage = 'Cannot connect to server. Please check your network connection.';
+          // Clear cache and try to refresh URL for next attempt
+          NetworkConfig.clearCache();
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingQr = false);
+      }
+    }
+  }
+
+  Future<void> _refreshConnection() async {
+    setState(() {
+      _debugInfo = 'Refreshing connection...';
+    });
+    
+    NetworkConfig.clearCache();
+    await _initializeUploadUrl();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Connection refreshed'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  // Build image preview widget
+  Widget _buildImagePreview() {
+    if (_bankQrImageUrl != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          _bankQrImageUrl!,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[200],
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[200],
+              child: const Icon(Icons.error, color: Colors.red),
+            );
+          },
+        ),
+      );
+    } else if (kIsWeb && _selectedImageFile?.bytes != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          _selectedImageFile!.bytes!,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else if (!kIsWeb && _selectedImageFile?.path != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(_selectedImageFile!.path!),
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else {
+      return Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Icon(
+          Icons.image_outlined,
+          color: Colors.grey,
+          size: 40,
+        ),
+      );
+    }
+  }
+
+  // Clear selected image
+  void _clearSelectedImage() {
+    setState(() {
+      _selectedImageFile = null;
+      _imageFileName = null;
+      _bankQrImageUrl = null;
+    });
+  }
+
   Future<void> _register() async {
     FocusScope.of(context).unfocus();
 
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    // Các kiểm tra _selectedDateOfBirth, _isOver18 (ở UI), _selectedGender giữ nguyên
+
     if (_selectedDateOfBirth == null) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn ngày sinh của bạn')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng chọn ngày sinh của bạn')),
+        );
+      }
       return;
     }
-    // Validator của FormField<bool> cho _isOver18 sẽ xử lý việc này, nhưng kiểm tra lại ở đây cũng tốt
+
     if (!_isOver18) { 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bạn phải xác nhận trên 18 tuổi để đăng ký')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bạn phải xác nhận trên 18 tuổi để đăng ký')),
+        );
+      }
       return;
     }
 
     if (_selectedGender == null) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn giới tính của bạn')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng chọn giới tính của bạn')),
+        );
+      }
       return;
     }
 
@@ -89,15 +421,16 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      // SỬA LỜI GỌI HÀM Ở ĐÂY cho đúng 6 tham số
-      bool registrationSuccess = await Provider.of<AuthService>(context, listen: false).register(
-        _usernameController.text.trim(),               // 1. username
-        _emailController.text.trim(),                  // 2. email
-        _passwordController.text,                      // 3. password
-        _selectedDateOfBirth,                          // 4. dateOfBirth
-        _selectedGender?.toString().split('.').last, // 5. gender (String?)
-        selectedInterestsList,                         // 6. interests (List<String>)
-        // Không còn tham số isOver18 ở đây
+      bool registrationSuccess = await Provider.of<AuthService>(context, listen: false).registerWithBank(
+        _usernameController.text.trim(),
+        _emailController.text.trim(),
+        _passwordController.text,
+        _selectedDateOfBirth,
+        _selectedGender?.toString().split('.').last,
+        selectedInterestsList,
+        _bankAccountController.text.trim().isEmpty ? null : _bankAccountController.text.trim(),
+        _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
+        _bankQrImageUrl,
       );
 
       if (mounted && registrationSuccess) { 
@@ -105,23 +438,23 @@ class _RegisterPageState extends State<RegisterPage> {
           const SnackBar(
             content: Text('Đăng ký thành công! Vui lòng đăng nhập.'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
           ),
         );
         await Future.delayed(const Duration(milliseconds: 1500)); 
         if (mounted) {
-            // Chuyển sang LoginPage và xóa tất cả các route trước đó khỏi stack
-            // để người dùng không thể back lại RegisterPage sau khi đăng ký thành công
-            Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-                (Route<dynamic> route) => false, // Xóa tất cả các route trước đó
-            );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+            (Route<dynamic> route) => false,
+          );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Đăng ký thất bại: ${e.toString().replaceFirst("Exception: ", "")}')),
+          SnackBar(
+            content: Text('Đăng ký thất bại: ${e.toString().replaceFirst("Exception: ", "")}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -133,7 +466,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    // UI của build method giữ nguyên như Response #123
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -147,6 +479,55 @@ class _RegisterPageState extends State<RegisterPage> {
                 Text('Create Account', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('Join our community!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
+                
+                const SizedBox(height: 24),
+                
+                // Connection Status Card (similar to upload_video_page.dart)
+                Card(
+                  color: _uploadUrl != null ? Colors.green.shade50 : Colors.orange.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              _uploadUrl != null ? Icons.check_circle : Icons.warning,
+                              color: _uploadUrl != null ? Colors.green : Colors.orange,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Connection Status',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _uploadUrl != null ? Colors.green.shade700 : Colors.orange.shade700,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.refresh, size: 20),
+                              onPressed: _refreshConnection,
+                              tooltip: 'Refresh Connection',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        if (_debugInfo != null)
+                          Text(
+                            _debugInfo!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _uploadUrl != null ? Colors.green.shade600 : Colors.orange.shade600,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                
                 const SizedBox(height: 24),
                 AuthTextField(controller: _usernameController, hintText: 'Username', prefixIcon: Icons.person_outline, validator: (value) { if (value == null || value.isEmpty) return 'Please enter a username'; return null; }),
                 AuthTextField(controller: _emailController, hintText: 'Email', prefixIcon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, validator: (value) { if (value == null || value.isEmpty) return 'Please enter your email'; if (!value.contains('@') || !value.contains('.')) return 'Please enter a valid email'; return null; }),
@@ -202,6 +583,135 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 16),
                 AuthTextField(controller: _passwordController, hintText: 'Password', obscureText: true, prefixIcon: Icons.lock_outline, validator: (value) { if (value == null || value.isEmpty) return 'Please enter a password'; if (value.length < 6) return 'Password must be at least 6 characters'; return null; }),
                 AuthTextField(controller: _confirmPasswordController, hintText: 'Confirm Password', obscureText: true, prefixIcon: Icons.lock_reset_outlined, validator: (value) { if (value == null || value.isEmpty) return 'Please confirm your password'; if (value != _passwordController.text) return 'Passwords do not match'; return null; }),
+                const SizedBox(height: 24),
+                
+                // Bank information section - synchronized upload
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Thông tin ngân hàng (tùy chọn)', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 12),
+                      AuthTextField(controller: _bankAccountController, hintText: 'Số tài khoản ngân hàng', prefixIcon: Icons.account_balance, keyboardType: TextInputType.number, validator: (value) { return null; }),
+                      AuthTextField(controller: _bankNameController, hintText: 'Tên ngân hàng', prefixIcon: Icons.account_balance_wallet, validator: (value) { return null; }),
+                      const SizedBox(height: 16),
+                      
+                      // QR Image selection
+                      ElevatedButton.icon(
+                        onPressed: _pickQrImage,
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: const Text('Select QR Image'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          textStyle: const TextStyle(fontSize: 16)
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Selected Image Display
+                      if (_selectedImageFile != null || _bankQrImageUrl != null)
+                        Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Selected QR Image:',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildImagePreview(),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (_imageFileName != null) ...[
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.image, 
+                                                  color: Theme.of(context).hintColor
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    _imageFileName!,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w500, 
+                                                      fontSize: 15
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                          ],
+                                          
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: ElevatedButton.icon(
+                                                  icon: const Icon(Icons.cloud_upload, size: 18),
+                                                  label: Text(_bankQrImageUrl != null ? 'Re-upload' : 'Upload'),
+                                                  onPressed: (_selectedImageFile != null && !_isUploadingQr && _uploadUrl != null) ? _uploadQrImage : null,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Theme.of(context).primaryColor,
+                                                    foregroundColor: Colors.white,
+                                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              IconButton(
+                                                icon: const Icon(Icons.close, size: 18),
+                                                onPressed: _clearSelectedImage,
+                                                tooltip: 'Clear Image',
+                                              ),
+                                            ],
+                                          ),
+                                          
+                                          if (_isUploadingQr) ...[
+                                            const SizedBox(height: 8),
+                                            const LinearProgressIndicator(),
+                                            const SizedBox(height: 4),
+                                            const Text('Uploading image...', style: TextStyle(fontSize: 12)),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        
+                      const SizedBox(height: 8),
+                      Text(
+                        'Supported formats: JPG, JPEG, PNG, GIF, WEBP\nMax size: 5MB',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                
                 const SizedBox(height: 24),
                 _isLoading ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton(

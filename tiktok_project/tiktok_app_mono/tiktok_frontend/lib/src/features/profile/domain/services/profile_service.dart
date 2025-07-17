@@ -57,6 +57,57 @@ class ProfileService {
     }
   }
 
+  Future<bool> updateProfileWithBank({
+    required String userId,
+    required String username,
+    required String email,
+    DateTime? dateOfBirth,
+    String? gender,
+    List<String>? interests,
+    String? bankAccountNumber,
+    String? bankName,
+    String? bankQrImageUrl,
+  }) async {
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final url = Uri.parse('$baseUrl/$userId');
+      print('[ProfileService] Updating profile with bank info for user: $userId');
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'username': username,
+          'email': email,
+          if (dateOfBirth != null) 'dateOfBirth': dateOfBirth.toIso8601String(),
+          if (gender != null) 'gender': gender,
+          if (interests != null) 'interests': interests,
+          'bankAccountNumber': bankAccountNumber,
+          'bankName': bankName,
+          'bankQrImageUrl': bankQrImageUrl,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      print('[ProfileService] Update ProfileWithBank Response Status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        print('[ProfileService] Profile with bank info updated successfully');
+        return true;
+      } else {
+        final errorMessage = 'Failed to update profile. Status: ${response.statusCode}';
+        print('[ProfileService] $errorMessage, Body: ${response.body}');
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      print('[ProfileService] Error updating profile with bank info: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
+      rethrow;
+    }
+  }
+
   // Get liked videos for user
   Future<Map<String, dynamic>> getLikedVideos(String userId, {int page = 1, int limit = 20}) async {
     try {

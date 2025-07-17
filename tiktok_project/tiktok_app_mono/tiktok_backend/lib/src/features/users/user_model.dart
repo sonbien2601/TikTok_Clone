@@ -20,6 +20,10 @@ class User {
   final int followingCount;          // Cached count for performance
   final int followersCount;          // Cached count for performance
 
+  final String? bankAccountNumber; // Số tài khoản ngân hàng
+  final String? bankName; // Tên ngân hàng
+  final String? bankQrImageUrl; // Link ảnh QR ngân hàng
+
   User({
     this.id,
     required this.username,
@@ -37,6 +41,9 @@ class User {
     this.followers = const [],
     this.followingCount = 0,
     this.followersCount = 0,
+    this.bankAccountNumber,
+    this.bankName,
+    this.bankQrImageUrl,
   })  : this.createdAt = createdAt ?? DateTime.now(),
         this.updatedAt = updatedAt ?? DateTime.now();
 
@@ -57,6 +64,9 @@ class User {
       'followers': followers.map((id) => id).toList(),
       'followingCount': followingCount,
       'followersCount': followersCount,
+      'bankAccountNumber': bankAccountNumber,
+      'bankName': bankName,
+      'bankQrImageUrl': bankQrImageUrl,
     };
   }
 
@@ -81,6 +91,9 @@ class User {
       followers: (map['followers'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
       followingCount: map['followingCount'] as int? ?? 0,
       followersCount: map['followersCount'] as int? ?? 0,
+      bankAccountNumber: map['bankAccountNumber'] as String?,
+      bankName: map['bankName'] as String?,
+      bankQrImageUrl: map['bankQrImageUrl'] as String?,
     );
   }
 
@@ -111,6 +124,9 @@ class User {
     List<ObjectId>? followers,
     int? followingCount,
     int? followersCount,
+    String? bankAccountNumber,
+    String? bankName,
+    String? bankQrImageUrl,
   }) {
     return User(
       id: id ?? this.id,
@@ -128,6 +144,9 @@ class User {
       followers: followers ?? this.followers,
       followingCount: followingCount ?? this.followingCount,
       followersCount: followersCount ?? this.followersCount,
+      bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
+      bankName: bankName ?? this.bankName,
+      bankQrImageUrl: bankQrImageUrl ?? this.bankQrImageUrl,
     );
   }
 }

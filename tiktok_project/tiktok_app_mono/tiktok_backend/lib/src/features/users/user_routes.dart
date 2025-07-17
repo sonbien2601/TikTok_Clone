@@ -3,6 +3,8 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'controllers/auth_controller.dart';
 import 'controllers/profile_controller.dart';
+import 'controllers/donate_history_controller.dart';
+import 'controllers/upload_controller.dart';
 
 Router createUserRoutes() {
   final router = Router();
@@ -21,6 +23,14 @@ Router createUserRoutes() {
   router.get('/<userId>/liked-videos', ProfileController.getLikedVideosHandler);
   router.get('/<userId>/saved-videos', ProfileController.getSavedVideosHandler);
   router.get('/<userId>/videos', ProfileController.getUserVideosHandler);
+
+  // Donate routes
+  router.post('/donate', DonateHistoryController.createDonateHandler);
+  router.get('/<userId>/donate-history', DonateHistoryController.getDonateHistoryByUserHandler);
+  router.get('/<userId>/received-donate-history', DonateHistoryController.getReceivedDonateHistoryHandler);
+
+  // Upload image (QR, proof)
+  router.post('/upload-image', UploadController.uploadImageHandler);
 
   // Test route
   router.get('/test-user-api', (Request request) {

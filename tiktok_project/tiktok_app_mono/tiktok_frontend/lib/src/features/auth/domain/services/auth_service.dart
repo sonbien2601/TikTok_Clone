@@ -1,11 +1,9 @@
-// tiktok_frontend/lib/src/features/auth/domain/services/auth_service.dart - UPDATED WITH NOTIFICATION POPUP
-
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart';
-import 'package:tiktok_frontend/src/features/notifications/domain/services/notification_popup_service.dart'; // NEW IMPORT
+import 'package:tiktok_frontend/src/features/notifications/domain/services/notification_popup_service.dart';
 import 'package:tiktok_frontend/src/features/feed/presentation/views/video_feed_view.dart';
 
 class UserFrontend {
@@ -120,9 +118,10 @@ class AuthService extends ChangeNotifier {
 
   // FollowStateManager instance
   final FollowStateManager _followStateManager = FollowStateManager();
-  
-  // NEW: NotificationPopupService instance
-  final NotificationPopupService _notificationPopupService = NotificationPopupService();
+
+  // NotificationPopupService instance
+  final NotificationPopupService _notificationPopupService =
+      NotificationPopupService();
 
   bool get isAuthenticated => _isAuthenticated;
   UserFrontend? get currentUser => _currentUser;
@@ -130,9 +129,10 @@ class AuthService extends ChangeNotifier {
 
   // Getter for FollowStateManager
   FollowStateManager get followStateManager => _followStateManager;
-  
-  // NEW: Getter for NotificationPopupService
-  NotificationPopupService get notificationPopupService => _notificationPopupService;
+
+  // Getter for NotificationPopupService
+  NotificationPopupService get notificationPopupService =>
+      _notificationPopupService;
 
   // Method to update current user's follow counts from FollowStateManager
   void updateCurrentUserFollowCounts() {
@@ -140,17 +140,18 @@ class AuthService extends ChangeNotifier {
 
     final currentUserId = _currentUser!.id;
     final followInfo = _followStateManager.getFollowInfo(currentUserId);
-    
+
     if (followInfo['hasData'] == true) {
       final newFollowerCount = followInfo['followerCount'] as int;
-      
+
       if (newFollowerCount != _currentUser!.followersCount) {
-        print('[AuthService] Updating current user follower count: ${_currentUser!.followersCount} -> $newFollowerCount');
-        
+        print(
+            '[AuthService] Updating current user follower count: ${_currentUser!.followersCount} -> $newFollowerCount');
+
         _currentUser = _currentUser!.copyWith(
           followersCount: newFollowerCount,
         );
-        
+
         notifyListeners();
       }
     }
@@ -176,7 +177,7 @@ class AuthService extends ChangeNotifier {
       try {
         this._currentUser = UserFrontend.fromJson(userDataFromApi);
         print('[AuthService] User data parsed. User: ${this._currentUser}');
-        
+
         // Sync with FollowStateManager
         if (_currentUser != null) {
           _followStateManager.updateFollowState(
@@ -230,10 +231,11 @@ class AuthService extends ChangeNotifier {
             responseData.containsKey('user') &&
             responseData['user'] is Map<String, dynamic>) {
           _updateAuthState(true, responseData['user'] as Map<String, dynamic>);
-          
-          // NEW: Check for notifications after successful login
+
+          // Check for notifications after successful login
           if (_currentUser != null) {
-            print('[AuthService] ✅ Login successful, checking for notifications...');
+            print(
+                '[AuthService] ✅ Login successful, checking for notifications...');
             await _checkNotificationsAfterLogin();
           }
         } else {
@@ -267,14 +269,16 @@ class AuthService extends ChangeNotifier {
     if (_currentUser == null) return;
 
     try {
-      print('[AuthService] 🔔 Checking for new notifications for user: ${_currentUser!.id}');
-      
+      print(
+          '[AuthService] 🔔 Checking for new notifications for user: ${_currentUser!.id}');
+
       // Delay to allow UI to settle after login
       await Future.delayed(const Duration(seconds: 1));
-      
+
       // Check notifications and show popup if there are any
-      await _notificationPopupService.checkNotificationsOnLogin(_currentUser!.id);
-      
+      await _notificationPopupService
+          .checkNotificationsOnLogin(_currentUser!.id);
+
       print('[AuthService] ✅ Notification check completed');
     } catch (e) {
       print('[AuthService] ❌ Error checking notifications after login: $e');
@@ -293,7 +297,8 @@ class AuthService extends ChangeNotifier {
   // NEW: Enable/disable notification popups
   void setNotificationPopupsEnabled(bool enabled) {
     _notificationPopupService.setEnabled(enabled);
-    print('[AuthService] 🔔 Notification popups ${enabled ? 'enabled' : 'disabled'}');
+    print(
+        '[AuthService] 🔔 Notification popups ${enabled ? 'enabled' : 'disabled'}');
   }
 
   Future<void> refreshUserData() async {
@@ -461,50 +466,85 @@ class AuthService extends ChangeNotifier {
     String? bankAccountNumber,
     String? bankName,
     String? bankQrImageUrl,
+    String? bankImageUrl, // ✅ THÊM PARAMETER NÀY
   ) async {
-    final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
-    final targetUrl = Uri.parse('$baseUrl/register');
-    print('[AuthService] Auto-detected backend URL for register: $baseUrl');
     try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/auth');
+      final url = Uri.parse('$baseUrl/register');
+
+      final Map<String, dynamic> requestBody = {
+        'username': username,
+        'email': email,
+        'password': password,
+        'interests': interests,
+      };
+
+      if (dateOfBirth != null) {
+        requestBody['dateOfBirth'] = dateOfBirth.toIso8601String();
+      }
+
+      if (gender != null) {
+        requestBody['gender'] = gender;
+      }
+
+      // Add bank information if provided
+      if (bankAccountNumber != null && bankAccountNumber.isNotEmpty) {
+        requestBody['bankAccountNumber'] = bankAccountNumber;
+      }
+
+      if (bankName != null && bankName.isNotEmpty) {
+        requestBody['bankName'] = bankName;
+      }
+
+      if (bankQrImageUrl != null && bankQrImageUrl.isNotEmpty) {
+        requestBody['bankQrImageUrl'] = bankQrImageUrl;
+      }
+
+      // ✅ THÊM BANK IMAGE URL
+      if (bankImageUrl != null && bankImageUrl.isNotEmpty) {
+        requestBody['bankImageUrl'] = bankImageUrl;
+      }
+
+      print(
+          '[AuthService] Registration request body keys: ${requestBody.keys}');
+      print(
+          '[AuthService] Bank info - Account: $bankAccountNumber, Bank: $bankName');
+      print(
+          '[AuthService] Bank images - QR: $bankQrImageUrl, Image: $bankImageUrl');
+
       final response = await http
           .post(
-            targetUrl,
-            headers: <String, String>{
+            url,
+            headers: {
               'Content-Type': 'application/json; charset=UTF-8',
               'Accept': 'application/json',
             },
-            body: jsonEncode(<String, dynamic>{
-              'username': username,
-              'email': email,
-              'password': password,
-              'dateOfBirth': dateOfBirth?.toIso8601String(),
-              'gender': gender,
-              'interests': interests,
-              'bankAccountNumber': bankAccountNumber,
-              'bankName': bankName,
-              'bankQrImageUrl': bankQrImageUrl,
-            }),
+            body: jsonEncode(requestBody),
           )
           .timeout(const Duration(seconds: 10));
-      print('[AuthService] RegisterWithBank Response status: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        print('[AuthService] Registration with bank info successful.');
+
+      print(
+          '[AuthService] Registration response status: ${response.statusCode}');
+      print('[AuthService] Registration response body: ${response.body}');
+
+      if (response.statusCode == 201) {
         return true;
       } else {
-        String errorMessage =
-            'Failed to register. Status: ${response.statusCode}';
+        String errorMessage = 'Registration failed';
         try {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error'] ?? errorMessage;
         } catch (_) {}
+
+        print('[AuthService] Registration failed: $errorMessage');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[AuthService] RegisterWithBank error: $e');
+      print('[AuthService] Error during registration: $e');
       if (e.toString().contains('Connection refused') ||
           e.toString().contains('Failed host lookup')) {
-        NetworkConfig.clearCache();
-        print('[AuthService] ❌ Connection failed during registerWithBank, cleared IP cache');
+        throw Exception(
+            'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
       }
       rethrow;
     }
@@ -520,18 +560,18 @@ class AuthService extends ChangeNotifier {
     print('[AuthService] User logged out.');
   }
 
-  // NEW: Force clear all state and dispose all controllers
+  // Force clear all state and dispose all controllers
   Future<void> _forceClearAllState() async {
     print('[AuthService] Force clearing all state...');
-    
+
     try {
       // Force dispose all video controllers
       VideoFeedView.forceDisposeAllVideos();
       print('[AuthService] All video controllers force disposed');
-      
+
       // Clear any cached data
       await Future.delayed(const Duration(milliseconds: 200));
-      
+
       // Force garbage collection if possible
       // Note: This is not available in all Flutter versions
       try {
@@ -542,13 +582,12 @@ class AuthService extends ChangeNotifier {
       } catch (e) {
         print('[AuthService] Garbage collection not available: $e');
       }
-      
     } catch (e) {
       print('[AuthService] Error during force clear: $e');
     }
   }
 
-  // NEW: Method to restart app completely (nuclear option)
+  // Method to restart app completely (nuclear option)
   void restartApp() {
     print('[AuthService] Restarting app completely...');
     // This will force a complete app restart
@@ -556,12 +595,12 @@ class AuthService extends ChangeNotifier {
     try {
       // Force dispose everything
       _forceClearAllState();
-      
+
       // Clear all state
       _followStateManager.clearAll();
       _notificationPopupService.reset();
       _updateAuthState(false, null);
-      
+
       print('[AuthService] App restart completed');
     } catch (e) {
       print('[AuthService] Error during app restart: $e');
@@ -591,7 +630,7 @@ class AuthService extends ChangeNotifier {
     print('[AuthService] Network configuration refreshed');
   }
 
-  // NEW: Dispose method to clean up notification service
+  // Dispose method to clean up notification service
   @override
   void dispose() {
     _notificationPopupService.dispose();

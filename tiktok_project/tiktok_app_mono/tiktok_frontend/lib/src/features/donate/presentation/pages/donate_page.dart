@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
+import 'package:intl/intl.dart';
 
 class DonatePage extends StatefulWidget {
   final String toUserId;
@@ -19,10 +20,12 @@ class DonatePage extends StatefulWidget {
 
 class _DonatePageState extends State<DonatePage> {
   final _amountController = TextEditingController();
+  
   PlatformFile? _selectedImageFile;
   String? _imageFileName;
   String? _uploadUrl;
   String? _proofImageUrl;
+  String? _debugInfo;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
   String? _error;
@@ -38,139 +41,454 @@ class _DonatePageState extends State<DonatePage> {
     _loadRecipientBankInfo();
   }
 
-  Future<void> _loadRecipientBankInfo() async {
-    try {
-      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
-      final url = Uri.parse('$baseUrl/${widget.toUserId}/bank-info');
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _recipientBankInfo = data;
-          _isLoadingBankInfo = false;
-        });
-      } else {
-        setState(() => _isLoadingBankInfo = false);
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  void _showSnackBar(String message, {Color? backgroundColor}) {
+    if (!mounted) return;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      
+      try {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: backgroundColor,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } catch (e) {
+        print('[DonatePage] SnackBar error: $e - Message: $message');
       }
-    } catch (e) {
-      setState(() => _isLoadingBankInfo = false);
-    }
+    });
   }
 
   Future<void> _initializeUploadUrl() async {
     try {
       _uploadUrl = await NetworkConfig.getBaseUrl('/api/users/upload-image');
+      final status = NetworkConfig.getStatus();
+      
+      if (mounted) {
+        setState(() {
+          _debugInfo = 'Platform: ${_getPlatformName()}\n'
+                     'Upload URL: $_uploadUrl\n'
+                     'Cached URL: ${status['cached_url']}\n'
+                     'Cache Valid: ${status['cache_valid']}';
+        });
+      }
+      
+      print('[DonatePage] Initialized upload URL: $_uploadUrl');
     } catch (e) {
-      print('Error initializing upload URL: $e');
+      print('[DonatePage] Error initializing upload URL: $e');
+      if (mounted) {
+        setState(() {
+          _debugInfo = 'Error: Could not initialize upload URL\n$e';
+        });
+      }
     }
+  }
+
+  String _getPlatformName() {
+    if (kIsWeb) return 'Web';
+    if (!kIsWeb) {
+      try {
+        if (Platform.isAndroid) return 'Android';
+        if (Platform.isIOS) return 'iOS';
+        return Platform.operatingSystem;
+      } catch (e) {
+        return 'Unknown';
+      }
+    }
+    return 'Unknown';
+  }
+
+  Future<void> _loadRecipientBankInfo() async {
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final url = Uri.parse('$baseUrl/${widget.toUserId}');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _recipientBankInfo = {
+              'bankAccountNumber': data['bankAccountNumber'],
+              'bankName': data['bankName'],
+              'bankQrImageUrl': data['bankQrImageUrl'],
+              'bankImageUrl': data['bankImageUrl'],
+            };
+            _isLoadingBankInfo = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoadingBankInfo = false);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingBankInfo = false);
+      }
+    }
+  }
+
+  String _getFileSize(PlatformFile file) {
+    int bytes = kIsWeb ? (file.bytes?.length ?? 0) : file.size;
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+  }
+
+  bool _isValidImageFile(PlatformFile file) {
+    final String fileName = file.name.toLowerCase();
+    final List<String> validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    
+    bool hasValidExtension = validExtensions.any((ext) => fileName.endsWith('.$ext'));
+    if (!hasValidExtension) {
+      _showSnackBar('Chỉ hỗ trợ file ảnh: ${validExtensions.join(', ')}', backgroundColor: Colors.red);
+      return false;
+    }
+    
+    int fileSize = kIsWeb ? (file.bytes?.length ?? 0) : (file.size);
+    if (fileSize > _maxFileSize) {
+      _showSnackBar('File quá lớn. Giới hạn: ${_maxFileSize ~/ (1024*1024)}MB', backgroundColor: Colors.red);
+      return false;
+    }
+    
+    if (fileSize == 0) {
+      _showSnackBar('File rỗng hoặc không hợp lệ', backgroundColor: Colors.red);
+      return false;
+    }
+    
+    return true;
   }
 
   Future<void> _pickProofImage() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
         allowMultiple: false,
       );
+
       if (result != null) {
         final file = result.files.single;
-        final extension = file.name.split('.').last.toLowerCase();
-        if (!_supportedFormats.contains(extension)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Unsupported format. Use:  [1m${_supportedFormats.join(', ')}')));
+        
+        if (!_isValidImageFile(file)) {
           return;
         }
-        if (file.size > _maxFileSize) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('File too large. Max 5MB')));
-          return;
+        
+        if (mounted) {
+          setState(() {
+            _selectedImageFile = file;
+            _imageFileName = file.name;
+            _proofImageUrl = null;
+            _error = null;
+            print('[DonatePage] Image selected: $_imageFileName');
+            if (!kIsWeb && file.path != null) {
+               print('[DonatePage] Image path (mobile/desktop): ${file.path}');
+            } else if (kIsWeb && file.bytes != null) {
+               print('[DonatePage] Image bytes selected (web): ${file.bytes!.length}');
+            }
+          });
         }
-        setState(() {
-          _selectedImageFile = file;
-          _imageFileName = file.name;
-          _uploadProgress = 0.0;
-        });
+
         await _uploadProofImage();
+      } else {
+        print('[DonatePage] No image selected.');
+        if (mounted) {
+          setState(() {
+            _selectedImageFile = null;
+            _imageFileName = null;
+          });
+        }
       }
     } catch (e) {
-      setState(() => _error = 'Error selecting image: $e');
+      print('[DonatePage] Error picking image: $e');
+      _showSnackBar('Lỗi khi chọn ảnh: $e', backgroundColor: Colors.red);
+      if (mounted) {
+        setState(() => _error = 'Error selecting image: $e');
+      }
     }
   }
 
   Future<void> _uploadProofImage() async {
-    if (_selectedImageFile == null || _uploadUrl == null) return;
+    if (_selectedImageFile == null) {
+      _showSnackBar('Vui lòng chọn ảnh để upload.');
+      return;
+    }
+
+    if (_uploadUrl == null) {
+      await _initializeUploadUrl();
+      if (_uploadUrl == null) {
+        _showSnackBar('Không xác định được upload URL.');
+        return;
+      }
+    }
+
     setState(() {
       _isUploading = true;
       _uploadProgress = 0.0;
       _error = null;
     });
-    try {
-      var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
-      final currentUserId = Provider.of<AuthService>(context, listen: false).currentUser?.id;
-      if (currentUserId != null) {
-        request.fields['userId'] = currentUserId;
-      }
-      if (kIsWeb && _selectedImageFile!.bytes != null) {
-        request.files.add(http.MultipartFile.fromBytes(
-          'imageFile', 
-          _selectedImageFile!.bytes!,
-          filename: _imageFileName ?? 'image.png',
-          contentType: MediaType('image', _imageFileName?.split('.').last ?? 'png'), 
-        ));
-      } else if (!kIsWeb && _selectedImageFile!.path != null) {
-        request.files.add(await http.MultipartFile.fromPath(
+
+    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
+    final currentUserId = Provider.of<AuthService>(context, listen: false).currentUser?.id;
+    if (currentUserId != null) {
+      request.fields['userId'] = currentUserId;
+    }
+
+    print('[DonatePage] Upload URL: $_uploadUrl');
+    print('[DonatePage] Platform: ${_getPlatformName()}');
+    print('[DonatePage] Fields: ${request.fields}');
+
+    if (kIsWeb && _selectedImageFile!.bytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'imageFile',
+        _selectedImageFile!.bytes!,
+        filename: _imageFileName ?? 'image_from_web.png',
+        contentType: MediaType('image', _imageFileName?.split('.').last ?? 'png'),
+      ));
+      print('[DonatePage] Added file from bytes (web)');
+    } else if (!kIsWeb && _selectedImageFile!.path != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
           'imageFile',
           _selectedImageFile!.path!,
-          filename: _imageFileName,
-        ));
+          filename: _imageFileName ?? _selectedImageFile!.path!.split(Platform.pathSeparator).last,
+          contentType: MediaType('image', _selectedImageFile!.path!.split('.').last),
+        ),
+      );
+      print('[DonatePage] Added file from path (mobile/desktop)');
+    } else {
+      _showSnackBar('Không tìm thấy file ảnh hợp lệ để upload.');
+      if (mounted) {
+        setState(() => _isUploading = false);
       }
-      setState(() => _uploadProgress = 0.3);
+      return;
+    }
+
+    try {
+      print('[DonatePage] Sending upload request to $_uploadUrl');
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
-      setState(() => _uploadProgress = 0.7);
       final response = await http.Response.fromStream(streamedResponse);
-      setState(() => _uploadProgress = 1.0);
+
+      print('[DonatePage] Upload Response status: ${response.statusCode}');
+      print('[DonatePage] Upload Response body: ${response.body}');
+
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print('[DonatePage] Full server response: $data');
+        
         if (data['imageUrl'] != null) {
-          setState(() {
-            _proofImageUrl = data['imageUrl'];
-            _error = null;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Upload successful!'), backgroundColor: Colors.green));
+          final imageUrl = data['imageUrl'].toString().trim();
+          print('[DonatePage] Received image URL: "$imageUrl"');
+          print('[DonatePage] URL length: ${imageUrl.length}');
+          print('[DonatePage] URL starts with http: ${imageUrl.startsWith('http')}');
+          
+          if (imageUrl.isNotEmpty) {
+            setState(() {
+              _proofImageUrl = imageUrl;
+              _selectedImageFile = null;
+              _imageFileName = null;
+            });
+            _showSnackBar('Ảnh đã upload thành công!', backgroundColor: Colors.green);
+            print('[DonatePage] Upload successful, image URL set to: $_proofImageUrl');
+          } else {
+            print('[DonatePage] Empty image URL received');
+            _showSnackBar('Server trả về URL rỗng', backgroundColor: Colors.red);
+          }
+        } else {
+          print('[DonatePage] No imageUrl field in response: ${response.body}');
+          _showSnackBar('Server không trả về link ảnh', backgroundColor: Colors.red);
         }
       } else {
-        throw Exception('Upload failed: ${response.statusCode}');
+        String errorMessage = 'Upload ảnh thất bại. Status: ${response.statusCode}';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['error'] ?? errorMessage;
+        } catch (_) {}
+        _showSnackBar(errorMessage, backgroundColor: Colors.red);
       }
     } catch (e) {
-      setState(() => _error = 'Upload failed: $e');
+      print('[DonatePage] Error uploading image: $e');
+      String errorMessage = 'Lỗi upload ảnh: $e';
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('No address associated with hostname')) {
+        errorMessage = 'Cannot connect to server. Please check your network connection.';
+        NetworkConfig.clearCache();
+      }
+      _showSnackBar(errorMessage, backgroundColor: Colors.red);
     } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _uploadProgress = 0.0;
+        });
+      }
+    }
+  }
+
+  Widget _buildImagePreview() {
+    if (_proofImageUrl != null) {
+      String fullImageUrl = _proofImageUrl!;
+      if (!fullImageUrl.startsWith('http')) {
+        fullImageUrl = 'http://localhost:8080$_proofImageUrl';
+      }
+      
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          fullImageUrl,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[200],
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            print('[DonatePage] Error loading image: $error for URL: $fullImageUrl');
+            return Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[200],
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  Text('Uploaded', style: TextStyle(fontSize: 8, color: Colors.green)),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    } else if (kIsWeb && _selectedImageFile?.bytes != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          _selectedImageFile!.bytes!,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[200],
+              child: const Icon(Icons.error, color: Colors.red),
+            );
+          },
+        ),
+      );
+    } else if (!kIsWeb && _selectedImageFile?.path != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(_selectedImageFile!.path!),
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[200],
+              child: const Icon(Icons.error, color: Colors.red),
+            );
+          },
+        ),
+      );
+    } else {
+      return Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Icon(
+          Icons.image_outlined,
+          color: Colors.grey,
+          size: 40,
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshConnection() async {
+    if (mounted) {
       setState(() {
-        _isUploading = false;
-        _uploadProgress = 0.0;
+        _debugInfo = 'Refreshing connection...';
+      });
+    }
+    
+    NetworkConfig.clearCache();
+    await _initializeUploadUrl();
+    
+    _showSnackBar('Connection refreshed');
+  }
+
+  void _clearSelectedImage() {
+    if (mounted) {
+      setState(() {
+        _selectedImageFile = null;
+        _imageFileName = null;
+        _proofImageUrl = null;
       });
     }
   }
 
   Future<void> _submitDonate() async {
-    setState(() { _error = null; });
+    if (mounted) {
+      setState(() { _error = null; });
+    }
+    
     final amount = int.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
-      setState(() { _error = 'Vui lòng nhập số tiền hợp lệ'; });
+      if (mounted) {
+        setState(() { _error = 'Vui lòng nhập số tiền hợp lệ'; });
+      }
       return;
     }
+    
     if (_proofImageUrl == null) {
-      setState(() { _error = 'Vui lòng upload ảnh xác nhận'; });
+      if (mounted) {
+        setState(() { _error = 'Vui lòng upload ảnh xác nhận'; });
+      }
       return;
     }
-    setState(() { _isUploading = true; });
+
+    if (mounted) {
+      setState(() { _isUploading = true; });
+    }
+
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final url = Uri.parse('$baseUrl/donate');
       final fromUserId = Provider.of<AuthService>(context, listen: false).currentUser?.id;
+      
       if (fromUserId == null) {
-        setState(() { _error = 'Không xác định được tài khoản của bạn'; });
+        if (mounted) {
+          setState(() { _error = 'Không xác định được tài khoản của bạn'; });
+        }
         return;
       }
+
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -181,23 +499,260 @@ class _DonatePageState extends State<DonatePage> {
           'donateProofImageUrl': _proofImageUrl,
         }),
       );
+
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Donate thành công!'), backgroundColor: Colors.green));
+        Navigator.of(context).pop(true);
       } else {
         setState(() { _error = 'Donate thất bại'; });
       }
     } catch (e) {
-      setState(() { _error = 'Lỗi: $e'; });
+      if (mounted) {
+        setState(() { _error = 'Lỗi: $e'; });
+      }
     } finally {
-      setState(() { _isUploading = false; });
+      if (mounted) {
+        setState(() { _isUploading = false; });
+      }
     }
   }
 
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: Colors.blue.shade600,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showQrImageDialog(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            children: [
+              Center(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.9,
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.qr_code, color: Colors.blue.shade700),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Mã QR thanh toán',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: InteractiveViewer(
+                          child: Image.network(
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                height: 300,
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 300,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      size: 64,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Không thể tải ảnh QR',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showBankImageDialog(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            children: [
+              Center(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.9,
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.photo_camera, color: Colors.green.shade700),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Ảnh ngân hàng',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.green.shade700,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: InteractiveViewer(
+                          child: Image.network(
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                height: 300,
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 300,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      size: 64,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Không thể tải ảnh ngân hàng',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -217,6 +772,51 @@ class _DonatePageState extends State<DonatePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Card(
+                        color: _uploadUrl != null ? Colors.green.shade50 : Colors.orange.shade50,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    _uploadUrl != null ? Icons.check_circle : Icons.warning,
+                                    color: _uploadUrl != null ? Colors.green : Colors.orange,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Connection Status',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: _uploadUrl != null ? Colors.green.shade700 : Colors.orange.shade700,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: const Icon(Icons.refresh, size: 20),
+                                    onPressed: _refreshConnection,
+                                    tooltip: 'Refresh Connection',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              if (_debugInfo != null)
+                                Text(
+                                  _debugInfo!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _uploadUrl != null ? Colors.green.shade600 : Colors.orange.shade600,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       if (_isLoadingBankInfo) ...[
                         const Center(child: CircularProgressIndicator()),
                       ] else if (_recipientBankInfo != null) ...[
@@ -231,24 +831,383 @@ class _DonatePageState extends State<DonatePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Thông tin ngân hàng', 
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                              Row(
+                                children: [
+                                  Icon(Icons.account_balance, color: Colors.blue.shade700),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Thông tin ngân hàng', 
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold, 
+                                      fontSize: 16,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 12),
-                              if (_recipientBankInfo!['bankName'] != null)
-                                Text('Ngân hàng: ${_recipientBankInfo!['bankName']}'),
-                              if (_recipientBankInfo!['bankAccountNumber'] != null)
-                                Text('Số TK: ${_recipientBankInfo!['bankAccountNumber']}'),
-                              Text('Tên TK: ${widget.toUsername}'),
-                              if (_recipientBankInfo!['bankQrImageUrl'] != null) ...[
-                                const SizedBox(height: 12),
-                                Center(
-                                  child: Image.network(
-                                    _recipientBankInfo!['bankQrImageUrl'],
-                                    height: 200,
-                                    fit: BoxFit.contain,
+                              if (_recipientBankInfo!['bankName'] != null) ...[
+                                _buildInfoRow(
+                                  icon: Icons.account_balance_wallet,
+                                  label: 'Ngân hàng',
+                                  value: _recipientBankInfo!['bankName'],
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                              if (_recipientBankInfo!['bankAccountNumber'] != null) ...[
+                                _buildInfoRow(
+                                  icon: Icons.credit_card,
+                                  label: 'Số tài khoản',
+                                  value: _recipientBankInfo!['bankAccountNumber'],
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                              _buildInfoRow(
+                                icon: Icons.person,
+                                label: 'Tên tài khoản',
+                                value: widget.toUsername,
+                              ),
+                              const SizedBox(height: 20),
+                              if (_recipientBankInfo!['bankImageUrl'] != null && 
+                                  _recipientBankInfo!['bankImageUrl'].toString().isNotEmpty) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.green.shade200),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.photo_camera, color: Colors.green.shade700),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Ảnh ngân hàng tham khảo',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.green.shade700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      GestureDetector(
+                                        onTap: () => _showBankImageDialog(_recipientBankInfo!['bankImageUrl']),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.1),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Image.network(
+                                              _recipientBankInfo!['bankImageUrl'],
+                                              height: 180,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              loadingBuilder: (context, child, loadingProgress) {
+                                                if (loadingProgress == null) return child;
+                                                return Container(
+                                                  height: 180,
+                                                  width: double.infinity,
+                                                  color: Colors.grey[100],
+                                                  child: const Center(
+                                                    child: CircularProgressIndicator(),
+                                                  ),
+                                                );
+                                              },
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return Container(
+                                                  height: 180,
+                                                  width: double.infinity,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[100],
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(color: Colors.grey[300]!),
+                                                  ),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.broken_image,
+                                                        size: 48,
+                                                        color: Colors.grey[400],
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        'Không thể tải ảnh ngân hàng',
+                                                        style: TextStyle(
+                                                          color: Colors.grey[600],
+                                                          fontSize: 12,
+                                                        ),
+                                                        textAlign: TextAlign.center,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Nhấn để xem ảnh ngân hàng phóng to',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
+                              const SizedBox(height: 20),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.qr_code, color: Colors.blue.shade700),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Mã QR thanh toán',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.blue.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    if (_recipientBankInfo!['bankQrImageUrl'] != null && 
+                                        _recipientBankInfo!['bankQrImageUrl'].toString().isNotEmpty) ...[
+                                      GestureDetector(
+                                        onTap: () => _showQrImageDialog(_recipientBankInfo!['bankQrImageUrl']),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.1),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Image.network(
+                                              _recipientBankInfo!['bankQrImageUrl'],
+                                              height: 200,
+                                              width: 200,
+                                              fit: BoxFit.contain,
+                                              loadingBuilder: (context, child, loadingProgress) {
+                                                if (loadingProgress == null) return child;
+                                                return Container(
+                                                  height: 200,
+                                                  width: 200,
+                                                  color: Colors.grey[100],
+                                                  child: const Center(
+                                                    child: CircularProgressIndicator(),
+                                                  ),
+                                                );
+                                              },
+                                              errorBuilder: (context, error, stackTrace) {
+                                                print('[DonatePage] Error loading QR image: $error');
+                                                return Container(
+                                                  height: 200,
+                                                  width: 200,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[100],
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(color: Colors.grey[300]!),
+                                                  ),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.broken_image,
+                                                        size: 48,
+                                                        color: Colors.grey[400],
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        'Không thể tải ảnh QR',
+                                                        style: TextStyle(
+                                                          color: Colors.grey[600],
+                                                          fontSize: 12,
+                                                        ),
+                                                        textAlign: TextAlign.center,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Nhấn để xem ảnh QR phóng to',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      Container(
+                                        height: 150,
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[100],
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.grey[300]!,
+                                            style: BorderStyle.solid,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.qr_code_scanner,
+                                              size: 48,
+                                              color: Colors.grey[400],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Chưa có ảnh QR ngân hàng',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Vui lòng chuyển khoản theo thông tin trên',
+                                              style: TextStyle(
+                                                color: Colors.grey[500],
+                                                fontSize: 12,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              if (_recipientBankInfo!['bankName'] != null || 
+                                  _recipientBankInfo!['bankAccountNumber'] != null) ...[
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.amber.shade200),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.info_outline,
+                                        color: Colors.amber.shade700,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Lưu ý quan trọng:',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.amber.shade700,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '• Vui lòng chuyển khoản chính xác theo thông tin trên\n'
+                                              '• Tham khảo ảnh ngân hàng và QR để chuyển đúng\n'
+                                              '• Sau khi chuyển, hãy chụp ảnh màn hình xác nhận\n'
+                                              '• Upload ảnh xác nhận để hoàn tất donate',
+                                              style: TextStyle(
+                                                color: Colors.amber.shade700,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ] else ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.warning_amber,
+                                size: 48,
+                                color: Colors.orange.shade600,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Chưa có thông tin ngân hàng',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Người dùng này chưa cập nhật thông tin ngân hàng.\n'
+                                'Vui lòng liên hệ trực tiếp để donate.',
+                                style: TextStyle(
+                                  color: Colors.orange.shade600,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ],
                           ),
                         ),
@@ -266,24 +1225,104 @@ class _DonatePageState extends State<DonatePage> {
                       const Text('Ảnh xác nhận chuyển khoản:', style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       ElevatedButton.icon(
-                        onPressed: _pickProofImage,
+                        onPressed: _isUploading ? null : _pickProofImage,
                         icon: const Icon(Icons.add_photo_alternate),
                         label: const Text('Chọn ảnh'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          textStyle: const TextStyle(fontSize: 16),
+                        ),
                       ),
-                      if (_selectedImageFile != null || _proofImageUrl != null) ...[
-                        const SizedBox(height: 16),
-                        if (_proofImageUrl != null)
-                          Image.network(_proofImageUrl!, height: 100, fit: BoxFit.cover)
-                        else if (kIsWeb && _selectedImageFile!.bytes != null)
-                          Image.memory(_selectedImageFile!.bytes!, height: 100, fit: BoxFit.cover)
-                        else if (!kIsWeb && _selectedImageFile!.path != null)
-                          Image.file(File(_selectedImageFile!.path!), height: 100, fit: BoxFit.cover),
-                      ],
-                      if (_isUploading) ...[
-                        const SizedBox(height: 8),
-                        LinearProgressIndicator(value: _uploadProgress),
-                        Text('Uploading... ${(_uploadProgress * 100).toInt()}%'),
-                      ],
+                      const SizedBox(height: 16),
+                      if (_selectedImageFile != null || _proofImageUrl != null)
+                        Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Selected QR Image:',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildImagePreview(),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (_imageFileName != null) ...[
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.image,
+                                                  color: Theme.of(context).hintColor,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    _imageFileName!,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w500,
+                                                      fontSize: 15,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                          ],
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: ElevatedButton.icon(
+                                                  icon: const Icon(Icons.cloud_upload, size: 18),
+                                                  label: Text(_proofImageUrl != null ? 'Re-upload' : 'Upload'),
+                                                  onPressed: (_selectedImageFile != null && !_isUploading && _uploadUrl != null) ? _uploadProofImage : null,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Theme.of(context).primaryColor,
+                                                    foregroundColor: Colors.white,
+                                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              IconButton(
+                                                icon: const Icon(Icons.close, size: 18),
+                                                onPressed: _clearSelectedImage,
+                                                tooltip: 'Clear Image',
+                                              ),
+                                            ],
+                                          ),
+                                          if (_isUploading) ...[
+                                            const SizedBox(height: 8),
+                                            const LinearProgressIndicator(),
+                                            const SizedBox(height: 4),
+                                            const Text('Uploading image...', style: TextStyle(fontSize: 12)),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Supported formats: JPG, JPEG, PNG, GIF, WEBP\nMax size: 5MB',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
                       if (_error != null) ...[
                         const SizedBox(height: 8),
                         Text(_error!, style: const TextStyle(color: Colors.red)),
@@ -302,9 +1341,9 @@ class _DonatePageState extends State<DonatePage> {
                       flex: 2,
                       child: ElevatedButton(
                         onPressed: _isUploading ? null : _submitDonate,
-                        child: _isUploading 
-                          ? const CircularProgressIndicator(strokeWidth: 2) 
-                          : const Text('Xác nhận'),
+                        child: _isUploading
+                            ? const CircularProgressIndicator(strokeWidth: 2)
+                            : const Text('Xác nhận'),
                       ),
                     ),
                   ],
@@ -316,4 +1355,4 @@ class _DonatePageState extends State<DonatePage> {
       ),
     );
   }
-} 
+}

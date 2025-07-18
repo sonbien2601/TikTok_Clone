@@ -1,4 +1,4 @@
-// tiktok_backend/lib/src/features/users/user_routes.dart
+// Sửa lại user_routes.dart
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'controllers/auth_controller.dart';
@@ -24,7 +24,7 @@ Router createUserRoutes() {
   router.get('/<userId>/saved-videos', ProfileController.getSavedVideosHandler);
   router.get('/<userId>/videos', ProfileController.getUserVideosHandler);
 
-  // Donate routes
+  // Donate routes - Sửa lại đúng route
   router.post('/donate', DonateHistoryController.createDonateHandler);
   router.get('/<userId>/donate-history', DonateHistoryController.getDonateHistoryByUserHandler);
   router.get('/<userId>/received-donate-history', DonateHistoryController.getReceivedDonateHistoryHandler);
@@ -49,6 +49,10 @@ User API Routes:
 - GET /api/users/{userId}/liked-videos - Get user's liked videos
 - GET /api/users/{userId}/saved-videos - Get user's saved videos  
 - GET /api/users/{userId}/videos - Get user's own videos
+- POST /api/users/donate - Create donate
+- GET /api/users/{userId}/donate-history - Get user's donate history (sent)
+- GET /api/users/{userId}/received-donate-history - Get user's received donate history
+- POST /api/users/upload-image - Upload image
 - GET /api/users/test-user-api - Test route
 - GET /api/users/debug/routes - This debug info
 
@@ -58,6 +62,8 @@ Example URLs:
 - GET /api/users/682ead1be4f819a1b0000000/liked-videos?page=1&limit=20
 - GET /api/users/682ead1be4f819a1b0000000/saved-videos?page=1&limit=20
 - GET /api/users/682ead1be4f819a1b0000000/videos?page=1&limit=20
+- GET /api/users/682ead1be4f819a1b0000000/donate-history
+- GET /api/users/682ead1be4f819a1b0000000/received-donate-history
 ''');
   });
 

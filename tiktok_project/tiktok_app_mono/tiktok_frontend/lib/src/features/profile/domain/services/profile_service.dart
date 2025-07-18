@@ -1,4 +1,4 @@
-// tiktok_frontend/lib/src/features/profile/domain/services/profile_service.dart
+
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -57,6 +57,89 @@ class ProfileService {
     }
   }
 
+  // Updated method to include bank image
+  Future<bool> updateProfileWithBankAndImage({
+    required String userId,
+    required String username,
+    required String email,
+    DateTime? dateOfBirth,
+    String? gender,
+    List<String>? interests,
+    String? bankAccountNumber,
+    String? bankName,
+    String? bankQrImageUrl,
+    String? bankImageUrl,
+  }) async {
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
+      final url = Uri.parse('$baseUrl/$userId');
+      
+      final Map<String, dynamic> updateData = {
+        'username': username,
+        'email': email,
+      };
+      
+      if (dateOfBirth != null) {
+        updateData['dateOfBirth'] = dateOfBirth.toIso8601String();
+      }
+      
+      if (gender != null) {
+        updateData['gender'] = gender;
+      }
+      
+      if (interests != null) {
+        updateData['interests'] = interests;
+      }
+      
+      if (bankAccountNumber != null) {
+        updateData['bankAccountNumber'] = bankAccountNumber;
+      }
+      
+      if (bankName != null) {
+        updateData['bankName'] = bankName;
+      }
+      
+      if (bankQrImageUrl != null) {
+        updateData['bankQrImageUrl'] = bankQrImageUrl;
+      }
+      
+      if (bankImageUrl != null) {
+        updateData['bankImageUrl'] = bankImageUrl;
+      }
+      
+      print('[ProfileService] Updating profile with data: ${updateData.keys}');
+      
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(updateData),
+      ).timeout(const Duration(seconds: 10));
+      
+      print('[ProfileService] Update response: ${response.statusCode}');
+      print('[ProfileService] Update response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        print('[ProfileService] Profile with bank info updated successfully');
+        return true;
+      } else {
+        final errorMessage = 'Failed to update profile. Status: ${response.statusCode}';
+        print('[ProfileService] $errorMessage, Body: ${response.body}');
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      print('[ProfileService] Error updating profile: $e');
+      if (e.toString().contains('Connection refused') || 
+          e.toString().contains('Failed host lookup')) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
+      return false;
+    }
+  }
+
+  // Method này được EditProfilePage gọi - PHẢI hỗ trợ bankImageUrl
   Future<bool> updateProfileWithBank({
     required String userId,
     required String username,
@@ -67,45 +150,20 @@ class ProfileService {
     String? bankAccountNumber,
     String? bankName,
     String? bankQrImageUrl,
+    String? bankImageUrl, // NEW: Add this parameter
   }) async {
-    try {
-      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
-      final url = Uri.parse('$baseUrl/$userId');
-      print('[ProfileService] Updating profile with bank info for user: $userId');
-      final response = await http.put(
-        url,
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'username': username,
-          'email': email,
-          if (dateOfBirth != null) 'dateOfBirth': dateOfBirth.toIso8601String(),
-          if (gender != null) 'gender': gender,
-          if (interests != null) 'interests': interests,
-          'bankAccountNumber': bankAccountNumber,
-          'bankName': bankName,
-          'bankQrImageUrl': bankQrImageUrl,
-        }),
-      ).timeout(const Duration(seconds: 10));
-      print('[ProfileService] Update ProfileWithBank Response Status: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        print('[ProfileService] Profile with bank info updated successfully');
-        return true;
-      } else {
-        final errorMessage = 'Failed to update profile. Status: ${response.statusCode}';
-        print('[ProfileService] $errorMessage, Body: ${response.body}');
-        throw Exception(errorMessage);
-      }
-    } catch (e) {
-      print('[ProfileService] Error updating profile with bank info: $e');
-      if (e.toString().contains('Connection refused') || 
-          e.toString().contains('Failed host lookup')) {
-        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
-      }
-      rethrow;
-    }
+    return updateProfileWithBankAndImage(
+      userId: userId,
+      username: username,
+      email: email,
+      dateOfBirth: dateOfBirth,
+      gender: gender,
+      interests: interests,
+      bankAccountNumber: bankAccountNumber,
+      bankName: bankName,
+      bankQrImageUrl: bankQrImageUrl,
+      bankImageUrl: bankImageUrl, // NEW: Pass the bankImageUrl parameter
+    );
   }
 
   // Get liked videos for user

@@ -466,7 +466,7 @@ class AuthService extends ChangeNotifier {
     String? bankAccountNumber,
     String? bankName,
     String? bankQrImageUrl,
-    String? bankImageUrl, // ✅ THÊM PARAMETER NÀY
+    String? bankImageUrl, // GIỮ parameter để không break existing code
   ) async {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/auth');
@@ -500,17 +500,18 @@ class AuthService extends ChangeNotifier {
         requestBody['bankQrImageUrl'] = bankQrImageUrl;
       }
 
-      // ✅ THÊM BANK IMAGE URL
-      if (bankImageUrl != null && bankImageUrl.isNotEmpty) {
-        requestBody['bankImageUrl'] = bankImageUrl;
-      }
+      // BỎ phần bankImageUrl - không gửi lên server nữa
+      /*
+    if (bankImageUrl != null && bankImageUrl.isNotEmpty) {
+      requestBody['bankImageUrl'] = bankImageUrl;
+    }
+    */
 
       print(
           '[AuthService] Registration request body keys: ${requestBody.keys}');
       print(
           '[AuthService] Bank info - Account: $bankAccountNumber, Bank: $bankName');
-      print(
-          '[AuthService] Bank images - QR: $bankQrImageUrl, Image: $bankImageUrl');
+      print('[AuthService] Bank QR: $bankQrImageUrl');
 
       final response = await http
           .post(

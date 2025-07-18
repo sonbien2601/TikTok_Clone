@@ -1,4 +1,3 @@
-// tiktok_backend/lib/src/features/users/user_model.dart
 import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
 
 class User {
@@ -14,15 +13,15 @@ class User {
   final DateTime updatedAt;
   final List<ObjectId> savedVideos;
   
-  // NEW FOLLOW SYSTEM FIELDS
-  final List<ObjectId> following;     // Users this user is following
-  final List<ObjectId> followers;    // Users following this user
-  final int followingCount;          // Cached count for performance
-  final int followersCount;          // Cached count for performance
+  // FOLLOW SYSTEM FIELDS
+  final List<ObjectId> following;
+  final List<ObjectId> followers;
+  final int followingCount;
+  final int followersCount;
 
-  final String? bankAccountNumber; // Số tài khoản ngân hàng
-  final String? bankName; // Tên ngân hàng
-  final String? bankQrImageUrl; // Link ảnh QR ngân hàng
+  final String? bankAccountNumber;
+  final String? bankName;
+  final String? bankQrImageUrl;
 
   User({
     this.id,
@@ -36,7 +35,6 @@ class User {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.savedVideos = const [],
-    // NEW FOLLOW FIELDS WITH DEFAULTS
     this.following = const [],
     this.followers = const [],
     this.followingCount = 0,
@@ -59,7 +57,6 @@ class User {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'savedVideos': savedVideos.map((id) => id).toList(),
-      // NEW FOLLOW FIELDS IN MAP
       'following': following.map((id) => id).toList(),
       'followers': followers.map((id) => id).toList(),
       'followingCount': followingCount,
@@ -86,7 +83,6 @@ class User {
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
       savedVideos: (map['savedVideos'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
-      // NEW FOLLOW FIELDS PARSING
       following: (map['following'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
       followers: (map['followers'] as List?)?.map((id) => id is String ? ObjectId.fromHexString(id) : id as ObjectId).toList() ?? [],
       followingCount: map['followingCount'] as int? ?? 0,
@@ -97,7 +93,6 @@ class User {
     );
   }
 
-  // HELPER METHODS FOR FOLLOW SYSTEM
   bool isFollowing(String userId) {
     final userObjectId = ObjectId.fromHexString(userId);
     return following.contains(userObjectId);

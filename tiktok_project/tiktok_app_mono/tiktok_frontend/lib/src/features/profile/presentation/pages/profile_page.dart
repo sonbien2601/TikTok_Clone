@@ -35,10 +35,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    
+
     _followStateManager = FollowStateManager();
     _followStateManager.addListener(_onFollowStateChanged);
-    
+
     _loadUnreadCount();
   }
 
@@ -56,14 +56,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final currentUserId = authService.currentUser!.id;
     final followInfo = _followStateManager.getFollowInfo(currentUserId);
-    
+
     if (followInfo['hasData'] == true) {
       final newFollowerCount = followInfo['followerCount'] as int;
       final currentFollowerCount = authService.currentUser!.followersCount;
-      
+
       if (newFollowerCount != currentFollowerCount) {
-        print('[ProfilePage] Detected follower count change: $currentFollowerCount -> $newFollowerCount');
-        
+        print(
+            '[ProfilePage] Detected follower count change: $currentFollowerCount -> $newFollowerCount');
+
         authService.refreshUserData().then((_) {
           if (mounted) {
             setState(() {});
@@ -84,7 +85,8 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      final count = await _notificationService.getUnreadCount(authService.currentUser!.id);
+      final count = await _notificationService
+          .getUnreadCount(authService.currentUser!.id);
       if (mounted) {
         setState(() {
           _unreadNotificationCount = count;
@@ -110,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       print('[ProfilePage] Refreshing follow counts...');
       await authService.refreshUserData();
-      
+
       if (mounted) {
         setState(() {});
         print('[ProfilePage] Follow counts refreshed successfully');
@@ -201,7 +203,8 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             Icon(Icons.info_outline, color: Colors.white),
             SizedBox(width: 8),
-            Text('Chức năng "Video của tôi" sẽ được thêm trong phiên bản tiếp theo'),
+            Text(
+                'Chức năng "Video của tôi" sẽ được thêm trong phiên bản tiếp theo'),
           ],
         ),
         backgroundColor: Colors.blue,
@@ -232,7 +235,8 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Đăng xuất'),
-          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?'),
+          content:
+              const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -282,8 +286,10 @@ class _ProfilePageState extends State<ProfilePage> {
     final authService = context.watch<AuthService>();
     final UserFrontend? currentUser = authService.currentUser;
 
-    print('[ProfilePage] Building. User: ${currentUser?.username}, isAdmin: ${authService.isAdmin}');
-    print('[ProfilePage] Current follow counts - Followers: ${currentUser?.followersCount}, Following: ${currentUser?.followingCount}');
+    print(
+        '[ProfilePage] Building. User: ${currentUser?.username}, isAdmin: ${authService.isAdmin}');
+    print(
+        '[ProfilePage] Current follow counts - Followers: ${currentUser?.followersCount}, Following: ${currentUser?.followingCount}');
 
     return Scaffold(
       appBar: AppBar(
@@ -292,7 +298,8 @@ class _ProfilePageState extends State<ProfilePage> {
             const Icon(Icons.person_outline),
             const SizedBox(width: 8),
             Text(currentUser?.username ?? 'Profile'),
-            if (currentUser != null && _followStateManager.hasRecentUpdate(currentUser.id)) ...[
+            if (currentUser != null &&
+                _followStateManager.hasRecentUpdate(currentUser.id)) ...[
               const SizedBox(width: 8),
               Container(
                 width: 8,
@@ -328,7 +335,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       minHeight: 16,
                     ),
                     child: Text(
-                      _unreadNotificationCount > 99 ? '99+' : _unreadNotificationCount.toString(),
+                      _unreadNotificationCount > 99
+                          ? '99+'
+                          : _unreadNotificationCount.toString(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
@@ -389,7 +398,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Theme.of(context).primaryColor.withOpacity(0.3),
+                              color: Theme.of(context)
+                                  .primaryColor
+                                  .withOpacity(0.3),
                               width: 3,
                             ),
                             boxShadow: [
@@ -403,7 +414,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: const CircleAvatar(
                             radius: 47,
                             backgroundColor: Colors.white,
-                            child: Icon(Icons.person, size: 50, color: Colors.grey),
+                            child: Icon(Icons.person,
+                                size: 50, color: Colors.grey),
                           ),
                         ),
                         Positioned(
@@ -436,29 +448,33 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 16),
                     Text(
                       currentUser?.username ?? 'Tên người dùng',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
                         currentUser?.email ?? 'email@example.com',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.grey[700],
-                        ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.grey[700],
+                                ),
                         textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(height: 16),
                     _buildFollowStatsRow(currentUser),
-                    if (currentUser?.dateOfBirth != null || currentUser?.gender != null) ...[
+                    if (currentUser?.dateOfBirth != null ||
+                        currentUser?.gender != null) ...[
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -468,12 +484,16 @@ class _ProfilePageState extends State<ProfilePage> {
                             const SizedBox(width: 4),
                             Text(
                               currentUser!.dateOfBirth!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
                             ),
                           ],
-                          if (currentUser?.dateOfBirth != null && currentUser?.gender != null) ...[
+                          if (currentUser?.dateOfBirth != null &&
+                              currentUser?.gender != null) ...[
                             const SizedBox(width: 16),
                             Container(
                               width: 1,
@@ -484,17 +504,23 @@ class _ProfilePageState extends State<ProfilePage> {
                           ],
                           if (currentUser?.gender != null) ...[
                             Icon(
-                              currentUser!.gender == 'male' ? Icons.male :
-                              currentUser.gender == 'female' ? Icons.female : Icons.person,
+                              currentUser!.gender == 'male'
+                                  ? Icons.male
+                                  : currentUser.gender == 'female'
+                                      ? Icons.female
+                                      : Icons.person,
                               size: 16,
                               color: Colors.grey[600],
                             ),
                             const SizedBox(width: 4),
                             Text(
                               currentUser.gender!.toUpperCase(),
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
                             ),
                           ],
                         ],
@@ -508,17 +534,24 @@ class _ProfilePageState extends State<ProfilePage> {
                         alignment: WrapAlignment.center,
                         children: currentUser!.interests.map((interest) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  Theme.of(context).primaryColor.withOpacity(0.1),
-                                  Theme.of(context).primaryColor.withOpacity(0.05),
+                                  Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.1),
+                                  Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.05),
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withOpacity(0.3),
                               ),
                             ),
                             child: Row(
@@ -547,13 +580,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   ],
                 ),
               ),
-              if (currentUser?.bankAccountNumber != null || currentUser?.bankName != null || currentUser?.bankQrImageUrl != null) ...[
+              if (currentUser?.bankAccountNumber != null ||
+                  currentUser?.bankName != null ||
+                  currentUser?.bankQrImageUrl != null) ...[
                 const SizedBox(height: 24),
-                Text('Thông tin ngân hàng nhận donate:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('Thông tin ngân hàng nhận donate:',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 if (currentUser?.bankAccountNumber != null)
-                  Text('Số tài khoản: ${currentUser!.bankAccountNumber}', style: TextStyle(fontSize: 15)),
+                  Text('Số tài khoản: ${currentUser!.bankAccountNumber}',
+                      style: TextStyle(fontSize: 15)),
                 if (currentUser?.bankName != null)
-                  Text('Ngân hàng: ${currentUser!.bankName}', style: TextStyle(fontSize: 15)),
+                  Text('Ngân hàng: ${currentUser!.bankName}',
+                      style: TextStyle(fontSize: 15)),
                 if (currentUser?.bankQrImageUrl != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -561,7 +600,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       currentUser!.bankQrImageUrl!,
                       height: 120,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Text('Không hiển thị được ảnh QR'),
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Text('Không hiển thị được ảnh QR'),
                     ),
                   ),
               ],
@@ -590,13 +630,16 @@ class _ProfilePageState extends State<ProfilePage> {
                     onTap: _navigateToNotifications,
                     trailing: _unreadNotificationCount > 0
                         ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.red,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              _unreadNotificationCount > 99 ? '99+' : _unreadNotificationCount.toString(),
+                              _unreadNotificationCount > 99
+                                  ? '99+'
+                                  : _unreadNotificationCount.toString(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -665,7 +708,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const AdminDashboardPage()),
+                          MaterialPageRoute(
+                              builder: (context) => const AdminDashboardPage()),
                         );
                       },
                       iconColor: Colors.blueGrey[700],
@@ -696,7 +740,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        final authService = Provider.of<AuthService>(context, listen: false);
+                        final authService =
+                            Provider.of<AuthService>(context, listen: false);
                         if (authService.currentUser != null) {
                           Navigator.push(
                             context,
@@ -807,7 +852,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (currentUser != null && _followStateManager.hasRecentUpdate(currentUser.id))
+                  if (currentUser != null &&
+                      _followStateManager.hasRecentUpdate(currentUser.id))
                     Container(
                       margin: const EdgeInsets.only(top: 2),
                       width: 6,
@@ -902,7 +948,8 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: (iconColor ?? Theme.of(context).primaryColor).withOpacity(0.2),
+              color: (iconColor ?? Theme.of(context).primaryColor)
+                  .withOpacity(0.2),
             ),
           ),
           child: Icon(
@@ -956,12 +1003,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
 class _DonateHistorySection extends StatefulWidget {
   final String? userId;
-  const _DonateHistorySection({Key? key, required this.userId}) : super(key: key);
+  const _DonateHistorySection({Key? key, required this.userId})
+      : super(key: key);
   @override
   State<_DonateHistorySection> createState() => _DonateHistorySectionState();
 }
 
-class _DonateHistorySectionState extends State<_DonateHistorySection> with SingleTickerProviderStateMixin {
+class _DonateHistorySectionState extends State<_DonateHistorySection>
+    with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _donateSent = [];
   List<Map<String, dynamic>> _donateReceived = [];
   bool _isLoadingSent = false;
@@ -1014,65 +1063,82 @@ class _DonateHistorySectionState extends State<_DonateHistorySection> with Singl
 
   Future<void> _fetchDonateSent() async {
     if (widget.userId == null) return;
-    setState(() { _isLoadingSent = true; });
+    setState(() {
+      _isLoadingSent = true;
+    });
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final url = Uri.parse('$baseUrl/${widget.userId}/donate-history');
       print('[_DonateHistorySection] Fetching sent donations from: $url');
-      
+
       final response = await http.get(url);
-      print('[_DonateHistorySection] Sent donations response: ${response.statusCode}');
-      
+      print(
+          '[_DonateHistorySection] Sent donations response: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final List<dynamic> data = List.from(jsonDecode(response.body));
-        print('[_DonateHistorySection] Sent donations data: ${data.length} items');
-        setState(() { _donateSent = data.cast<Map<String, dynamic>>(); });
+        print(
+            '[_DonateHistorySection] Sent donations data: ${data.length} items');
+        setState(() {
+          _donateSent = data.cast<Map<String, dynamic>>();
+        });
       } else {
         print('[_DonateHistorySection] Error response: ${response.body}');
       }
     } catch (e) {
       print('[_DonateHistorySection] Error fetching sent donations: $e');
     } finally {
-      setState(() { _isLoadingSent = false; });
+      setState(() {
+        _isLoadingSent = false;
+      });
     }
   }
 
   Future<void> _fetchDonateReceived() async {
     if (widget.userId == null) return;
-    setState(() { _isLoadingReceived = true; });
+    setState(() {
+      _isLoadingReceived = true;
+    });
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
-      final url = Uri.parse('$baseUrl/${widget.userId}/received-donate-history');
+      final url =
+          Uri.parse('$baseUrl/${widget.userId}/received-donate-history');
       print('[_DonateHistorySection] Fetching received donations from: $url');
-      
+
       final response = await http.get(url);
-      print('[_DonateHistorySection] Received donations response: ${response.statusCode}');
-      
+      print(
+          '[_DonateHistorySection] Received donations response: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final List<dynamic> data = List.from(jsonDecode(response.body));
-        print('[_DonateHistorySection] Received donations data: ${data.length} items');
-        setState(() { _donateReceived = data.cast<Map<String, dynamic>>(); });
+        print(
+            '[_DonateHistorySection] Received donations data: ${data.length} items');
+        setState(() {
+          _donateReceived = data.cast<Map<String, dynamic>>();
+        });
       } else {
         print('[_DonateHistorySection] Error response: ${response.body}');
       }
     } catch (e) {
       print('[_DonateHistorySection] Error fetching received donations: $e');
     } finally {
-      setState(() { _isLoadingReceived = false; });
+      setState(() {
+        _isLoadingReceived = false;
+      });
     }
   }
 
-  Widget _buildDonationTile(Map<String, dynamic> item, {required bool isReceived}) {
+  Widget _buildDonationTile(Map<String, dynamic> item,
+      {required bool isReceived}) {
     final amount = item['amount'];
     final imageUrl = item['donateProofImageUrl'];
     final createdAt = item['createdAt'];
     final username = isReceived
         ? item['senderUsername'] ?? 'Unknown User'
         : item['recipientUsername'] ?? 'Unknown User';
-    final avatarUrl = isReceived
-        ? item['senderAvatarUrl']
-        : item['recipientAvatarUrl'];
-    
+    final avatarUrl =
+        isReceived ? item['senderAvatarUrl'] : item['recipientAvatarUrl'];
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       elevation: 2,
@@ -1224,20 +1290,23 @@ class _DonateHistorySectionState extends State<_DonateHistorySection> with Singl
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.volunteer_activism, size: 48, color: Colors.grey),
+                                    Icon(Icons.volunteer_activism,
+                                        size: 48, color: Colors.grey),
                                     SizedBox(height: 16),
                                     Text(
                                       'Bạn chưa donate cho ai.',
-                                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                                      style: TextStyle(
+                                          color: Colors.grey, fontSize: 16),
                                     ),
                                   ],
                                 ),
                               )
                             : ListView(
                                 padding: const EdgeInsets.all(8),
-                                children: _donateSent.map((item) =>
-                                  _buildDonationTile(item, isReceived: false)
-                                ).toList(),
+                                children: _donateSent
+                                    .map((item) => _buildDonationTile(item,
+                                        isReceived: false))
+                                    .toList(),
                               ),
                     _isLoadingReceived
                         ? const Center(child: CircularProgressIndicator())
@@ -1246,20 +1315,23 @@ class _DonateHistorySectionState extends State<_DonateHistorySection> with Singl
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.card_giftcard, size: 48, color: Colors.grey),
+                                    Icon(Icons.card_giftcard,
+                                        size: 48, color: Colors.grey),
                                     SizedBox(height: 16),
                                     Text(
                                       'Chưa ai donate cho bạn.',
-                                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                                      style: TextStyle(
+                                          color: Colors.grey, fontSize: 16),
                                     ),
                                   ],
                                 ),
                               )
                             : ListView(
                                 padding: const EdgeInsets.all(8),
-                                children: _donateReceived.map((item) =>
-                                  _buildDonationTile(item, isReceived: true)
-                                ).toList(),
+                                children: _donateReceived
+                                    .map((item) => _buildDonationTile(item,
+                                        isReceived: true))
+                                    .toList(),
                               ),
                   ],
                 ),

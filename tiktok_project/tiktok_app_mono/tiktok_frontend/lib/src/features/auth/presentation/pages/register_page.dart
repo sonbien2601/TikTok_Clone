@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; 
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/auth/presentation/pages/login_page.dart';
@@ -31,10 +31,10 @@ class _RegisterPageState extends State<RegisterPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _dobController = TextEditingController(); 
+  final _dobController = TextEditingController();
   final _bankAccountController = TextEditingController();
   final _bankNameController = TextEditingController();
-  
+
   // Upload variables for QR image
   PlatformFile? _selectedQrImageFile;
   String? _qrImageFileName;
@@ -42,22 +42,21 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _bankQrImageUrl;
   String? _debugInfo;
   bool _isUploadingQr = false;
-  
-  // Upload variables for bank image
-  PlatformFile? _selectedBankImageFile;
-  String? _bankImageFileName;
-  String? _bankImageUrl;
-  bool _isUploadingBankImage = false;
-  
+
   bool _isLoading = false;
   DateTime? _selectedDateOfBirth;
-  bool _isOver18 = false; 
+  bool _isOver18 = false;
   Gender? _selectedGender;
 
   final Map<String, bool> _interests = {
-    'Âm nhạc': false, 'Thể thao': false, 'Du lịch': false,
-    'Game': false, 'Ẩm thực': false, 'Công nghệ': false,
-    'Thời trang': false, 'Phim ảnh': false,
+    'Âm nhạc': false,
+    'Thể thao': false,
+    'Du lịch': false,
+    'Game': false,
+    'Ẩm thực': false,
+    'Công nghệ': false,
+    'Thời trang': false,
+    'Phim ảnh': false,
   };
 
   @override
@@ -82,14 +81,14 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       _uploadUrl = await NetworkConfig.getBaseUrl('/api/users/upload-image');
       final status = NetworkConfig.getStatus();
-      
+
       setState(() {
         _debugInfo = 'Platform: ${_getPlatformName()}\n'
-                   'Upload URL: $_uploadUrl\n'
-                   'Cached URL: ${status['cached_url']}\n'
-                   'Cache Valid: ${status['cache_valid']}';
+            'Upload URL: $_uploadUrl\n'
+            'Cached URL: ${status['cached_url']}\n'
+            'Cache Valid: ${status['cache_valid']}';
       });
-      
+
       print('[RegisterPage] Initialized upload URL: $_uploadUrl');
     } catch (e) {
       print('[RegisterPage] Error initializing upload URL: $e');
@@ -116,7 +115,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDateOfBirth ?? DateTime(DateTime.now().year - 18), 
+      initialDate: _selectedDateOfBirth ?? DateTime(DateTime.now().year - 18),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
       helpText: 'Chọn ngày sinh của bạn',
@@ -124,7 +123,7 @@ class _RegisterPageState extends State<RegisterPage> {
     if (picked != null && picked != _selectedDateOfBirth) {
       setState(() {
         _selectedDateOfBirth = picked;
-        _dobController.text = DateFormat('dd/MM/yyyy').format(picked); 
+        _dobController.text = DateFormat('dd/MM/yyyy').format(picked);
       });
     }
   }
@@ -159,36 +158,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  Future<void> _pickBankImage() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-      );
-
-      if (result != null) {
-        setState(() {
-          _selectedBankImageFile = result.files.single;
-          _bankImageFileName = _selectedBankImageFile!.name;
-          print('[RegisterPage] Bank Image selected: $_bankImageFileName');
-        });
-      } else {
-        print('[RegisterPage] No bank image selected.');
-        setState(() {
-          _selectedBankImageFile = null;
-          _bankImageFileName = null;
-        });
-      }
-    } catch (e) {
-      print('[RegisterPage] Error picking bank image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting bank image: $e')),
-        );
-      }
-    }
-  }
-
   Future<void> _uploadQrImage() async {
     if (_selectedQrImageFile == null) {
       if (mounted) {
@@ -214,17 +183,17 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isUploadingQr = true);
 
     var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
-    
+
     if (_usernameController.text.isNotEmpty) {
       request.fields['userId'] = _usernameController.text.trim();
     }
 
     if (kIsWeb && _selectedQrImageFile!.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
-        'imageFile', 
+        'imageFile',
         _selectedQrImageFile!.bytes!,
         filename: _qrImageFileName ?? 'qr_image_from_web.png',
-        contentType: MediaType('image', _qrImageFileName?.split('.').last ?? 'png'), 
+        contentType: MediaType('image', _qrImageFileName?.split('.').last ?? 'png'),
       ));
     } else if (!kIsWeb && _selectedQrImageFile!.path != null) {
       request.files.add(
@@ -244,12 +213,12 @@ class _RegisterPageState extends State<RegisterPage> {
       setState(() => _isUploadingQr = false);
       return;
     }
-    
+
     try {
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
 
-      if (!mounted) return; 
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -261,15 +230,15 @@ class _RegisterPageState extends State<RegisterPage> {
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('QR Image uploaded successfully!'), 
-              backgroundColor: Colors.green
+              content: Text('QR Image uploaded successfully!'),
+              backgroundColor: Colors.green,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Server did not return QR image URL'), 
-              backgroundColor: Colors.red
+              content: Text('Server did not return QR image URL'),
+              backgroundColor: Colors.red,
             ),
           );
         }
@@ -278,7 +247,7 @@ class _RegisterPageState extends State<RegisterPage> {
         try {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error'] ?? errorMessage;
-        } catch (_) {} 
+        } catch (_) {}
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
@@ -287,7 +256,7 @@ class _RegisterPageState extends State<RegisterPage> {
       print('[RegisterPage] Error uploading QR image: $e');
       if (mounted) {
         String errorMessage = 'Error uploading QR image: $e';
-        if (e.toString().contains('Connection refused') || 
+        if (e.toString().contains('Connection refused') ||
             e.toString().contains('Failed host lookup') ||
             e.toString().contains('No address associated with hostname')) {
           errorMessage = 'Cannot connect to server. Please check your network connection.';
@@ -304,129 +273,14 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  Future<void> _uploadBankImage() async {
-    if (_selectedBankImageFile == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a bank image to upload.')),
-        );
-      }
-      return;
-    }
-
-    if (_uploadUrl == null) {
-      await _initializeUploadUrl();
-      if (_uploadUrl == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not determine upload URL. Please try again.')),
-          );
-        }
-        return;
-      }
-    }
-
-    setState(() => _isUploadingBankImage = true);
-
-    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
-    
-    if (_usernameController.text.isNotEmpty) {
-      request.fields['userId'] = _usernameController.text.trim();
-    }
-
-    if (kIsWeb && _selectedBankImageFile!.bytes != null) {
-      request.files.add(http.MultipartFile.fromBytes(
-        'imageFile', 
-        _selectedBankImageFile!.bytes!,
-        filename: _bankImageFileName ?? 'bank_image_from_web.png',
-        contentType: MediaType('image', _bankImageFileName?.split('.').last ?? 'png'), 
-      ));
-    } else if (!kIsWeb && _selectedBankImageFile!.path != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'imageFile',
-          _selectedBankImageFile!.path!,
-          filename: _bankImageFileName ?? _selectedBankImageFile!.path!.split(Platform.pathSeparator).last,
-          contentType: MediaType('image', _selectedBankImageFile!.path!.split('.').lastOrNull ?? 'png'),
-        ),
-      );
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not find valid bank image file to upload.')),
-        );
-      }
-      setState(() => _isUploadingBankImage = false);
-      return;
-    }
-    
-    try {
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (!mounted) return; 
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['imageUrl'] != null) {
-          setState(() {
-            _bankImageUrl = data['imageUrl'];
-            _selectedBankImageFile = null;
-            _bankImageFileName = null;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Bank Image uploaded successfully!'), 
-              backgroundColor: Colors.green
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Server did not return bank image URL'), 
-              backgroundColor: Colors.red
-            ),
-          );
-        }
-      } else {
-        String errorMessage = 'Bank Image upload failed. Status: ${response.statusCode}';
-        try {
-          final errorData = jsonDecode(response.body);
-          errorMessage = errorData['error'] ?? errorMessage;
-        } catch (_) {} 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      print('[RegisterPage] Error uploading bank image: $e');
-      if (mounted) {
-        String errorMessage = 'Error uploading bank image: $e';
-        if (e.toString().contains('Connection refused') || 
-            e.toString().contains('Failed host lookup') ||
-            e.toString().contains('No address associated with hostname')) {
-          errorMessage = 'Cannot connect to server. Please check your network connection.';
-          NetworkConfig.clearCache();
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUploadingBankImage = false);
-      }
-    }
-  }
-
   Future<void> _refreshConnection() async {
     setState(() {
       _debugInfo = 'Refreshing connection...';
     });
-    
+
     NetworkConfig.clearCache();
     await _initializeUploadUrl();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Connection refreshed'),
@@ -501,85 +355,11 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  Widget _buildBankImagePreview() {
-    if (_bankImageUrl != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          _bankImageUrl!,
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Center(child: CircularProgressIndicator()),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Icon(Icons.error, color: Colors.red),
-            );
-          },
-        ),
-      );
-    } else if (kIsWeb && _selectedBankImageFile?.bytes != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.memory(
-          _selectedBankImageFile!.bytes!,
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-        ),
-      );
-    } else if (!kIsWeb && _selectedBankImageFile?.path != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.file(
-          File(_selectedBankImageFile!.path!),
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-        ),
-      );
-    } else {
-      return Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
-        ),
-        child: const Icon(
-          Icons.photo_camera,
-          color: Colors.grey,
-          size: 40,
-        ),
-      );
-    }
-  }
-
   void _clearQrImage() {
     setState(() {
       _selectedQrImageFile = null;
       _qrImageFileName = null;
       _bankQrImageUrl = null;
-    });
-  }
-
-  void _clearBankImage() {
-    setState(() {
-      _selectedBankImageFile = null;
-      _bankImageFileName = null;
-      _bankImageUrl = null;
     });
   }
 
@@ -599,7 +379,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    if (!_isOver18) { 
+    if (!_isOver18) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Bạn phải xác nhận trên 18 tuổi để đăng ký')),
@@ -635,17 +415,17 @@ class _RegisterPageState extends State<RegisterPage> {
         _bankAccountController.text.trim().isEmpty ? null : _bankAccountController.text.trim(),
         _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
         _bankQrImageUrl,
-        _bankImageUrl, // Include bank image URL
+        null,
       );
 
-      if (mounted && registrationSuccess) { 
+      if (mounted && registrationSuccess) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Đăng ký thành công! Vui lòng đăng nhập.'),
             backgroundColor: Colors.green,
           ),
         );
-        await Future.delayed(const Duration(milliseconds: 1500)); 
+        await Future.delayed(const Duration(milliseconds: 1500));
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -684,9 +464,9 @@ class _RegisterPageState extends State<RegisterPage> {
                 Text('Create Account', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('Join our community!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Connection Status Card
                 Card(
                   color: _uploadUrl != null ? Colors.green.shade50 : Colors.orange.shade50,
@@ -732,36 +512,66 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Basic Information
-                AuthTextField(controller: _usernameController, hintText: 'Username', prefixIcon: Icons.person_outline, validator: (value) { if (value == null || value.isEmpty) return 'Please enter a username'; return null; }),
-                AuthTextField(controller: _emailController, hintText: 'Email', prefixIcon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, validator: (value) { if (value == null || value.isEmpty) return 'Please enter your email'; if (!value.contains('@') || !value.contains('.')) return 'Please enter a valid email'; return null; }),
+                AuthTextField(controller: _usernameController, hintText: 'Username', prefixIcon: Icons.person_outline, validator: (value) {
+                  if (value == null || value.isEmpty) return 'Please enter a username';
+                  return null;
+                }),
+                AuthTextField(controller: _emailController, hintText: 'Email', prefixIcon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, validator: (value) {
+                  if (value == null || value.isEmpty) return 'Please enter your email';
+                  if (!value.contains('@') || !value.contains('.')) return 'Please enter a valid email';
+                  return null;
+                }),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: TextFormField(
-                    controller: _dobController, readOnly: true, 
-                    decoration: InputDecoration(prefixIcon: const Icon(Icons.calendar_today_outlined), hintText: 'Ngày sinh (dd/mm/yyyy)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)), filled: true, fillColor: Colors.grey[200]?.withOpacity(0.7)),
+                    controller: _dobController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.calendar_today_outlined),
+                        hintText: 'Ngày sinh (dd/mm/yyyy)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                        filled: true,
+                        fillColor: Colors.grey[200]?.withOpacity(0.7)),
                     onTap: () => _selectDate(context),
-                    validator: (value) { if (value == null || value.isEmpty) return 'Vui lòng chọn ngày sinh'; return null; },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Vui lòng chọn ngày sinh';
+                      return null;
+                    },
                   ),
                 ),
                 FormField<bool>(
                   initialValue: _isOver18,
-                  validator: (value) { if (value == null || !value) return 'Bạn phải xác nhận trên 18 tuổi'; return null; },
+                  validator: (value) {
+                    if (value == null || !value) return 'Bạn phải xác nhận trên 18 tuổi';
+                    return null;
+                  },
                   builder: (formFieldState) {
                     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        CheckboxListTile(
-                          title: const Text("Tôi xác nhận mình trên 18 tuổi"), value: _isOver18,
-                          onChanged: (bool? newValue) { setState(() { _isOver18 = newValue ?? false; formFieldState.didChange(_isOver18); }); },
-                          controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, dense: true, activeColor: Theme.of(context).primaryColor,
+                      CheckboxListTile(
+                        title: const Text("Tôi xác nhận mình trên 18 tuổi"),
+                        value: _isOver18,
+                        onChanged: (bool? newValue) {
+                          setState(() {
+                            _isOver18 = newValue ?? false;
+                            formFieldState.didChange(_isOver18);
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        activeColor: Theme.of(context).primaryColor,
+                      ),
+                      if (formFieldState.hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16.0),
+                          child: Text(formFieldState.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
                         ),
-                        if (formFieldState.hasError) Padding(
-                            padding: const EdgeInsets.only(left: 16.0),
-                            child: Text(formFieldState.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
-                          ),
-                      ],);},
+                    ]);
+                  },
                 ),
                 const SizedBox(height: 8),
                 Text("Giới tính:", style: Theme.of(context).textTheme.titleSmall),
@@ -781,29 +591,64 @@ class _RegisterPageState extends State<RegisterPage> {
                     }
                     return RadioListTile<Gender>(
                       title: Text(genderText),
-                      value: gender, groupValue: _selectedGender,
-                      onChanged: (Gender? value) { setState(() { _selectedGender = value; }); },
-                      dense: true, contentPadding: EdgeInsets.zero,
-                    );}).toList(),
+                      value: gender,
+                      groupValue: _selectedGender,
+                      onChanged: (Gender? value) {
+                        setState(() {
+                          _selectedGender = value;
+                        });
+                      },
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 8),
                 Text("Sở thích:", style: Theme.of(context).textTheme.titleSmall),
                 Wrap(
-                  spacing: 4.0, runSpacing: 0.0,
+                  spacing: 4.0,
+                  runSpacing: 0.0,
                   children: _interests.keys.map((String key) {
-                    return SizedBox(width: MediaQuery.of(context).size.width / 2 - 30,
+                    return SizedBox(
+                      width: MediaQuery.of(context).size.width / 2 - 30,
                       child: CheckboxListTile(
-                        title: Text(key, style: const TextStyle(fontSize: 14)), 
+                        title: Text(key, style: const TextStyle(fontSize: 14)),
                         value: _interests[key],
-                        onChanged: (bool? value) { setState(() { _interests[key] = value ?? false; }); },
-                        controlAffinity: ListTileControlAffinity.leading, dense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-                      ),);}).toList(),
+                        onChanged: (bool? value) {
+                          setState(() {
+                            _interests[key] = value ?? false;
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                      ),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 16),
-                AuthTextField(controller: _passwordController, hintText: 'Password', obscureText: true, prefixIcon: Icons.lock_outline, validator: (value) { if (value == null || value.isEmpty) return 'Please enter a password'; if (value.length < 6) return 'Password must be at least 6 characters'; return null; }),
-                AuthTextField(controller: _confirmPasswordController, hintText: 'Confirm Password', obscureText: true, prefixIcon: Icons.lock_reset_outlined, validator: (value) { if (value == null || value.isEmpty) return 'Please confirm your password'; if (value != _passwordController.text) return 'Passwords do not match'; return null; }),
+                AuthTextField(
+                    controller: _passwordController,
+                    hintText: 'Password',
+                    obscureText: true,
+                    prefixIcon: Icons.lock_outline,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Please enter a password';
+                      if (value.length < 6) return 'Password must be at least 6 characters';
+                      return null;
+                    }),
+                AuthTextField(
+                    controller: _confirmPasswordController,
+                    hintText: 'Confirm Password',
+                    obscureText: true,
+                    prefixIcon: Icons.lock_reset_outlined,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Please confirm your password';
+                      if (value != _passwordController.text) return 'Passwords do not match';
+                      return null;
+                    }),
                 const SizedBox(height: 24),
-                
+
                 // Bank information section
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -817,10 +662,23 @@ class _RegisterPageState extends State<RegisterPage> {
                     children: [
                       Text('Thông tin ngân hàng (tùy chọn)', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 12),
-                      AuthTextField(controller: _bankAccountController, hintText: 'Số tài khoản ngân hàng', prefixIcon: Icons.account_balance, keyboardType: TextInputType.number, validator: (value) { return null; }),
-                      AuthTextField(controller: _bankNameController, hintText: 'Tên ngân hàng', prefixIcon: Icons.account_balance_wallet, validator: (value) { return null; }),
+                      AuthTextField(
+                          controller: _bankAccountController,
+                          hintText: 'Số tài khoản ngân hàng',
+                          prefixIcon: Icons.account_balance,
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            return null;
+                          }),
+                      AuthTextField(
+                          controller: _bankNameController,
+                          hintText: 'Tên ngân hàng',
+                          prefixIcon: Icons.account_balance_wallet,
+                          validator: (value) {
+                            return null;
+                          }),
                       const SizedBox(height: 16),
-                      
+
                       // QR Image section
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -854,7 +712,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                 backgroundColor: Colors.blue.shade600,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 12),
-                                textStyle: const TextStyle(fontSize: 16)
+                                textStyle: const TextStyle(fontSize: 16),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -869,9 +727,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     children: [
                                       Text(
                                         'Ảnh QR đã chọn:',
-                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                          fontWeight: FontWeight.bold
-                                        ),
+                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                                       ),
                                       const SizedBox(height: 8),
                                       Row(
@@ -886,18 +742,12 @@ class _RegisterPageState extends State<RegisterPage> {
                                                 if (_qrImageFileName != null) ...[
                                                   Row(
                                                     children: [
-                                                      Icon(
-                                                        Icons.image, 
-                                                        color: Theme.of(context).hintColor
-                                                      ),
+                                                      Icon(Icons.image, color: Theme.of(context).hintColor),
                                                       const SizedBox(width: 8),
                                                       Expanded(
                                                         child: Text(
                                                           _qrImageFileName!,
-                                                          style: const TextStyle(
-                                                            fontWeight: FontWeight.w500, 
-                                                            fontSize: 15
-                                                          ),
+                                                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
                                                           overflow: TextOverflow.ellipsis,
                                                         ),
                                                       ),
@@ -945,140 +795,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      
-                      // Bank Image section  
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.photo_camera, color: Colors.green.shade700),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Ảnh ngân hàng',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green.shade700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Ảnh thẻ ngân hàng hoặc ảnh chụp màn hình app',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              onPressed: _pickBankImage,
-                              icon: const Icon(Icons.add_a_photo),
-                              label: const Text('Chọn ảnh ngân hàng'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green.shade600,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                textStyle: const TextStyle(fontSize: 16)
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (_selectedBankImageFile != null || _bankImageUrl != null)
-                              Card(
-                                elevation: 2,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Ảnh ngân hàng đã chọn:',
-                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                          fontWeight: FontWeight.bold
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          _buildBankImagePreview(),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                if (_bankImageFileName != null) ...[
-                                                  Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.image, 
-                                                        color: Theme.of(context).hintColor
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        child: Text(
-                                                          _bankImageFileName!,
-                                                          style: const TextStyle(
-                                                            fontWeight: FontWeight.w500, 
-                                                            fontSize: 15
-                                                          ),
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                ],
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: ElevatedButton.icon(
-                                                        icon: const Icon(Icons.cloud_upload, size: 18),
-                                                        label: Text(_bankImageUrl != null ? 'Tải lại' : 'Tải lên'),
-                                                        onPressed: (_selectedBankImageFile != null && !_isUploadingBankImage && _uploadUrl != null) ? _uploadBankImage : null,
-                                                        style: ElevatedButton.styleFrom(
-                                                          backgroundColor: Colors.green.shade600,
-                                                          foregroundColor: Colors.white,
-                                                          padding: const EdgeInsets.symmetric(vertical: 8),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    IconButton(
-                                                      icon: const Icon(Icons.close, size: 18),
-                                                      onPressed: _clearBankImage,
-                                                      tooltip: 'Xóa ảnh',
-                                                    ),
-                                                  ],
-                                                ),
-                                                if (_isUploadingBankImage) ...[
-                                                  const SizedBox(height: 8),
-                                                  const LinearProgressIndicator(),
-                                                  const SizedBox(height: 4),
-                                                  const Text('Đang tải ảnh lên...', style: TextStyle(fontSize: 12)),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+
                       const SizedBox(height: 8),
                       Text(
                         'Supported formats: JPG, JPEG, PNG, GIF, WEBP\nMax size: 5MB',
@@ -1087,18 +804,26 @@ class _RegisterPageState extends State<RegisterPage> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                _isLoading ? const Center(child: CircularProgressIndicator())
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton(
-                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16.0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0))),
-                        onPressed: _register, child: const Text('Sign Up'),
+                        style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16.0),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0))),
+                        onPressed: _register,
+                        child: const Text('Sign Up'),
                       ),
                 const SizedBox(height: 24),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const Text("Already have an account?"),
-                    TextButton(onPressed: () { if (!_isLoading) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage())); }, child: const Text('Login')),
-                  ],),
+                  const Text("Already have an account?"),
+                  TextButton(
+                      onPressed: () {
+                        if (!_isLoading) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage()));
+                      },
+                      child: const Text('Login')),
+                ]),
               ],
             ),
           ),

@@ -4,13 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/profile/domain/services/profile_service.dart';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
-import 'dart:typed_data';
 import 'package:http_parser/http_parser.dart';
 
 enum Gender { male, female, other }
@@ -36,12 +34,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _qrImageFileName;
   String? _bankQrImageUrl;
   bool _isUploadingQr = false;
-
-  // Upload variables for bank image  
-  PlatformFile? _selectedBankImageFile;
-  String? _bankImageFileName;
-  String? _bankImageUrl;
-  bool _isUploadingBankImage = false;
 
   // Common upload URL
   String? _uploadUrl;
@@ -131,24 +123,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final user = authService.currentUser!;
       
       setState(() {
-        // FIX: Populate form fields với dữ liệu hiện có
         _usernameController.text = user.username;
         _emailController.text = user.email;
         _bankAccountController.text = user.bankAccountNumber ?? '';
         _bankNameController.text = user.bankName ?? '';
         
-        // FIX: Load URLs của ảnh đã có
         _bankQrImageUrl = user.bankQrImageUrl;
-        // _bankImageUrl = user.bankImageUrl; // FIX: The UserFrontend model does not have bankImageUrl, so comment or remove this line
         
-        // FIX: Handle date of birth properly
         if (user.dateOfBirth != null && user.dateOfBirth!.isNotEmpty) {
           try {
-            // Try parsing ISO format first
             _selectedDateOfBirth = DateTime.parse(user.dateOfBirth!);
             _dobController.text = DateFormat('dd/MM/yyyy').format(_selectedDateOfBirth!);
           } catch (e) {
-            // If ISO parsing fails, try dd/MM/yyyy format
             try {
               _selectedDateOfBirth = DateFormat('dd/MM/yyyy').parse(user.dateOfBirth!);
               _dobController.text = user.dateOfBirth!;
@@ -158,7 +144,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           }
         }
         
-        // FIX: Load gender properly
         if (user.gender != null) {
           switch (user.gender!.toLowerCase()) {
             case 'male':
@@ -173,8 +158,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           }
         }
         
-        // FIX: Load interests properly
-        _interests.updateAll((key, value) => false); // Reset all to false first
+        _interests.updateAll((key, value) => false);
         for (String interest in user.interests) {
           if (_interests.containsKey(interest)) {
             _interests[interest] = true;
@@ -241,36 +225,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error selecting QR image: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  Future<void> _pickBankImage() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-      );
-
-      if (result != null) {
-        setState(() {
-          _selectedBankImageFile = result.files.single;
-          _bankImageFileName = _selectedBankImageFile!.name;
-          print('[EditProfilePage] Bank Image selected: $_bankImageFileName');
-        });
-      } else {
-        print('[EditProfilePage] No bank image selected.');
-        setState(() {
-          _selectedBankImageFile = null;
-          _bankImageFileName = null;
-        });
-      }
-    } catch (e) {
-      print('[EditProfilePage] Error picking bank image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting bank image: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -391,121 +345,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  Future<void> _uploadBankImage() async {
-    if (_selectedBankImageFile == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng chọn ảnh ngân hàng để tải lên.')),
-        );
-      }
-      return;
-    }
-
-    if (_uploadUrl == null) {
-      await _initializeUploadUrl();
-      if (_uploadUrl == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không xác định được URL tải lên. Vui lòng thử lại.')),
-          );
-        }
-        return;
-      }
-    }
-
-    setState(() => _isUploadingBankImage = true);
-
-    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
-    
-    if (_usernameController.text.isNotEmpty) {
-      request.fields['userId'] = _usernameController.text.trim();
-    }
-
-    if (kIsWeb && _selectedBankImageFile!.bytes != null) {
-      request.files.add(http.MultipartFile.fromBytes(
-        'imageFile', 
-        _selectedBankImageFile!.bytes!,
-        filename: _bankImageFileName ?? 'bank_image_from_web.png',
-        contentType: MediaType('image', _bankImageFileName?.split('.').last ?? 'png'), 
-      ));
-    } else if (!kIsWeb && _selectedBankImageFile!.path != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'imageFile',
-          _selectedBankImageFile!.path!,
-          filename: _bankImageFileName ?? _selectedBankImageFile!.path!.split(Platform.pathSeparator).last,
-          contentType: MediaType('image', _selectedBankImageFile!.path!.split('.').lastOrNull ?? 'png'),
-        ),
-      );
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không tìm thấy file ảnh ngân hàng hợp lệ để tải lên.')),
-        );
-      }
-      setState(() => _isUploadingBankImage = false);
-      return;
-    }
-    
-    try {
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (!mounted) return; 
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['imageUrl'] != null) {
-          setState(() {
-            _bankImageUrl = data['imageUrl'];
-            _selectedBankImageFile = null;
-            _bankImageFileName = null;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ảnh ngân hàng tải lên thành công!'), 
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Server không trả về URL ảnh ngân hàng'), 
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } else {
-        String errorMessage = 'Tải ảnh ngân hàng thất bại. Status: ${response.statusCode}';
-        try {
-          final errorData = jsonDecode(response.body);
-          errorMessage = errorData['error'] ?? errorMessage;
-        } catch (_) {} 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      print('[EditProfilePage] Error uploading bank image: $e');
-      if (mounted) {
-        String errorMessage = 'Lỗi tải ảnh ngân hàng: $e';
-        if (e.toString().contains('Connection refused') || 
-            e.toString().contains('Failed host lookup') ||
-            e.toString().contains('No address associated with hostname')) {
-          errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
-          NetworkConfig.clearCache();
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUploadingBankImage = false);
-      }
-    }
-  }
-
   Widget _buildQrImagePreview() {
     if (_bankQrImageUrl != null) {
       return ClipRRect(
@@ -572,85 +411,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  Widget _buildBankImagePreview() {
-    if (_bankImageUrl != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          _bankImageUrl!,
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Center(child: CircularProgressIndicator()),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Icon(Icons.error, color: Colors.red),
-            );
-          },
-        ),
-      );
-    } else if (kIsWeb && _selectedBankImageFile?.bytes != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.memory(
-          _selectedBankImageFile!.bytes!,
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-        ),
-      );
-    } else if (!kIsWeb && _selectedBankImageFile?.path != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.file(
-          File(_selectedBankImageFile!.path!),
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-        ),
-      );
-    } else {
-      return Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
-        ),
-        child: const Icon(
-          Icons.photo_camera,
-          color: Colors.grey,
-          size: 40,
-        ),
-      );
-    }
-  }
-
   void _clearQrImage() {
     setState(() {
       _selectedQrImageFile = null;
       _qrImageFileName = null;
       _bankQrImageUrl = null;
-    });
-  }
-
-  void _clearBankImage() {
-    setState(() {
-      _selectedBankImageFile = null;
-      _bankImageFileName = null;
-      _bankImageUrl = null;
     });
   }
 
@@ -696,7 +461,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         bankAccountNumber: _bankAccountController.text.trim().isEmpty ? null : _bankAccountController.text.trim(),
         bankName: _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
         bankQrImageUrl: _bankQrImageUrl,
-        bankImageUrl: _bankImageUrl,
       );
       if (mounted) {
         if (success) {
@@ -1116,135 +880,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                                       ],
                                                     ),
                                                     if (_isUploadingQr) ...[
-                                                      const SizedBox(height: 8),
-                                                      const LinearProgressIndicator(),
-                                                      const SizedBox(height: 4),
-                                                      const Text('Đang tải ảnh lên...', style: TextStyle(fontSize: 12)),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green.shade200),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.photo_camera, color: Colors.green.shade700),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Ảnh ngân hàng',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green.shade700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Ảnh thẻ ngân hàng hoặc ảnh chụp màn hình app',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.green.shade600,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                ElevatedButton.icon(
-                                  onPressed: _pickBankImage,
-                                  icon: const Icon(Icons.add_a_photo),
-                                  label: const Text('Chọn ảnh ngân hàng'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green.shade600,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    textStyle: const TextStyle(fontSize: 16)
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                if (_selectedBankImageFile != null || _bankImageUrl != null)
-                                  Card(
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12.0),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Ảnh ngân hàng đã chọn:',
-                                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                              fontWeight: FontWeight.bold
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              _buildBankImagePreview(),
-                                              const SizedBox(width: 16),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    if (_bankImageFileName != null) ...[
-                                                      Row(
-                                                        children: [
-                                                          Icon(Icons.image, color: Theme.of(context).hintColor),
-                                                          const SizedBox(width: 8),
-                                                          Expanded(
-                                                            child: Text(
-                                                              _bankImageFileName!,
-                                                              style: const TextStyle(
-                                                                fontWeight: FontWeight.w500, 
-                                                                fontSize: 15
-                                                              ),
-                                                              overflow: TextOverflow.ellipsis,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                    ],
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: ElevatedButton.icon(
-                                                            icon: const Icon(Icons.cloud_upload, size: 18),
-                                                            label: Text(_bankImageUrl != null ? 'Tải lại' : 'Tải lên'),
-                                                            onPressed: (_selectedBankImageFile != null && !_isUploadingBankImage && _uploadUrl != null) ? _uploadBankImage : null,
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor: Colors.green.shade600,
-                                                              foregroundColor: Colors.white,
-                                                              padding: const EdgeInsets.symmetric(vertical: 8),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 8),
-                                                        IconButton(
-                                                          icon: const Icon(Icons.close, size: 18),
-                                                          onPressed: _clearBankImage,
-                                                          tooltip: 'Xóa ảnh',
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    if (_isUploadingBankImage) ...[
                                                       const SizedBox(height: 8),
                                                       const LinearProgressIndicator(),
                                                       const SizedBox(height: 4),

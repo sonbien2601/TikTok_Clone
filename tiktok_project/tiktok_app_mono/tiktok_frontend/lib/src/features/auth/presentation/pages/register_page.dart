@@ -15,6 +15,7 @@ import 'dart:typed_data';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:http_parser/http_parser.dart';
+import 'package:tiktok_frontend/src/core/navigation/main_tab_page.dart';
 
 enum Gender { male, female, other }
 
@@ -32,16 +33,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _dobController = TextEditingController();
-  final _bankAccountController = TextEditingController();
-  final _bankNameController = TextEditingController();
-
-  // Upload variables for QR image
-  PlatformFile? _selectedQrImageFile;
-  String? _qrImageFileName;
-  String? _uploadUrl;
-  String? _bankQrImageUrl;
-  String? _debugInfo;
-  bool _isUploadingQr = false;
 
   bool _isLoading = false;
   DateTime? _selectedDateOfBirth;
@@ -59,10 +50,15 @@ class _RegisterPageState extends State<RegisterPage> {
     'Phim ảnh': false,
   };
 
+  // 1. Thêm biến cho avatar
+  PlatformFile? _selectedAvatarFile;
+  String? _avatarFileName;
+  String? _avatarUrl;
+  bool _isUploadingAvatar = false;
+
   @override
   void initState() {
     super.initState();
-    _initializeUploadUrl();
   }
 
   @override
@@ -72,44 +68,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _dobController.dispose();
-    _bankAccountController.dispose();
-    _bankNameController.dispose();
     super.dispose();
-  }
-
-  Future<void> _initializeUploadUrl() async {
-    try {
-      _uploadUrl = await NetworkConfig.getBaseUrl('/api/users/upload-image');
-      final status = NetworkConfig.getStatus();
-
-      setState(() {
-        _debugInfo = 'Platform: ${_getPlatformName()}\n'
-            'Upload URL: $_uploadUrl\n'
-            'Cached URL: ${status['cached_url']}\n'
-            'Cache Valid: ${status['cache_valid']}';
-      });
-
-      print('[RegisterPage] Initialized upload URL: $_uploadUrl');
-    } catch (e) {
-      print('[RegisterPage] Error initializing upload URL: $e');
-      setState(() {
-        _debugInfo = 'Error: Could not initialize upload URL\n$e';
-      });
-    }
-  }
-
-  String _getPlatformName() {
-    if (kIsWeb) return 'Web';
-    if (!kIsWeb) {
-      try {
-        if (Platform.isAndroid) return 'Android';
-        if (Platform.isIOS) return 'iOS';
-        return Platform.operatingSystem;
-      } catch (e) {
-        return 'Unknown';
-      }
-    }
-    return 'Unknown';
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -128,122 +87,89 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  Future<void> _pickQrImage() async {
+  // 2. Hàm chọn avatar
+  Future<void> _pickAvatarImage() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
         allowMultiple: false,
       );
-
       if (result != null) {
+        final file = result.files.single;
         setState(() {
-          _selectedQrImageFile = result.files.single;
-          _qrImageFileName = _selectedQrImageFile!.name;
-          print('[RegisterPage] QR Image selected: $_qrImageFileName');
+          _selectedAvatarFile = file;
+          _avatarFileName = file.name;
         });
       } else {
-        print('[RegisterPage] No QR image selected.');
         setState(() {
-          _selectedQrImageFile = null;
-          _qrImageFileName = null;
+          _selectedAvatarFile = null;
+          _avatarFileName = null;
         });
       }
     } catch (e) {
-      print('[RegisterPage] Error picking QR image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting QR image: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi chọn ảnh avatar: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
-  Future<void> _uploadQrImage() async {
-    if (_selectedQrImageFile == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a QR image to upload.')),
-        );
-      }
+  // 3. Hàm upload avatar
+  Future<void> _uploadAvatarImage() async {
+    if (_selectedAvatarFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn ảnh avatar để tải lên.')),
+      );
       return;
     }
-
-    if (_uploadUrl == null) {
-      await _initializeUploadUrl();
-      if (_uploadUrl == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not determine upload URL. Please try again.')),
-          );
-        }
-        return;
-      }
-    }
-
-    setState(() => _isUploadingQr = true);
-
-    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
-
-    if (_usernameController.text.isNotEmpty) {
-      request.fields['userId'] = _usernameController.text.trim();
-    }
-
-    if (kIsWeb && _selectedQrImageFile!.bytes != null) {
+    final uploadUrl = await NetworkConfig.getBaseUrl('/api/users/upload-image');
+    setState(() => _isUploadingAvatar = true);
+    var request = http.MultipartRequest('POST', Uri.parse(uploadUrl));
+    if (kIsWeb && _selectedAvatarFile!.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
         'imageFile',
-        _selectedQrImageFile!.bytes!,
-        filename: _qrImageFileName ?? 'qr_image_from_web.png',
-        contentType: MediaType('image', _qrImageFileName?.split('.').last ?? 'png'),
+        _selectedAvatarFile!.bytes!,
+        filename: _avatarFileName ?? 'avatar_from_web.png',
+        contentType: MediaType('image', _avatarFileName?.split('.').last ?? 'png'),
       ));
-    } else if (!kIsWeb && _selectedQrImageFile!.path != null) {
+    } else if (!kIsWeb && _selectedAvatarFile!.path != null) {
       request.files.add(
         await http.MultipartFile.fromPath(
           'imageFile',
-          _selectedQrImageFile!.path!,
-          filename: _qrImageFileName ?? _selectedQrImageFile!.path!.split(Platform.pathSeparator).last,
-          contentType: MediaType('image', _selectedQrImageFile!.path!.split('.').lastOrNull ?? 'png'),
+          _selectedAvatarFile!.path!,
+          filename: _avatarFileName ?? _selectedAvatarFile!.path!.split(Platform.pathSeparator).last,
+          contentType: MediaType('image', _selectedAvatarFile!.path!.split('.').last),
         ),
       );
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not find valid QR image file to upload.')),
-        );
-      }
-      setState(() => _isUploadingQr = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy file ảnh avatar hợp lệ để tải lên.')),
+      );
+      setState(() => _isUploadingAvatar = false);
       return;
     }
-
     try {
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
-
       if (!mounted) return;
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['imageUrl'] != null) {
           setState(() {
-            _bankQrImageUrl = data['imageUrl'];
-            _selectedQrImageFile = null;
-            _qrImageFileName = null;
+            _avatarUrl = data['imageUrl'];
+            _selectedAvatarFile = null;
+            _avatarFileName = null;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('QR Image uploaded successfully!'),
-              backgroundColor: Colors.green,
-            ),
+            const SnackBar(content: Text('Avatar tải lên thành công!'), backgroundColor: Colors.green),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Server did not return QR image URL'),
-              backgroundColor: Colors.red,
-            ),
+            const SnackBar(content: Text('Server không trả về URL avatar'), backgroundColor: Colors.red),
           );
         }
       } else {
-        String errorMessage = 'QR Image upload failed. Status: ${response.statusCode}';
+        String errorMessage = 'Tải avatar thất bại. Status: ${response.statusCode}';
         try {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error'] ?? errorMessage;
@@ -253,114 +179,58 @@ class _RegisterPageState extends State<RegisterPage> {
         );
       }
     } catch (e) {
-      print('[RegisterPage] Error uploading QR image: $e');
-      if (mounted) {
-        String errorMessage = 'Error uploading QR image: $e';
-        if (e.toString().contains('Connection refused') ||
-            e.toString().contains('Failed host lookup') ||
-            e.toString().contains('No address associated with hostname')) {
-          errorMessage = 'Cannot connect to server. Please check your network connection.';
-          NetworkConfig.clearCache();
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
+      String errorMessage = 'Lỗi tải avatar: $e';
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('No address associated with hostname')) {
+        errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
+        NetworkConfig.clearCache();
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      );
     } finally {
       if (mounted) {
-        setState(() => _isUploadingQr = false);
+        setState(() => _isUploadingAvatar = false);
       }
     }
   }
 
-  Future<void> _refreshConnection() async {
-    setState(() {
-      _debugInfo = 'Refreshing connection...';
-    });
-
-    NetworkConfig.clearCache();
-    await _initializeUploadUrl();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Connection refreshed'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-  }
-
-  Widget _buildQrImagePreview() {
-    if (_bankQrImageUrl != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+  // 4. Widget preview avatar
+  Widget _buildAvatarPreview() {
+    if (_avatarUrl != null) {
+      return ClipOval(
         child: Image.network(
-          _bankQrImageUrl!,
-          width: 80,
-          height: 80,
+          _avatarUrl!,
+          width: 100,
+          height: 100,
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Center(child: CircularProgressIndicator()),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Icon(Icons.error, color: Colors.red),
-            );
-          },
+          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
         ),
       );
-    } else if (kIsWeb && _selectedQrImageFile?.bytes != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+    } else if (kIsWeb && _selectedAvatarFile?.bytes != null) {
+      return ClipOval(
         child: Image.memory(
-          _selectedQrImageFile!.bytes!,
-          width: 80,
-          height: 80,
+          _selectedAvatarFile!.bytes!,
+          width: 100,
+          height: 100,
           fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
         ),
       );
-    } else if (!kIsWeb && _selectedQrImageFile?.path != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+    } else if (!kIsWeb && _selectedAvatarFile?.path != null) {
+      return ClipOval(
         child: Image.file(
-          File(_selectedQrImageFile!.path!),
-          width: 80,
-          height: 80,
+          File(_selectedAvatarFile!.path!),
+          width: 100,
+          height: 100,
           fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
         ),
       );
     } else {
-      return Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
-        ),
-        child: const Icon(
-          Icons.qr_code_scanner,
-          color: Colors.grey,
-          size: 40,
-        ),
-      );
+      return const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50));
     }
-  }
-
-  void _clearQrImage() {
-    setState(() {
-      _selectedQrImageFile = null;
-      _qrImageFileName = null;
-      _bankQrImageUrl = null;
-    });
   }
 
   Future<void> _register() async {
@@ -412,26 +282,22 @@ class _RegisterPageState extends State<RegisterPage> {
         _selectedDateOfBirth,
         _selectedGender?.toString().split('.').last,
         selectedInterestsList,
-        _bankAccountController.text.trim().isEmpty ? null : _bankAccountController.text.trim(),
-        _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
-        _bankQrImageUrl,
+        _avatarUrl, // Gửi avatarUrl vào backend
+        null, // Xóa tên ngân hàng
+        null, // Xóa ảnh QR
         null,
       );
 
       if (mounted && registrationSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đăng ký thành công! Vui lòng đăng nhập.'),
-            backgroundColor: Colors.green,
-          ),
+        // Tự động đăng nhập luôn
+        await Provider.of<AuthService>(context, listen: false)
+            .login(_emailController.text.trim(), _passwordController.text);
+        // Chuyển sang trang chính
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const MainTabPage()),
+          (Route<dynamic> route) => false,
         );
-        await Future.delayed(const Duration(milliseconds: 1500));
-        if (mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const LoginPage()),
-            (Route<dynamic> route) => false,
-          );
-        }
+        return;
       }
     } catch (e) {
       if (mounted) {
@@ -464,55 +330,40 @@ class _RegisterPageState extends State<RegisterPage> {
                 Text('Create Account', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('Join our community!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
-
                 const SizedBox(height: 24),
-
-                // Connection Status Card
-                Card(
-                  color: _uploadUrl != null ? Colors.green.shade50 : Colors.orange.shade50,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                // Thêm UI chọn avatar
+                Center(
+                  child: Stack(
+                    children: [
+                      _buildAvatarPreview(),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Row(
                           children: [
-                            Icon(
-                              _uploadUrl != null ? Icons.check_circle : Icons.warning,
-                              color: _uploadUrl != null ? Colors.green : Colors.orange,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Connection Status',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _uploadUrl != null ? Colors.green.shade700 : Colors.orange.shade700,
-                              ),
-                            ),
-                            const Spacer(),
                             IconButton(
-                              icon: const Icon(Icons.refresh, size: 20),
-                              onPressed: _refreshConnection,
-                              tooltip: 'Refresh Connection',
+                              icon: const Icon(Icons.photo_camera, color: Colors.blue),
+                              onPressed: _pickAvatarImage,
+                              tooltip: 'Chọn ảnh avatar',
                             ),
+                            if (_selectedAvatarFile != null)
+                              IconButton(
+                                icon: const Icon(Icons.cloud_upload, color: Colors.green),
+                                onPressed: _isUploadingAvatar ? null : _uploadAvatarImage,
+                                tooltip: 'Tải lên',
+                              ),
+                            if (_avatarUrl != null)
+                              IconButton(
+                                icon: const Icon(Icons.close, color: Colors.red),
+                                onPressed: () => setState(() { _avatarUrl = null; }),
+                                tooltip: 'Xóa avatar',
+                              ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        if (_debugInfo != null)
-                          Text(
-                            _debugInfo!,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _uploadUrl != null ? Colors.green.shade600 : Colors.orange.shade600,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-
                 const SizedBox(height: 24),
 
                 // Basic Information
@@ -649,163 +500,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     }),
                 const SizedBox(height: 24),
 
-                // Bank information section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Thông tin ngân hàng (tùy chọn)', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 12),
-                      AuthTextField(
-                          controller: _bankAccountController,
-                          hintText: 'Số tài khoản ngân hàng',
-                          prefixIcon: Icons.account_balance,
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            return null;
-                          }),
-                      AuthTextField(
-                          controller: _bankNameController,
-                          hintText: 'Tên ngân hàng',
-                          prefixIcon: Icons.account_balance_wallet,
-                          validator: (value) {
-                            return null;
-                          }),
-                      const SizedBox(height: 16),
-
-                      // QR Image section
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.qr_code, color: Colors.blue.shade700),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Mã QR thanh toán',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              onPressed: _pickQrImage,
-                              icon: const Icon(Icons.qr_code_scanner),
-                              label: const Text('Chọn ảnh QR'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue.shade600,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                textStyle: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (_selectedQrImageFile != null || _bankQrImageUrl != null)
-                              Card(
-                                elevation: 2,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Ảnh QR đã chọn:',
-                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          _buildQrImagePreview(),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                if (_qrImageFileName != null) ...[
-                                                  Row(
-                                                    children: [
-                                                      Icon(Icons.image, color: Theme.of(context).hintColor),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        child: Text(
-                                                          _qrImageFileName!,
-                                                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                ],
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: ElevatedButton.icon(
-                                                        icon: const Icon(Icons.cloud_upload, size: 18),
-                                                        label: Text(_bankQrImageUrl != null ? 'Tải lại' : 'Tải lên'),
-                                                        onPressed: (_selectedQrImageFile != null && !_isUploadingQr && _uploadUrl != null) ? _uploadQrImage : null,
-                                                        style: ElevatedButton.styleFrom(
-                                                          backgroundColor: Theme.of(context).primaryColor,
-                                                          foregroundColor: Colors.white,
-                                                          padding: const EdgeInsets.symmetric(vertical: 8),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    IconButton(
-                                                      icon: const Icon(Icons.close, size: 18),
-                                                      onPressed: _clearQrImage,
-                                                      tooltip: 'Xóa ảnh',
-                                                    ),
-                                                  ],
-                                                ),
-                                                if (_isUploadingQr) ...[
-                                                  const SizedBox(height: 8),
-                                                  const LinearProgressIndicator(),
-                                                  const SizedBox(height: 4),
-                                                  const Text('Đang tải ảnh lên...', style: TextStyle(fontSize: 12)),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-                      Text(
-                        'Supported formats: JPG, JPEG, PNG, GIF, WEBP\nMax size: 5MB',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton(

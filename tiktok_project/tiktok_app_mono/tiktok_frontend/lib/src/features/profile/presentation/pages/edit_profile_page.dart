@@ -44,6 +44,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   DateTime? _selectedDateOfBirth;
   Gender? _selectedGender;
 
+  // 1. Thêm biến cho avatar
+  PlatformFile? _selectedAvatarFile;
+  String? _avatarFileName;
+  String? _avatarUrl;
+  bool _isUploadingAvatar = false;
+
   final int _maxFileSize = 5 * 1024 * 1024; // 5MB
 
   final Map<String, bool> _interests = {
@@ -129,6 +135,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _bankNameController.text = user.bankName ?? '';
         
         _bankQrImageUrl = user.bankQrImageUrl;
+        _avatarUrl = user.avatarUrl;
         
         if (user.dateOfBirth != null && user.dateOfBirth!.isNotEmpty) {
           try {
@@ -200,72 +207,94 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  // 1. Thêm kiểm tra định dạng/kích thước file khi chọn ảnh QR
+  bool _isValidQrImageFile(PlatformFile file) {
+    final String fileName = file.name.toLowerCase();
+    final List<String> validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    bool hasValidExtension = validExtensions.any((ext) => fileName.endsWith('.$ext'));
+    if (!hasValidExtension) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Chỉ hỗ trợ file ảnh: ${validExtensions.join(', ')}'), backgroundColor: Colors.red),
+      );
+      return false;
+    }
+    int fileSize = kIsWeb ? (file.bytes?.length ?? 0) : (file.size);
+    if (fileSize > _maxFileSize) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('File quá lớn. Giới hạn: ${_maxFileSize ~/ (1024 * 1024)}MB'), backgroundColor: Colors.red),
+      );
+      return false;
+    }
+    if (fileSize == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File rỗng hoặc không hợp lệ'), backgroundColor: Colors.red),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  // 2. Sửa _pickQrImage chỉ chọn file, kiểm tra hợp lệ, preview, KHÔNG upload ngay
   Future<void> _pickQrImage() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
         allowMultiple: false,
       );
-
       if (result != null) {
+        final file = result.files.single;
+        if (!_isValidQrImageFile(file)) {
+          return;
+        }
         setState(() {
-          _selectedQrImageFile = result.files.single;
-          _qrImageFileName = _selectedQrImageFile!.name;
-          print('[EditProfilePage] QR Image selected: $_qrImageFileName');
+          _selectedQrImageFile = file;
+          _qrImageFileName = file.name;
+          // Không upload ngay, chỉ preview
         });
       } else {
-        print('[EditProfilePage] No QR image selected.');
         setState(() {
           _selectedQrImageFile = null;
           _qrImageFileName = null;
         });
       }
     } catch (e) {
-      print('[EditProfilePage] Error picking QR image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting QR image: $e'), backgroundColor: Colors.red),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi chọn ảnh: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
+  // 3. Sửa _uploadQrImage: chỉ upload khi ấn nút, hiển thị tiến trình, báo lỗi rõ ràng
   Future<void> _uploadQrImage() async {
     if (_selectedQrImageFile == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng chọn ảnh QR để tải lên.')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn ảnh QR để tải lên.')),
+      );
       return;
     }
-
     if (_uploadUrl == null) {
       await _initializeUploadUrl();
       if (_uploadUrl == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không xác định được URL tải lên. Vui lòng thử lại.')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không xác định được URL tải lên. Vui lòng thử lại.')),
+        );
         return;
       }
     }
-
     setState(() => _isUploadingQr = true);
-
     var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
-    
-    if (_usernameController.text.isNotEmpty) {
-      request.fields['userId'] = _usernameController.text.trim();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.id;
+    if (userId != null) {
+      request.fields['userId'] = userId;
     }
-
     if (kIsWeb && _selectedQrImageFile!.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
-        'imageFile', 
+        'imageFile',
         _selectedQrImageFile!.bytes!,
         filename: _qrImageFileName ?? 'qr_image_from_web.png',
-        contentType: MediaType('image', _qrImageFileName?.split('.').last ?? 'png'), 
+        contentType: MediaType('image', _qrImageFileName?.split('.').last ?? 'png'),
       ));
     } else if (!kIsWeb && _selectedQrImageFile!.path != null) {
       request.files.add(
@@ -273,25 +302,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
           'imageFile',
           _selectedQrImageFile!.path!,
           filename: _qrImageFileName ?? _selectedQrImageFile!.path!.split(Platform.pathSeparator).last,
-          contentType: MediaType('image', _selectedQrImageFile!.path!.split('.').lastOrNull ?? 'png'),
+          contentType: MediaType('image', _selectedQrImageFile!.path!.split('.').last),
         ),
       );
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không tìm thấy file ảnh QR hợp lệ để tải lên.')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy file ảnh QR hợp lệ để tải lên.')),
+      );
       setState(() => _isUploadingQr = false);
       return;
     }
-    
     try {
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
-
-      if (!mounted) return; 
-
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['imageUrl'] != null) {
@@ -301,17 +325,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
             _qrImageFileName = null;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ảnh QR tải lên thành công!'), 
-              backgroundColor: Colors.green,
-            ),
+            const SnackBar(content: Text('Ảnh QR tải lên thành công!'), backgroundColor: Colors.green),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Server không trả về URL ảnh QR'), 
-              backgroundColor: Colors.red,
-            ),
+            const SnackBar(content: Text('Server không trả về URL ảnh QR'), backgroundColor: Colors.red),
           );
         }
       } else {
@@ -319,28 +337,147 @@ class _EditProfilePageState extends State<EditProfilePage> {
         try {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error'] ?? errorMessage;
-        } catch (_) {} 
+        } catch (_) {}
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
-      print('[EditProfilePage] Error uploading QR image: $e');
+      String errorMessage = 'Lỗi tải ảnh QR: $e';
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('No address associated with hostname')) {
+        errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
+        NetworkConfig.clearCache();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      );
+    } finally {
       if (mounted) {
-        String errorMessage = 'Lỗi tải ảnh QR: $e';
-        if (e.toString().contains('Connection refused') || 
-            e.toString().contains('Failed host lookup') ||
-            e.toString().contains('No address associated with hostname')) {
-          errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
-          NetworkConfig.clearCache();
+        setState(() => _isUploadingQr = false);
+      }
+    }
+  }
+
+  // 2. Hàm chọn avatar
+  Future<void> _pickAvatarImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+        allowMultiple: false,
+      );
+      if (result != null) {
+        final file = result.files.single;
+        setState(() {
+          _selectedAvatarFile = file;
+          _avatarFileName = file.name;
+        });
+      } else {
+        setState(() {
+          _selectedAvatarFile = null;
+          _avatarFileName = null;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi chọn ảnh avatar: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // 3. Hàm upload avatar
+  Future<void> _uploadAvatarImage() async {
+    if (_selectedAvatarFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn ảnh avatar để tải lên.')),
+      );
+      return;
+    }
+    if (_uploadUrl == null) {
+      await _initializeUploadUrl();
+      if (_uploadUrl == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không xác định được URL tải lên. Vui lòng thử lại.')),
+        );
+        return;
+      }
+    }
+    setState(() => _isUploadingAvatar = true);
+    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.id;
+    if (userId != null) {
+      request.fields['userId'] = userId;
+    }
+    if (kIsWeb && _selectedAvatarFile!.bytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'imageFile',
+        _selectedAvatarFile!.bytes!,
+        filename: _avatarFileName ?? 'avatar_from_web.png',
+        contentType: MediaType('image', _avatarFileName?.split('.').last ?? 'png'),
+      ));
+    } else if (!kIsWeb && _selectedAvatarFile!.path != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'imageFile',
+          _selectedAvatarFile!.path!,
+          filename: _avatarFileName ?? _selectedAvatarFile!.path!.split(Platform.pathSeparator).last,
+          contentType: MediaType('image', _selectedAvatarFile!.path!.split('.').last),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy file ảnh avatar hợp lệ để tải lên.')),
+      );
+      setState(() => _isUploadingAvatar = false);
+      return;
+    }
+    try {
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['imageUrl'] != null) {
+          setState(() {
+            _avatarUrl = data['imageUrl'];
+            _selectedAvatarFile = null;
+            _avatarFileName = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Avatar tải lên thành công!'), backgroundColor: Colors.green),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Server không trả về URL avatar'), backgroundColor: Colors.red),
+          );
         }
+      } else {
+        String errorMessage = 'Tải avatar thất bại. Status: ${response.statusCode}';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['error'] ?? errorMessage;
+        } catch (_) {}
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       }
+    } catch (e) {
+      String errorMessage = 'Lỗi tải avatar: $e';
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('No address associated with hostname')) {
+        errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
+        NetworkConfig.clearCache();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      );
     } finally {
       if (mounted) {
-        setState(() => _isUploadingQr = false);
+        setState(() => _isUploadingAvatar = false);
       }
     }
   }
@@ -364,51 +501,67 @@ class _EditProfilePageState extends State<EditProfilePage> {
             );
           },
           errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Icon(Icons.error, color: Colors.red),
-            );
+            return _buildErrorPreview();
           },
         ),
       );
     } else if (kIsWeb && _selectedQrImageFile?.bytes != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.memory(
-          _selectedQrImageFile!.bytes!,
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-        ),
-      );
-    } else if (!kIsWeb && _selectedQrImageFile?.path != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.file(
-          File(_selectedQrImageFile!.path!),
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-        ),
-      );
-    } else {
-      return Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
+      try {
+        return ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
-        ),
-        child: const Icon(
-          Icons.qr_code_scanner,
-          color: Colors.grey,
-          size: 40,
-        ),
-      );
+          child: Image.memory(
+            _selectedQrImageFile!.bytes!,
+            width: 80,
+            height: 80,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildErrorPreview();
+            },
+          ),
+        );
+      } catch (e) {
+        return _buildErrorPreview();
+      }
+    } else if (!kIsWeb && _selectedQrImageFile?.path != null) {
+      try {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(
+            File(_selectedQrImageFile!.path!),
+            width: 80,
+            height: 80,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildErrorPreview();
+            },
+          ),
+        );
+      } catch (e) {
+        return _buildErrorPreview();
+      }
+    } else {
+      return _buildErrorPreview();
     }
+  }
+
+  Widget _buildErrorPreview() {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.error, color: Colors.red),
+          SizedBox(height: 4),
+          Text('Không xem được ảnh', style: TextStyle(fontSize: 10, color: Colors.red)),
+        ],
+      ),
+    );
   }
 
   void _clearQrImage() {
@@ -433,6 +586,43 @@ class _EditProfilePageState extends State<EditProfilePage> {
         duration: Duration(seconds: 1),
       ),
     );
+  }
+
+  // 4. Widget preview avatar
+  Widget _buildAvatarPreview() {
+    if (_avatarUrl != null) {
+      return ClipOval(
+        child: Image.network(
+          _avatarUrl!,
+          width: 100,
+          height: 100,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
+        ),
+      );
+    } else if (kIsWeb && _selectedAvatarFile?.bytes != null) {
+      return ClipOval(
+        child: Image.memory(
+          _selectedAvatarFile!.bytes!,
+          width: 100,
+          height: 100,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
+        ),
+      );
+    } else if (!kIsWeb && _selectedAvatarFile?.path != null) {
+      return ClipOval(
+        child: Image.file(
+          File(_selectedAvatarFile!.path!),
+          width: 100,
+          height: 100,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
+        ),
+      );
+    } else {
+      return const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50));
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -461,6 +651,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         bankAccountNumber: _bankAccountController.text.trim().isEmpty ? null : _bankAccountController.text.trim(),
         bankName: _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
         bankQrImageUrl: _bankQrImageUrl,
+        avatarUrl: _avatarUrl,
       );
       if (mounted) {
         if (success) {
@@ -583,43 +774,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     Center(
                       child: Stack(
                         children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Theme.of(context).primaryColor.withOpacity(0.3),
-                                width: 3,
-                              ),
-                            ),
-                            child: const CircleAvatar(
-                              radius: 47,
-                              child: Icon(Icons.person, size: 50),
-                            ),
-                          ),
+                          _buildAvatarPreview(),
                           Positioned(
                             bottom: 0,
                             right: 0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Chức năng đổi avatar sẽ được thêm sau'),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.white,
-                                  size: 20,
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.photo_camera, color: Colors.blue),
+                                  onPressed: _pickAvatarImage,
+                                  tooltip: 'Chọn ảnh avatar',
                                 ),
-                              ),
+                                if (_selectedAvatarFile != null)
+                                  IconButton(
+                                    icon: const Icon(Icons.cloud_upload, color: Colors.green),
+                                    onPressed: _isUploadingAvatar ? null : _uploadAvatarImage,
+                                    tooltip: 'Tải lên',
+                                  ),
+                                if (_avatarUrl != null)
+                                  IconButton(
+                                    icon: const Icon(Icons.close, color: Colors.red),
+                                    onPressed: () => setState(() { _avatarUrl = null; }),
+                                    tooltip: 'Xóa avatar',
+                                  ),
+                              ],
                             ),
                           ),
                         ],
@@ -862,7 +1040,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                                         Expanded(
                                                           child: ElevatedButton.icon(
                                                             icon: const Icon(Icons.cloud_upload, size: 18),
-                                                            label: Text(_bankQrImageUrl != null ? 'Tải lại' : 'Tải lên'),
+                                                            label: Text(_bankQrImageUrl != null ? 'Tải lên' : 'Tải lên'),
                                                             onPressed: (_selectedQrImageFile != null && !_isUploadingQr && _uploadUrl != null) ? _uploadQrImage : null,
                                                             style: ElevatedButton.styleFrom(
                                                               backgroundColor: Theme.of(context).primaryColor,

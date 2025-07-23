@@ -65,19 +65,69 @@ Future<void> main(List<String>? args) async {
     router.mount('/api/analytics', createAnalyticsRoutes());
     router.mount('/api/search', createSearchRoutes());
 
-    // Static file handler
-    final uploadsPath = p.join(Directory.current.path, 'uploads');
+    // Static file handler with CORS support
+    final uploadsPath = p.join(Directory.current.path, 'Uploads');
     final uploadsDir = Directory(uploadsPath);
     if (!await uploadsDir.exists()) {
       await uploadsDir.create(recursive: true);
       print('[Server] ✅ Created uploads directory at: $uploadsPath');
     }
-    router.mount('/uploads/', createStaticHandler(uploadsPath));
+
+    router.get('/uploads/<path|.*>', (Request request, String path) async {
+      final file = File(p.join(uploadsPath, path));
+
+      if (!await file.exists()) {
+        return Response.notFound('File not found');
+      }
+
+      // Xác định MIME type
+      String contentType = 'application/octet-stream';
+      final extension = p.extension(path).toLowerCase();
+      switch (extension) {
+        case '.png':
+          contentType = 'image/png';
+          break;
+        case '.jpg':
+        case '.jpeg':
+          contentType = 'image/jpeg';
+          break;
+        case '.gif':
+          contentType = 'image/gif';
+          break;
+        case '.webp':
+          contentType = 'image/webp';
+          break;
+      }
+
+      final bytes = await file.readAsBytes();
+
+      return Response.ok(
+        bytes,
+        headers: {
+          'Content-Type': contentType,
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      );
+    });
+
+    // OPTIONS handler for preflight
+    router.options('/uploads/<path|.*>', (Request request, String path) {
+      return Response.ok('', headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept',
+        'Access-Control-Max-Age': '86400',
+      });
+    });
 
     // PUBLIC VIDEO ACCESS - No auth required
     router.get('/video/<videoId>', (Request request, String videoId) async {
       print('[Server] Public video access: $videoId');
-      
+
       try {
         // Validate video ID format
         if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
@@ -103,7 +153,7 @@ Future<void> main(List<String>? args) async {
         // Get user data
         final userId = video['userId'] as ObjectId;
         final user = await usersCollection.findOne(where.id(userId));
-        
+
         final username = user?['username'] as String? ?? 'Unknown User';
         final userAvatar = user?['avatarUrl'] as String?;
 
@@ -140,10 +190,10 @@ Future<void> main(List<String>? args) async {
     // API endpoint to get video data for embedding
     router.get('/api/public/video/<videoId>', (Request request, String videoId) async {
       print('[Server] Public video API access: $videoId');
-      
+
       try {
         if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
-          return Response(404, 
+          return Response(404,
             body: jsonEncode({'error': 'Video not found'}),
             headers: {'Content-Type': 'application/json'}
           );
@@ -153,7 +203,7 @@ Future<void> main(List<String>? args) async {
         try {
           videoObjectId = ObjectId.fromHexString(videoId);
         } catch (e) {
-          return Response(404, 
+          return Response(404,
             body: jsonEncode({'error': 'Invalid video ID'}),
             headers: {'Content-Type': 'application/json'}
           );
@@ -164,7 +214,7 @@ Future<void> main(List<String>? args) async {
 
         final video = await videosCollection.findOne(where.id(videoObjectId));
         if (video == null) {
-          return Response(404, 
+          return Response(404,
             body: jsonEncode({'error': 'Video not found'}),
             headers: {'Content-Type': 'application/json'}
           );
@@ -423,7 +473,7 @@ String _buildVideoLandingPage({
   String? createdAt,
 }) {
   final fullVideoUrl = videoUrl.startsWith('http') ? videoUrl : 'http://localhost:8080$videoUrl';
-  
+
   return '''
 <!DOCTYPE html>
 <html lang="en">
@@ -679,7 +729,7 @@ String _buildVideoLandingPage({
 
 // Helper function for video not found page
 Response _buildVideoNotFoundPage() {
-  return Response(404, 
+  return Response(404,
     body: '''
 <!DOCTYPE html>
 <html>
@@ -778,7 +828,7 @@ void _trackPublicView(String videoId) {
     () async {
       final videosCollection = DatabaseService.db.collection('videos');
       final videoObjectId = ObjectId.fromHexString(videoId);
-      
+
       await videosCollection.updateOne(
         where.id(videoObjectId),
         modify.inc('viewsCount', 1)

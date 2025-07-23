@@ -22,6 +22,7 @@ class User {
   final String? bankAccountNumber;
   final String? bankName;
   final String? bankQrImageUrl;
+  final String? avatarUrl;
 
   User({
     this.id,
@@ -42,6 +43,7 @@ class User {
     this.bankAccountNumber,
     this.bankName,
     this.bankQrImageUrl,
+    this.avatarUrl,
   })  : this.createdAt = createdAt ?? DateTime.now(),
         this.updatedAt = updatedAt ?? DateTime.now();
 
@@ -64,6 +66,7 @@ class User {
       'bankAccountNumber': bankAccountNumber,
       'bankName': bankName,
       'bankQrImageUrl': bankQrImageUrl,
+      'avatarUrl': avatarUrl,
     };
   }
 
@@ -90,6 +93,7 @@ class User {
       bankAccountNumber: map['bankAccountNumber'] as String?,
       bankName: map['bankName'] as String?,
       bankQrImageUrl: map['bankQrImageUrl'] as String?,
+      avatarUrl: map['avatarUrl'] as String?,
     );
   }
 
@@ -122,6 +126,7 @@ class User {
     String? bankAccountNumber,
     String? bankName,
     String? bankQrImageUrl,
+    String? avatarUrl,
   }) {
     return User(
       id: id ?? this.id,
@@ -142,6 +147,7 @@ class User {
       bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
       bankName: bankName ?? this.bankName,
       bankQrImageUrl: bankQrImageUrl ?? this.bankQrImageUrl,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
     );
   }
 }

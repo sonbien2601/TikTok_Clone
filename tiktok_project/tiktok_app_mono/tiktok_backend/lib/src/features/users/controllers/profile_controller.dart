@@ -159,6 +159,12 @@ class ProfileController {
             '[ProfileController] Updating bankImageUrl: ${updateData['bankImageUrl']}');
       }
 
+      // Avatar URL update
+      if (updateData.containsKey('avatarUrl')) {
+        modifyBuilder = modifyBuilder.set('avatarUrl', updateData['avatarUrl']);
+        hasUpdates = true;
+      }
+
       if (!hasUpdates) {
         return Response(400,
             body: jsonEncode({'error': 'No valid fields to update'}));

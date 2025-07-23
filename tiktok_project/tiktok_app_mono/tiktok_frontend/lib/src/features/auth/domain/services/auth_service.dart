@@ -14,6 +14,7 @@ class UserFrontend {
   final String? dateOfBirth;
   final String? gender;
   final List<String> interests;
+  final String? avatarUrl;
 
   // Follow count fields
   final int followersCount;
@@ -35,6 +36,7 @@ class UserFrontend {
     this.bankAccountNumber,
     this.bankName,
     this.bankQrImageUrl,
+    this.avatarUrl,
   });
 
   factory UserFrontend.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,7 @@ class UserFrontend {
       bankAccountNumber: json['bankAccountNumber'] as String?,
       bankName: json['bankName'] as String?,
       bankQrImageUrl: json['bankQrImageUrl'] as String?,
+      avatarUrl: json['avatarUrl'] as String?,
     );
   }
 
@@ -72,6 +75,7 @@ class UserFrontend {
     String? bankAccountNumber,
     String? bankName,
     String? bankQrImageUrl,
+    String? avatarUrl,
   }) {
     return UserFrontend(
       id: id ?? this.id,
@@ -86,6 +90,7 @@ class UserFrontend {
       bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
       bankName: bankName ?? this.bankName,
       bankQrImageUrl: bankQrImageUrl ?? this.bankQrImageUrl,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
     );
   }
 
@@ -103,6 +108,7 @@ class UserFrontend {
       'bankAccountNumber': bankAccountNumber,
       'bankName': bankName,
       'bankQrImageUrl': bankQrImageUrl,
+      'avatarUrl': avatarUrl,
     };
   }
 
@@ -469,7 +475,7 @@ class AuthService extends ChangeNotifier {
     String? bankImageUrl, // GIỮ parameter để không break existing code
   ) async {
     try {
-      final baseUrl = await NetworkConfig.getBaseUrl('/api/auth');
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final url = Uri.parse('$baseUrl/register');
 
       final Map<String, dynamic> requestBody = {

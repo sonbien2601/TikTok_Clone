@@ -23,6 +23,7 @@ class AuthController {
       final dobString = payload['dateOfBirth'] as String?;
       final gender = payload['gender'] as String?;
       final interests = List<String>.from(payload['interests'] as List? ?? []);
+      final avatarUrl = payload['avatarUrl'] as String?;
 
       if (username == null || email == null || password == null) {
         return Response(400, body: jsonEncode({'error': 'Username, email, and password are required'}));
@@ -51,6 +52,7 @@ class AuthController {
         dateOfBirth: dobString != null ? DateTime.tryParse(dobString) : null,
         gender: gender,
         interests: interests,
+        avatarUrl: avatarUrl,
       );
 
       final result = await usersCollection.insertOne(newUser.toMap());
@@ -65,8 +67,8 @@ class AuthController {
         if (result.id != null) {
           insertedUserMap['_id'] = result.id!.toHexString();
         }
-        return Response.ok(
-            jsonEncode({'message': 'User registered successfully', 'user': insertedUserMap}),
+        return Response(201,
+            body: jsonEncode({'message': 'User registered successfully', 'user': insertedUserMap}),
             headers: {'Content-Type': 'application/json'});
       } else {
         return Response.internalServerError(body: jsonEncode({'error': 'Failed to register user: ${result.writeError?.errmsg}'}));

@@ -68,6 +68,9 @@ class _MainTabPageState extends State<MainTabPage> {
     print('🔍 DEBUG: Current pages length: ${_pages.length}');
     print('🔍 DEBUG: Page at index $index: ${_pages[index].runtimeType}');
 
+    // Khi chuyển tab, dừng tất cả video đang phát
+    VideoFeedView.pauseAllVideos();
+
     // CHỈ CHUYỂN TAB - KHÔNG CÓ LOGIC ĐỘC LẠ!
     if (_bottomNavIndex != index && index < _pages.length) {
       setState(() {

@@ -10,6 +10,7 @@ import 'package:tiktok_frontend/src/features/inbox/presentation/pages/inbox_page
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/profile_page.dart';
 import 'package:tiktok_frontend/src/features/upload/presentation/pages/upload_video_page.dart';
 import 'package:tiktok_frontend/src/core/config/network_debug_helper.dart';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 
 class MainTabPage extends StatefulWidget {
   const MainTabPage({super.key});
@@ -90,6 +91,9 @@ class _MainTabPageState extends State<MainTabPage> {
     print('🔍 DEBUG: Building with safeIndex: $safeIndex');
     print('🔍 DEBUG: Showing page: ${_pages[safeIndex].runtimeType}');
 
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.currentUser;
+
     return Scaffold(
       appBar: kDebugMode
           ? AppBar(
@@ -165,12 +169,27 @@ class _MainTabPageState extends State<MainTabPage> {
         iconSize: 24,
 
         // ĐÚNG 5 TAB
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Friends'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-          BottomNavigationBarItem(icon: Icon(Icons.mail), label: 'Inbox'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          const BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Friends'),
+          const BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+          const BottomNavigationBarItem(icon: Icon(Icons.mail), label: 'Inbox'),
+          BottomNavigationBarItem(
+            icon: user != null && user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                ? FutureBuilder<String>(
+                    future: NetworkConfig.getFileBaseUrl(),
+                    builder: (context, snapshot) {
+                      final fileBaseUrl = snapshot.data ?? '';
+                      return CircleAvatar(
+                        radius: 12,
+                        backgroundImage: NetworkImage(fileBaseUrl + user.avatarUrl!),
+                        backgroundColor: Colors.transparent,
+                      );
+                    },
+                  )
+                : const Icon(Icons.person),
+            label: 'Profile',
+          ),
         ],
         currentIndex: safeIndex,
         onTap: _onItemTapped,

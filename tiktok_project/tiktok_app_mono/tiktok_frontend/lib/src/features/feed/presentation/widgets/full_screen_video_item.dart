@@ -370,8 +370,18 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     return authService.currentUser!.id != widget.videoPost.user.id;
   }
 
+  // Thêm method để lấy avatar URL tương tự SearchPage
+  String _getAvatarUrl(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) return '';
+    if (avatarUrl.startsWith('http')) return avatarUrl;
+
+    // Sử dụng NetworkConfig để lấy file URLs
+    return '${NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080'}$avatarUrl';
+  }
+
   @override
   Widget build(BuildContext context) {
+    print('[FullScreenVideoItem] DEBUG: user.id = \'${widget.videoPost.user.id}\', user.username = \'${widget.videoPost.user.username}\', avatarUrl = \'${widget.videoPost.user.avatarUrl}\'');
     print('[FullScreenVideoItem: ${widget.videoPost.id}] === BUILD ===');
     print('[FullScreenVideoItem: ${widget.videoPost.id}] Username: "${widget.videoPost.user.username}"');
     print('[FullScreenVideoItem: ${widget.videoPost.id}] Views: ${widget.videoPost.formattedViewsCount}');
@@ -547,15 +557,32 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                         children: [
                           Row(
                             children: [
-                              CircleAvatar(
-                                radius: 16, 
-                                backgroundColor: Colors.grey[300], 
-                                backgroundImage: widget.videoPost.user.avatarUrl != null && widget.videoPost.user.avatarUrl!.isNotEmpty 
-                                  ? NetworkImage(widget.videoPost.user.avatarUrl!) 
-                                  : null,
-                                child: (widget.videoPost.user.avatarUrl == null || widget.videoPost.user.avatarUrl!.isEmpty) 
-                                  ? const Icon(Icons.person, size: 20, color: Colors.black87) 
-                                  : null,
+                              // Thay thế FutureBuilder bằng cách xử lý avatar URL trực tiếp
+                              Builder(
+                                builder: (context) {
+                                  final authService = Provider.of<AuthService>(context);
+                                  final isCurrentUser = authService.currentUser?.id == widget.videoPost.user.id;
+                                  final avatarUrl = isCurrentUser
+                                      ? _getAvatarUrl(authService.currentUser?.avatarUrl)
+                                      : _getAvatarUrl(widget.videoPost.user.avatarUrl);
+                                  return CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: Theme.of(context).primaryColor,
+                                    backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                                    child: avatarUrl.isEmpty
+                                        ? Text(
+                                            (widget.videoPost.user.username.isNotEmpty 
+                                                ? widget.videoPost.user.username[0] 
+                                                : '?').toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          )
+                                        : null,
+                                  );
+                                },
                               ),
                               const SizedBox(width: 8),
                               Expanded(

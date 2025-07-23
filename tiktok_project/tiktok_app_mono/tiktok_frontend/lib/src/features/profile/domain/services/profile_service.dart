@@ -68,6 +68,7 @@ class ProfileService {
     String? bankName,
     String? bankQrImageUrl,
     String? bankImageUrl,
+    String? avatarUrl, // Thêm tham số avatarUrl
   }) async {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
@@ -104,6 +105,10 @@ class ProfileService {
       
       if (bankImageUrl != null) {
         updateData['bankImageUrl'] = bankImageUrl;
+      }
+      
+      if (avatarUrl != null) {
+        updateData['avatarUrl'] = avatarUrl;
       }
       
       print('[ProfileService] Updating profile with data: ${updateData.keys}');
@@ -150,7 +155,6 @@ class ProfileService {
     String? bankName,
     String? bankQrImageUrl,
     String? bankImageUrl,
-    String? avatarUrl,
   }) async {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
@@ -183,10 +187,6 @@ class ProfileService {
       
       if (bankQrImageUrl != null) {
         updateData['bankQrImageUrl'] = bankQrImageUrl;
-      }
-      
-      if (avatarUrl != null) {
-        updateData['avatarUrl'] = avatarUrl;
       }
       
       print('[ProfileService] Updating profile with data: ${updateData.keys}');

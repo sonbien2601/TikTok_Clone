@@ -6,6 +6,7 @@ import 'package:tiktok_frontend/src/features/feed/domain/models/comment_model.da
 import 'package:tiktok_frontend/src/features/feed/domain/services/comment_service.dart';
 import 'edit_comment_dialog.dart';
 import 'reply_dialog.dart';
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 
 class CommentItemWidget extends StatefulWidget {
   final CommentModel comment;
@@ -499,25 +500,63 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
   }
 
   Widget _buildUserAvatar() {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade300,
-        shape: BoxShape.circle,
-      ),
-      child: _currentComment.userAvatarUrl != null && _currentComment.userAvatarUrl!.isNotEmpty
-          ? ClipOval(
-              child: Image.network(
-                _currentComment.userAvatarUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildDefaultAvatar();
-                },
+    if (_currentComment.userAvatarUrl != null && _currentComment.userAvatarUrl!.isNotEmpty) {
+      final isFullUrl = _currentComment.userAvatarUrl!.startsWith('http://') || _currentComment.userAvatarUrl!.startsWith('https://');
+      if (isFullUrl) {
+        return Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+            shape: BoxShape.circle,
+          ),
+          child: ClipOval(
+            child: Image.network(
+              _currentComment.userAvatarUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildDefaultAvatar();
+              },
+            ),
+          ),
+        );
+      } else {
+        // Nếu là đường dẫn tương đối, nối domain
+        return FutureBuilder<String>(
+          future: NetworkConfig.getFileBaseUrl(),
+          builder: (context, snapshot) {
+            final fileBaseUrl = snapshot.data ?? '';
+            return Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                shape: BoxShape.circle,
               ),
-            )
-          : _buildDefaultAvatar(),
-    );
+              child: ClipOval(
+                child: Image.network(
+                  fileBaseUrl + _currentComment.userAvatarUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _buildDefaultAvatar();
+                  },
+                ),
+              ),
+            );
+          },
+        );
+      }
+    } else {
+      return Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          shape: BoxShape.circle,
+        ),
+        child: _buildDefaultAvatar(),
+      );
+    }
   }
 
   Widget _buildDefaultAvatar() {

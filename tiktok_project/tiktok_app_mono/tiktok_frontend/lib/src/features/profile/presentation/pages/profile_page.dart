@@ -17,6 +17,7 @@ import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import 'package:intl/intl.dart';
 import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_page.dart';
 import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_history_page.dart';
+import 'package:tiktok_frontend/src/features/feed/presentation/views/video_feed_view.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -131,17 +132,23 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  void _navigateToEditProfile() {
-    Navigator.push(
+  void _navigateToEditProfile() async {
+    final avatarUrl = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const EditProfilePage()),
-    ).then((_) {
-      if (mounted) {
-        setState(() {});
-        _loadUnreadCount();
-        _refreshFollowCounts();
+    );
+    if (avatarUrl != null && avatarUrl is String && avatarUrl.isNotEmpty) {
+      // Tìm ancestor VideoFeedViewState và gọi cập nhật avatar
+      final feedState = context.findAncestorStateOfType<TikTokVideoFeedViewState>();
+      if (feedState != null) {
+        await feedState.updateCurrentUserAvatarInVideos(avatarUrl);
       }
-    });
+    }
+    if (mounted) {
+      setState(() {});
+      _loadUnreadCount();
+      _refreshFollowCounts();
+    }
   }
 
   void _navigateToLikedVideos() {
@@ -283,13 +290,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
-    final UserFrontend? currentUser = authService.currentUser;
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.currentUser;
 
     print(
-        '[ProfilePage] Building. User: ${currentUser?.username}, isAdmin: ${authService.isAdmin}');
+        '[ProfilePage] Building. User: ${user?.username}, isAdmin: ${authService.isAdmin}');
     print(
-        '[ProfilePage] Current follow counts - Followers: ${currentUser?.followersCount}, Following: ${currentUser?.followingCount}');
+        '[ProfilePage] Current follow counts - Followers: ${user?.followersCount}, Following: ${user?.followingCount}');
 
     return Scaffold(
       appBar: AppBar(
@@ -297,9 +304,9 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             const Icon(Icons.person_outline),
             const SizedBox(width: 8),
-            Text(currentUser?.username ?? 'Profile'),
-            if (currentUser != null &&
-                _followStateManager.hasRecentUpdate(currentUser.id)) ...[
+            Text(user?.username ?? 'Profile'),
+            if (user != null &&
+                _followStateManager.hasRecentUpdate(user.id)) ...[
               const SizedBox(width: 8),
               Container(
                 width: 8,
@@ -411,14 +418,20 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             ],
                           ),
-                          child: currentUser?.avatarUrl != null && currentUser!.avatarUrl!.isNotEmpty
+                          child: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
                               ? ClipOval(
-                                  child: Image.network(
-                                    currentUser.avatarUrl!,
-                                    width: 94,
-                                    height: 94,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Icon(Icons.person, size: 50, color: Colors.grey),
+                                  child: FutureBuilder<String>(
+                                    future: NetworkConfig.getFileBaseUrl(),
+                                    builder: (context, snapshot) {
+                                      final fileBaseUrl = snapshot.data ?? '';
+                                      return Image.network(
+                                        fileBaseUrl + user.avatarUrl!,
+                                        width: 94,
+                                        height: 94,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) => Icon(Icons.person, size: 50, color: Colors.grey),
+                                      );
+                                    },
                                   ),
                                 )
                               : Icon(Icons.person, size: 50, color: Colors.grey),
@@ -452,7 +465,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      currentUser?.username ?? 'Tên người dùng',
+                      user?.username ?? 'Tên người dùng',
                       style:
                           Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
@@ -468,7 +481,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        currentUser?.email ?? 'email@example.com',
+                        user?.email ?? 'email@example.com',
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                                   color: Colors.grey[700],
@@ -477,18 +490,18 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildFollowStatsRow(currentUser),
-                    if (currentUser?.dateOfBirth != null ||
-                        currentUser?.gender != null) ...[
+                    _buildFollowStatsRow(user),
+                    if (user?.dateOfBirth != null ||
+                        user?.gender != null) ...[
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (currentUser?.dateOfBirth != null) ...[
+                          if (user?.dateOfBirth != null) ...[
                             Icon(Icons.cake, size: 16, color: Colors.grey[600]),
                             const SizedBox(width: 4),
                             Text(
-                              currentUser!.dateOfBirth!,
+                              user!.dateOfBirth!,
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -497,8 +510,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ),
                             ),
                           ],
-                          if (currentUser?.dateOfBirth != null &&
-                              currentUser?.gender != null) ...[
+                          if (user?.dateOfBirth != null &&
+                              user?.gender != null) ...[
                             const SizedBox(width: 16),
                             Container(
                               width: 1,
@@ -507,11 +520,11 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                             const SizedBox(width: 16),
                           ],
-                          if (currentUser?.gender != null) ...[
+                          if (user?.gender != null) ...[
                             Icon(
-                              currentUser!.gender == 'male'
+                              user!.gender == 'male'
                                   ? Icons.male
-                                  : currentUser.gender == 'female'
+                                  : user.gender == 'female'
                                       ? Icons.female
                                       : Icons.person,
                               size: 16,
@@ -519,7 +532,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              currentUser.gender!.toUpperCase(),
+                              user.gender!.toUpperCase(),
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -531,13 +544,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                       ),
                     ],
-                    if (currentUser?.interests.isNotEmpty ?? false) ...[
+                    if (user?.interests.isNotEmpty ?? false) ...[
                       const SizedBox(height: 16),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         alignment: WrapAlignment.center,
-                        children: currentUser!.interests.map((interest) {
+                        children: user!.interests.map((interest) {
                           return Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),

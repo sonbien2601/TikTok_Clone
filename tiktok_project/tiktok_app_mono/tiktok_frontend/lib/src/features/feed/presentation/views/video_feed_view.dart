@@ -419,6 +419,22 @@ class _VideoFeedViewState extends State<VideoFeedView>
     _videoControllers.clear();
   }
 
+  Future<void> updateCurrentUserAvatarInVideos(String newAvatarUrl) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUser = authService.currentUser;
+    if (currentUser == null) return;
+    setState(() {
+      _videos = _videos.map((video) {
+        if (video.user.id == currentUser.id) {
+          return video.copyWith(
+            user: video.user.copyWith(avatarUrl: newAvatarUrl),
+          );
+        }
+        return video;
+      }).toList();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -567,3 +583,5 @@ class _VideoFeedViewState extends State<VideoFeedView>
     );
   }
 }
+
+typedef TikTokVideoFeedViewState = _VideoFeedViewState;

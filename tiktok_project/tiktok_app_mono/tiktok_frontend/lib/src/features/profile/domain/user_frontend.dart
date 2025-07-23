@@ -9,7 +9,6 @@ class UserFrontend {
   final int followersCount;
   final int followingCount;
   final String? role;
-  final String? avatarUrl;
   
   // Bank information
   final String? bankAccountNumber;
@@ -27,7 +26,6 @@ class UserFrontend {
     required this.followersCount,
     required this.followingCount,
     this.role,
-    this.avatarUrl,
     this.bankAccountNumber,
     this.bankName,
     this.bankQrImageUrl,
@@ -45,7 +43,6 @@ class UserFrontend {
       followersCount: json['followersCount'] ?? 0,
       followingCount: json['followingCount'] ?? 0,
       role: json['role'],
-      avatarUrl: json['avatarUrl'],
       bankAccountNumber: json['bankAccountNumber'],
       bankName: json['bankName'],
       bankQrImageUrl: json['bankQrImageUrl'],
@@ -64,7 +61,6 @@ class UserFrontend {
       'followersCount': followersCount,
       'followingCount': followingCount,
       'role': role,
-      'avatarUrl': avatarUrl,
       'bankAccountNumber': bankAccountNumber,
       'bankName': bankName,
       'bankQrImageUrl': bankQrImageUrl,
@@ -82,7 +78,6 @@ class UserFrontend {
     int? followersCount,
     int? followingCount,
     String? role,
-    String? avatarUrl,
     String? bankAccountNumber,
     String? bankName,
     String? bankQrImageUrl,
@@ -98,7 +93,6 @@ class UserFrontend {
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       role: role ?? this.role,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
       bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
       bankName: bankName ?? this.bankName,
       bankQrImageUrl: bankQrImageUrl ?? this.bankQrImageUrl,
@@ -111,7 +105,7 @@ class UserFrontend {
     return 'UserFrontend{id: $id, username: $username, email: $email, '
            'dateOfBirth: $dateOfBirth, gender: $gender, interests: $interests, '
            'followersCount: $followersCount, followingCount: $followingCount, '
-           'role: $role, avatarUrl: $avatarUrl, bankAccountNumber: $bankAccountNumber, '
+           'role: $role, bankAccountNumber: $bankAccountNumber, '
            'bankName: $bankName, bankQrImageUrl: $bankQrImageUrl, '
            'bankImageUrl: $bankImageUrl}'; // ✅ THÊM VÀO toString
   }
@@ -130,7 +124,6 @@ class UserFrontend {
           followersCount == other.followersCount &&
           followingCount == other.followingCount &&
           role == other.role &&
-          avatarUrl == other.avatarUrl &&
           bankAccountNumber == other.bankAccountNumber &&
           bankName == other.bankName &&
           bankQrImageUrl == other.bankQrImageUrl &&
@@ -147,7 +140,6 @@ class UserFrontend {
       followersCount.hashCode ^
       followingCount.hashCode ^
       role.hashCode ^
-      avatarUrl.hashCode ^
       bankAccountNumber.hashCode ^
       bankName.hashCode ^
       bankQrImageUrl.hashCode ^

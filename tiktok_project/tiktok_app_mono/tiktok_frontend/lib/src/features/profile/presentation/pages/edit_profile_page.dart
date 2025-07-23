@@ -35,6 +35,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _bankQrImageUrl;
   bool _isUploadingQr = false;
 
+  // Avatar upload variables
+  PlatformFile? _selectedAvatarFile;
+  String? _avatarFileName;
+  String? _avatarUrl;
+  bool _isUploadingAvatar = false;
+
   // Common upload URL
   String? _uploadUrl;
   String? _debugInfo;
@@ -43,12 +49,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _isSaving = false;
   DateTime? _selectedDateOfBirth;
   Gender? _selectedGender;
-
-  // 1. Thêm biến cho avatar
-  PlatformFile? _selectedAvatarFile;
-  String? _avatarFileName;
-  String? _avatarUrl;
-  bool _isUploadingAvatar = false;
 
   final int _maxFileSize = 5 * 1024 * 1024; // 5MB
 
@@ -68,6 +68,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.initState();
     _initializeUploadUrl();
     _loadUserProfile();
+    // Nếu có avatarUrl, gán vào _avatarUrl
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _avatarUrl = authService.currentUser?.avatarUrl;
   }
 
   @override
@@ -135,7 +138,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _bankNameController.text = user.bankName ?? '';
         
         _bankQrImageUrl = user.bankQrImageUrl;
-        _avatarUrl = user.avatarUrl;
         
         if (user.dateOfBirth != null && user.dateOfBirth!.isNotEmpty) {
           try {
@@ -360,128 +362,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // 2. Hàm chọn avatar
-  Future<void> _pickAvatarImage() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-        allowMultiple: false,
-      );
-      if (result != null) {
-        final file = result.files.single;
-        setState(() {
-          _selectedAvatarFile = file;
-          _avatarFileName = file.name;
-        });
-      } else {
-        setState(() {
-          _selectedAvatarFile = null;
-          _avatarFileName = null;
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi khi chọn ảnh avatar: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
-
-  // 3. Hàm upload avatar
-  Future<void> _uploadAvatarImage() async {
-    if (_selectedAvatarFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn ảnh avatar để tải lên.')),
-      );
-      return;
-    }
-    if (_uploadUrl == null) {
-      await _initializeUploadUrl();
-      if (_uploadUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không xác định được URL tải lên. Vui lòng thử lại.')),
-        );
-        return;
-      }
-    }
-    setState(() => _isUploadingAvatar = true);
-    var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl!));
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final userId = authService.currentUser?.id;
-    if (userId != null) {
-      request.fields['userId'] = userId;
-    }
-    if (kIsWeb && _selectedAvatarFile!.bytes != null) {
-      request.files.add(http.MultipartFile.fromBytes(
-        'imageFile',
-        _selectedAvatarFile!.bytes!,
-        filename: _avatarFileName ?? 'avatar_from_web.png',
-        contentType: MediaType('image', _avatarFileName?.split('.').last ?? 'png'),
-      ));
-    } else if (!kIsWeb && _selectedAvatarFile!.path != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'imageFile',
-          _selectedAvatarFile!.path!,
-          filename: _avatarFileName ?? _selectedAvatarFile!.path!.split(Platform.pathSeparator).last,
-          contentType: MediaType('image', _selectedAvatarFile!.path!.split('.').last),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không tìm thấy file ảnh avatar hợp lệ để tải lên.')),
-      );
-      setState(() => _isUploadingAvatar = false);
-      return;
-    }
-    try {
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamedResponse);
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['imageUrl'] != null) {
-          setState(() {
-            _avatarUrl = data['imageUrl'];
-            _selectedAvatarFile = null;
-            _avatarFileName = null;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Avatar tải lên thành công!'), backgroundColor: Colors.green),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Server không trả về URL avatar'), backgroundColor: Colors.red),
-          );
-        }
-      } else {
-        String errorMessage = 'Tải avatar thất bại. Status: ${response.statusCode}';
-        try {
-          final errorData = jsonDecode(response.body);
-          errorMessage = errorData['error'] ?? errorMessage;
-        } catch (_) {}
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      String errorMessage = 'Lỗi tải avatar: $e';
-      if (e.toString().contains('Connection refused') ||
-          e.toString().contains('Failed host lookup') ||
-          e.toString().contains('No address associated with hostname')) {
-        errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
-        NetworkConfig.clearCache();
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isUploadingAvatar = false);
-      }
-    }
-  }
-
   Widget _buildQrImagePreview() {
     if (_bankQrImageUrl != null) {
       return ClipRRect(
@@ -588,40 +468,43 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  // 4. Widget preview avatar
-  Widget _buildAvatarPreview() {
-    if (_avatarUrl != null) {
-      return ClipOval(
-        child: Image.network(
-          _avatarUrl!,
-          width: 100,
-          height: 100,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
-        ),
-      );
-    } else if (kIsWeb && _selectedAvatarFile?.bytes != null) {
-      return ClipOval(
-        child: Image.memory(
-          _selectedAvatarFile!.bytes!,
-          width: 100,
-          height: 100,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
-        ),
-      );
-    } else if (!kIsWeb && _selectedAvatarFile?.path != null) {
-      return ClipOval(
-        child: Image.file(
-          File(_selectedAvatarFile!.path!),
-          width: 100,
-          height: 100,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 50, child: Icon(Icons.person)),
-        ),
-      );
-    } else {
-      return const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50));
+  Future<void> _pickAvatarImage() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result != null && result.files.isNotEmpty) {
+      setState(() {
+        _selectedAvatarFile = result.files.first;
+        _avatarFileName = _selectedAvatarFile!.name;
+      });
+      await _uploadAvatarImage();
+    }
+  }
+
+  Future<void> _uploadAvatarImage() async {
+    if (_selectedAvatarFile == null) return;
+    setState(() { _isUploadingAvatar = true; });
+    try {
+      final uri = Uri.parse(_uploadUrl ?? await NetworkConfig.getBaseUrl('/api/users/upload-image'));
+      final request = http.MultipartRequest('POST', uri);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      request.fields['userId'] = authService.currentUser?.id ?? '';
+      request.files.add(http.MultipartFile.fromBytes(
+        'imageFile',
+        _selectedAvatarFile!.bytes!,
+        filename: _selectedAvatarFile!.name,
+        contentType: MediaType('image', _selectedAvatarFile!.extension ?? 'png'),
+      ));
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() { _avatarUrl = data['imageUrl']; });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi upload avatar: ${response.body}')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi upload avatar: $e')));
+    } finally {
+      setState(() { _isUploadingAvatar = false; });
     }
   }
 
@@ -641,16 +524,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (isSelected) selectedInterestsList.add(interest);
     });
     try {
-      final success = await _profileService.updateProfileWithBank(
+      final success = await _profileService.updateProfileWithBankAndImage(
         userId: authService.currentUser!.id,
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         dateOfBirth: _selectedDateOfBirth,
-        gender: _selectedGender?.toString().split('.').last,
-        interests: selectedInterestsList,
+        gender: _selectedGender?.name,
+        interests: _interests.entries.where((e) => e.value).map((e) => e.key).toList(),
         bankAccountNumber: _bankAccountController.text.trim().isEmpty ? null : _bankAccountController.text.trim(),
         bankName: _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
         bankQrImageUrl: _bankQrImageUrl,
+        bankImageUrl: null,
         avatarUrl: _avatarUrl,
       );
       if (mounted) {
@@ -663,7 +547,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               duration: Duration(seconds: 3),
             ),
           );
-          Navigator.pop(context);
+          Navigator.pop(context, authService.currentUser?.avatarUrl); // Trả về avatar mới
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -771,39 +655,41 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Center(
-                      child: Stack(
-                        children: [
-                          _buildAvatarPreview(),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.photo_camera, color: Colors.blue),
-                                  onPressed: _pickAvatarImage,
-                                  tooltip: 'Chọn ảnh avatar',
-                                ),
-                                if (_selectedAvatarFile != null)
-                                  IconButton(
-                                    icon: const Icon(Icons.cloud_upload, color: Colors.green),
-                                    onPressed: _isUploadingAvatar ? null : _uploadAvatarImage,
-                                    tooltip: 'Tải lên',
-                                  ),
-                                if (_avatarUrl != null)
-                                  IconButton(
-                                    icon: const Icon(Icons.close, color: Colors.red),
-                                    onPressed: () => setState(() { _avatarUrl = null; }),
-                                    tooltip: 'Xóa avatar',
-                                  ),
-                              ],
+                    // Avatar UI
+                    FutureBuilder<String>(
+                      future: NetworkConfig.getFileBaseUrl(),
+                      builder: (context, snapshot) {
+                        final fileBaseUrl = snapshot.data ?? '';
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 48,
+                              backgroundImage: _avatarUrl != null
+                                  ? NetworkImage(fileBaseUrl + _avatarUrl!)
+                                  : null,
+                              child: _avatarUrl == null ? Icon(Icons.person, size: 48) : null,
                             ),
-                          ),
-                        ],
-                      ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: IconButton(
+                                icon: Icon(Icons.camera_alt),
+                                onPressed: _isUploadingAvatar ? null : _pickAvatarImage,
+                              ),
+                            ),
+                            if (_isUploadingAvatar)
+                              Positioned.fill(
+                                child: Container(
+                                  color: Colors.black26,
+                                  child: Center(child: CircularProgressIndicator()),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _usernameController,
                       decoration: InputDecoration(

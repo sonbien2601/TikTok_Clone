@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/feed/presentation/widgets/comment_item_widget.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
@@ -7,6 +6,23 @@ import 'package:tiktok_frontend/src/features/feed/domain/services/comment_servic
 import 'edit_comment_dialog.dart';
 import 'reply_dialog.dart';
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+// Avatar Cache class để cache avatar URLs cho comment
+class CommentAvatarCache {
+  static final Map<String, String?> _cache = {};
+
+  static String? getAvatar(String userId) => _cache[userId];
+
+  static void setAvatar(String userId, String? avatarUrl) {
+    _cache[userId] = avatarUrl;
+  }
+
+  static bool hasAvatar(String userId) => _cache.containsKey(userId);
+
+  static void clearCache() => _cache.clear();
+}
 
 class CommentItemWidget extends StatefulWidget {
   final CommentModel comment;
@@ -58,9 +74,8 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
   Future<void> _toggleLike() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng đăng nhập để thích comment!'))
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Vui lòng đăng nhập để thích comment!')));
       return;
     }
 
@@ -103,7 +118,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
         setState(() {
           _currentComment = widget.comment;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Lỗi khi thích comment: ${e.toString()}'),
@@ -128,11 +143,8 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
     });
 
     try {
-      final response = await _commentService.getCommentReplies(
-        _currentComment.id, 
-        page: _repliesPage, 
-        limit: 10
-      );
+      final response = await _commentService
+          .getCommentReplies(_currentComment.id, page: _repliesPage, limit: 10);
 
       if (mounted) {
         setState(() {
@@ -165,7 +177,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
 
   Future<void> _loadMoreReplies() async {
     if (_isLoadingReplies || !_hasMoreReplies) return;
-    
+
     _repliesPage++;
     await _loadReplies();
   }
@@ -174,8 +186,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng đăng nhập để trả lời!'))
-      );
+          const SnackBar(content: Text('Vui lòng đăng nhập để trả lời!')));
       return;
     }
 
@@ -202,7 +213,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                 });
 
                 widget.onReplyAdded?.call(newReply);
-                
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Đã trả lời comment!'),
@@ -227,6 +238,58 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
     );
   }
 
+  // Load avatar từ single user API cho comment
+  Future<String?> _loadCommentUserAvatar(String userId) async {
+    // Check cache first
+    if (CommentAvatarCache.hasAvatar(userId)) {
+      final cached = CommentAvatarCache.getAvatar(userId);
+      return cached;
+    }
+
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users/$userId');
+      final response = await http.get(Uri.parse(baseUrl)).timeout(
+            const Duration(seconds: 10),
+          );
+
+      if (response.statusCode == 200) {
+        final userData = jsonDecode(response.body);
+        final avatarUrl = userData['avatarUrl'] as String?;
+
+        // Cache result (cả null cũng cache để tránh gọi lại)
+        CommentAvatarCache.setAvatar(userId, avatarUrl);
+
+        return avatarUrl;
+      } else {}
+    } catch (e) {}
+
+    // Cache null để tránh gọi lại
+    CommentAvatarCache.setAvatar(userId, null);
+    return null;
+  }
+
+  // Helper method để tạo URL đầy đủ cho comment avatar
+  String _getCommentAvatarUrl(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty || avatarUrl == "null") {
+      return '';
+    }
+
+    if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+      return avatarUrl;
+    }
+
+    final networkStatus = NetworkConfig.getStatus();
+    final baseUrl = networkStatus['cached_url'] ??
+        networkStatus['base_url'] ??
+        'http://localhost:8080';
+
+    final cleanAvatarUrl =
+        avatarUrl.startsWith('/') ? avatarUrl : '/$avatarUrl';
+    final fullUrl = '$baseUrl$cleanAvatarUrl';
+
+    return fullUrl;
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -239,15 +302,16 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
       children: [
         // Main comment
         InkWell(
-          onLongPress: isOwnComment ? () => _showOptionsBottomSheet(context) : null,
+          onLongPress:
+              isOwnComment ? () => _showOptionsBottomSheet(context) : null,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // User Avatar
               _buildUserAvatar(),
-              
+
               const SizedBox(width: 12),
-              
+
               // Comment Content
               Expanded(
                 child: Column(
@@ -298,9 +362,9 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                           ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 4),
-                    
+
                     // Comment Text
                     Text(
                       _currentComment.text,
@@ -309,9 +373,9 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                         height: 1.3,
                       ),
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Action buttons
                     Row(
                       children: [
@@ -328,15 +392,21 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 1.5,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                      isLiked ? Colors.red : Colors.grey.shade600,
+                                      isLiked
+                                          ? Colors.red
+                                          : Colors.grey.shade600,
                                     ),
                                   ),
                                 )
                               else
                                 Icon(
-                                  isLiked ? Icons.favorite : Icons.favorite_border,
+                                  isLiked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
                                   size: 16,
-                                  color: isLiked ? Colors.red : Colors.grey.shade600,
+                                  color: isLiked
+                                      ? Colors.red
+                                      : Colors.grey.shade600,
                                 ),
                               if (_currentComment.likesCount > 0) ...[
                                 const SizedBox(width: 4),
@@ -351,9 +421,9 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(width: 24),
-                        
+
                         // Reply button
                         InkWell(
                           onTap: _showReplyDialog,
@@ -376,7 +446,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                             ],
                           ),
                         ),
-                        
+
                         // Replies count and toggle (if any)
                         if (_currentComment.repliesCount > 0) ...[
                           const SizedBox(width: 24),
@@ -401,7 +471,9 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  _showReplies ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                  _showReplies
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
                                   size: 16,
                                   color: Colors.blue,
                                 ),
@@ -455,7 +527,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Load more replies button
             if (_hasMoreReplies)
               Padding(
@@ -497,8 +569,94 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
   }
 
   Widget _buildUserAvatar() {
-    if (_currentComment.userAvatarUrl != null && _currentComment.userAvatarUrl!.isNotEmpty) {
-      final isFullUrl = _currentComment.userAvatarUrl!.startsWith('http://') || _currentComment.userAvatarUrl!.startsWith('https://');
+    return _buildUserAvatarFixed();
+  }
+
+  Widget _buildUserAvatarFixed() {
+    return FutureBuilder<String?>(
+      future: _loadCommentUserAvatar(_currentComment.userId),
+      builder: (context, snapshot) {
+        // Loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey.shade300,
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final avatarUrl = snapshot.data;
+
+        // No avatar case - fallback to default avatar
+        if (avatarUrl == null || avatarUrl.isEmpty || avatarUrl == "null") {
+          return _buildDefaultAvatar();
+        }
+
+        final fullAvatarUrl = _getCommentAvatarUrl(avatarUrl);
+
+        return Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.grey.shade300,
+          ),
+          child: ClipOval(
+            child: Image.network(
+              fullAvatarUrl,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey.shade300,
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return _buildDefaultAvatar();
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUserAvatarWithFallback() {
+    // Thử dùng avatar từ comment model trước
+    if (_currentComment.userAvatarUrl != null &&
+        _currentComment.userAvatarUrl!.isNotEmpty &&
+        _currentComment.userAvatarUrl != "null") {
+      final isFullUrl = _currentComment.userAvatarUrl!.startsWith('http://') ||
+          _currentComment.userAvatarUrl!.startsWith('https://');
+
       if (isFullUrl) {
         return Container(
           width: 32,
@@ -512,13 +670,14 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
               _currentComment.userAvatarUrl!,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                return _buildDefaultAvatar();
+                // Fallback to API call
+                return _buildUserAvatarFixed();
               },
             ),
           ),
         );
       } else {
-        // Nếu là đường dẫn tương đối, nối domain
+        // Relative path - convert to full URL
         return FutureBuilder<String>(
           future: NetworkConfig.getFileBaseUrl(),
           builder: (context, snapshot) {
@@ -535,7 +694,8 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                   fileBaseUrl + _currentComment.userAvatarUrl!,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
-                    return _buildDefaultAvatar();
+                    // Fallback to API call
+                    return _buildUserAvatarFixed();
                   },
                 ),
               ),
@@ -544,23 +704,39 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
         );
       }
     } else {
-      return Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          shape: BoxShape.circle,
-        ),
-        child: _buildDefaultAvatar(),
-      );
+      // No avatar in comment model - use API call
+      return _buildUserAvatarFixed();
     }
   }
 
   Widget _buildDefaultAvatar() {
-    return Icon(
-      Icons.person,
-      size: 20,
-      color: Colors.grey.shade600,
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            Colors.blue.shade300,
+            Colors.blue.shade500,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          (_currentComment.username.isNotEmpty
+                  ? _currentComment.username[0]
+                  : '?')
+              .toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ),
     );
   }
 
@@ -590,7 +766,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Title
               Text(
                 'Tùy chọn comment',
@@ -601,7 +777,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Edit option - ONLY show if onEdit callback is provided
               if (widget.onEdit != null)
                 ListTile(
@@ -621,7 +797,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                     _showEditDialog(context);
                   },
                 ),
-              
+
               // Delete option
               ListTile(
                 leading: const Icon(
@@ -640,7 +816,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                   _showDeleteConfirmation(context);
                 },
               ),
-              
+
               // Cancel
               const SizedBox(height: 10),
               SizedBox(
@@ -658,7 +834,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
                   ),
                 ),
               ),
-              
+
               // Bottom padding for safe area
               SizedBox(height: MediaQuery.of(context).padding.bottom),
             ],
@@ -670,7 +846,7 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
 
   void _showEditDialog(BuildContext context) {
     if (widget.onEdit == null) return;
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -762,13 +938,16 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
     if (!authService.isAuthenticated || authService.currentUser == null) return;
 
     try {
-      await _commentService.deleteComment(reply.id, authService.currentUser!.id);
+      await _commentService.deleteComment(
+          reply.id, authService.currentUser!.id);
 
       if (mounted) {
         setState(() {
           _replies.removeWhere((r) => r.id == reply.id);
           _currentComment = _currentComment.copyWith(
-            repliesCount: (_currentComment.repliesCount - 1).clamp(0, double.infinity).toInt(),
+            repliesCount: (_currentComment.repliesCount - 1)
+                .clamp(0, double.infinity)
+                .toInt(),
           );
         });
 

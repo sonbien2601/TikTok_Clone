@@ -18,6 +18,23 @@ import 'package:http_parser/http_parser.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_page.dart';
 
+// Avatar Cache class để cache avatar URLs
+class AvatarCache {
+  static final Map<String, String?> _cache = {};
+
+  static String? getAvatar(String userId) => _cache[userId];
+
+  static void setAvatar(String userId, String? avatarUrl) {
+    _cache[userId] = avatarUrl;
+  }
+
+  static bool hasAvatar(String userId) => _cache.containsKey(userId);
+
+  static void clearCache() => _cache.clear();
+
+  static int getCacheSize() => _cache.length;
+}
+
 class FullScreenVideoItem extends StatefulWidget {
   final VideoPost videoPost;
   final bool isActive;
@@ -379,25 +396,21 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
     return authService.currentUser!.id != widget.videoPost.user.id;
   }
 
-  // Cải thiện method để lấy avatar URL với edge case handling
+  // Helper method để tạo URL đầy đủ cho avatar
   String _getAvatarUrl(String? avatarUrl) {
-    // Handle null hoặc empty hoặc string "null"
     if (avatarUrl == null || avatarUrl.isEmpty || avatarUrl == "null") {
       return '';
     }
 
-    // Nếu đã là URL đầy đủ thì return luôn
     if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
       return avatarUrl;
     }
 
-    // Tạo URL đầy đủ từ NetworkConfig
     final networkStatus = NetworkConfig.getStatus();
     final baseUrl = networkStatus['cached_url'] ??
         networkStatus['base_url'] ??
         'http://localhost:8080';
 
-    // Đảm bảo không có double slash
     final cleanAvatarUrl =
         avatarUrl.startsWith('/') ? avatarUrl : '/$avatarUrl';
     final fullUrl = '$baseUrl$cleanAvatarUrl';
@@ -405,32 +418,71 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
     return fullUrl;
   }
 
-  // Widget hiển thị avatar được cải thiện - đảm bảo hiển thị cho TẤT CẢ users
-  Widget _buildUserAvatar() {
-    return Consumer<AuthService>(
-      builder: (context, authService, child) {
-        // Luôn ưu tiên hiển thị avatar của user trong video post
-        final isCurrentUser =
-            authService.currentUser?.id == widget.videoPost.user.id;
+  // Load avatar từ single user API với cache
+  Future<String?> _loadUserAvatar(String userId) async {
+    // Check cache first
+    if (AvatarCache.hasAvatar(userId)) {
+      final cached = AvatarCache.getAvatar(userId);
+      return cached;
+    }
 
-        String? avatarUrl;
-        String sourceInfo;
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/users/$userId');
+      final response = await http.get(Uri.parse(baseUrl)).timeout(
+            const Duration(seconds: 10),
+          );
 
-        if (isCurrentUser &&
-            authService.currentUser?.avatarUrl != null &&
-            authService.currentUser!.avatarUrl!.isNotEmpty) {
-          // Chỉ dùng current user avatar nếu là chính họ VÀ có avatar hợp lệ
-          avatarUrl = authService.currentUser!.avatarUrl;
-          sourceInfo = 'current user: ${authService.currentUser!.username}';
-        } else {
-          // LUÔN fallback về video post user avatar (kể cả khi null)
-          avatarUrl = widget.videoPost.user.avatarUrl;
-          sourceInfo = 'video post user: ${widget.videoPost.user.username}';
+      if (response.statusCode == 200) {
+        final userData = jsonDecode(response.body);
+        final avatarUrl = userData['avatarUrl'] as String?;
+
+        // Cache result (cả null cũng cache để tránh gọi lại)
+        AvatarCache.setAvatar(userId, avatarUrl);
+
+        return avatarUrl;
+      } else {}
+    } catch (e) {}
+
+    // Cache null để tránh gọi lại
+    AvatarCache.setAvatar(userId, null);
+    return null;
+  }
+
+  // Widget hiển thị avatar với fix - GỌI API ĐỂ LẤY AVATAR
+  Widget _buildUserAvatarFixed() {
+    final userId = widget.videoPost.user.id;
+    final username = widget.videoPost.user.username;
+
+    return FutureBuilder<String?>(
+      future: _loadUserAvatar(userId),
+      builder: (context, snapshot) {
+        // Loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey.shade300,
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                ),
+              ),
+            ),
+          );
         }
 
-        // Xử lý case avatarUrl == "null" string hoặc null thật
-        if (avatarUrl == null || avatarUrl == "null" || avatarUrl.isEmpty) {
-          return _buildInitialAvatar();
+        final avatarUrl = snapshot.data;
+
+        // No avatar case - fallback to initial letter
+        if (avatarUrl == null || avatarUrl.isEmpty || avatarUrl == "null") {
+          return _buildInitialAvatar(username);
         }
 
         final fullAvatarUrl = _getAvatarUrl(avatarUrl);
@@ -455,10 +507,10 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                   ),
                   child: const Center(
                     child: SizedBox(
-                      width: 16,
-                      height: 16,
+                      width: 12,
+                      height: 12,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
+                        strokeWidth: 1.5,
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     ),
@@ -466,8 +518,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                 );
               },
               errorBuilder: (context, error, stackTrace) {
-                // Fallback về initial letter khi load failed
-                return _buildInitialAvatar();
+                return _buildInitialAvatar(username);
               },
             ),
           ),
@@ -477,7 +528,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
   }
 
   // Widget fallback cho avatar khi không có ảnh
-  Widget _buildInitialAvatar() {
+  Widget _buildInitialAvatar(String username) {
     return Container(
       width: 32,
       height: 32,
@@ -494,10 +545,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
       ),
       child: Center(
         child: Text(
-          (widget.videoPost.user.username.isNotEmpty
-                  ? widget.videoPost.user.username[0]
-                  : '?')
-              .toUpperCase(),
+          (username.isNotEmpty ? username[0] : '?').toUpperCase(),
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -673,8 +721,8 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(children: [
-                            // Sử dụng widget avatar được cải thiện
-                            _buildUserAvatar(),
+                            // SỬ DỤNG AVATAR WIDGET ĐÃ FIX
+                            _buildUserAvatarFixed(),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(

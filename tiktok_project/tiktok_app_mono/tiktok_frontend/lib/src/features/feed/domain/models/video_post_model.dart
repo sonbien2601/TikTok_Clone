@@ -54,9 +54,13 @@ class VideoPost {
     String fileBaseUrl, {
     String? currentUserId,
   }) {
+    // === THÊM DEBUG LOGS ===
+    print('=== VideoPost.fromJson DEBUG ===');
+    print('Raw JSON: ${json.toString()}');
+    print('FileBaseUrl: ${fileBaseUrl}');
     // Parse user data
     final userData = json['user'] as Map<String, dynamic>? ?? {};
-
+    print('User Data: ${userData.toString()}');
     // Extract user ID from different possible fields
     String userId = '';
     if (userData['id'] != null) {
@@ -66,7 +70,6 @@ class VideoPost {
     } else if (json['userId'] != null) {
       userId = json['userId'].toString();
     }
-
     // Extract username safely
     String username = 'Unknown User';
     if (userData['username'] != null &&
@@ -76,9 +79,9 @@ class VideoPost {
         json['username'].toString().isNotEmpty) {
       username = json['username'].toString();
     }
-
-    // Create VideoUser with all required fields
+    // === DEBUG AVATAR PROCESSING ===
     final rawAvatarUrl = userData['avatarUrl'] as String?;
+    print('Raw Avatar URL from userData: ${rawAvatarUrl}');
     String? avatarUrl;
     if (rawAvatarUrl != null && rawAvatarUrl.isNotEmpty) {
       if (rawAvatarUrl.startsWith('http')) {
@@ -87,6 +90,9 @@ class VideoPost {
         avatarUrl = _buildCleanUrl(fileBaseUrl, rawAvatarUrl);
       }
     }
+    print('Final Avatar URL: ${avatarUrl}');
+    print('=== END VideoPost.fromJson DEBUG ===');
+    // Create VideoUser with all required fields
     final videoUser = VideoUser(
       id: userId,
       username: username,

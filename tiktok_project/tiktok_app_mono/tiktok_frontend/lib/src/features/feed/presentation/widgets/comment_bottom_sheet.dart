@@ -10,6 +10,7 @@ class CommentBottomSheet extends StatefulWidget {
   final String videoId;
   final int initialCommentsCount;
   final Function(int)? onCommentsCountChanged;
+  final Function(List<CommentModel>)? onUsersChanged;
   final String? highlightCommentId; // Add highlight support
 
   const CommentBottomSheet({
@@ -17,6 +18,7 @@ class CommentBottomSheet extends StatefulWidget {
     required this.videoId,
     required this.initialCommentsCount,
     this.onCommentsCountChanged,
+    this.onUsersChanged,
     this.highlightCommentId,
   });
 
@@ -128,6 +130,7 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
         
         // Update parent widget
         widget.onCommentsCountChanged?.call(_commentsCount);
+        widget.onUsersChanged?.call(_comments);
         
         // Auto-scroll to highlighted comment if needed
         if (_shouldScrollToHighlight && _highlightedCommentId != null) {
@@ -257,6 +260,7 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
         
         // Update parent widget
         widget.onCommentsCountChanged?.call(_commentsCount);
+        widget.onUsersChanged?.call(_comments);
         
         // Hide keyboard
         _focusNode.unfocus();
@@ -376,6 +380,7 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
         
         // Update parent widget
         widget.onCommentsCountChanged?.call(_commentsCount);
+        widget.onUsersChanged?.call(_comments);
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

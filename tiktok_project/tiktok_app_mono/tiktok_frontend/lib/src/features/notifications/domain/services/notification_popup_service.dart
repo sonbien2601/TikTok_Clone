@@ -33,13 +33,11 @@ class NotificationPopupService {
   // Initialize service with context
   void initialize(BuildContext context) {
     _context = context;
-    print('[NotificationPopupService] Initialized with context');
   }
 
   // Set navigator key for navigation
   void setNavigatorKey(GlobalKey<NavigatorState> navigatorKey) {
     _navigatorKey = navigatorKey;
-    print('[NotificationPopupService] Navigator key set');
   }
 
   // Enable/disable popup notifications
@@ -48,15 +46,12 @@ class NotificationPopupService {
     if (!enabled) {
       _stopAutoCheck();
     }
-    print('[NotificationPopupService] Popup notifications ${enabled ? 'enabled' : 'disabled'}');
   }
 
   // Check for new notifications on login
   Future<void> checkNotificationsOnLogin(String userId) async {
     if (!_isEnabled || _context == null) return;
 
-    print('[NotificationPopupService] Checking notifications on login for user: $userId');
-    
     try {
       // Get recent notifications (last 5)
       final response = await _notificationService.getUserNotifications(
@@ -91,7 +86,7 @@ class NotificationPopupService {
       _startAutoCheck(userId);
       
     } catch (e) {
-      print('[NotificationPopupService] Error checking notifications on login: $e');
+      // print('[NotificationPopupService] Error checking notifications on login: $e');
     }
   }
 
@@ -103,14 +98,12 @@ class NotificationPopupService {
       _checkForNewNotifications(userId);
     });
     
-    print('[NotificationPopupService] Started auto-checking every ${_autoCheckInterval.inMinutes} minutes');
   }
 
   // Stop automatic checking
   void _stopAutoCheck() {
     _autoCheckTimer?.cancel();
     _autoCheckTimer = null;
-    print('[NotificationPopupService] Stopped auto-checking');
   }
 
   // Check for new notifications periodically
@@ -138,7 +131,7 @@ class NotificationPopupService {
         break; // Only show one popup per check
       }
     } catch (e) {
-      print('[NotificationPopupService] Error checking for new notifications: $e');
+      // print('[NotificationPopupService] Error checking for new notifications: $e');
     }
   }
 
@@ -221,7 +214,6 @@ class NotificationPopupService {
 
   // Enhanced notification tap handler with proper navigation
   Future<void> _handleNotificationTap(NotificationModel notification, String userId) async {
-    print('[NotificationPopupService] Notification tapped: ${notification.id}, type: ${notification.type}');
     
     // Mark as read first
     await _markNotificationAsRead(notification, userId);
@@ -262,7 +254,7 @@ class NotificationPopupService {
           break;
       }
     } catch (e) {
-      print('[NotificationPopupService] Error navigating from notification: $e');
+      // print('[NotificationPopupService] Error navigating from notification: $e');
       _navigateToNotifications(); // Fallback
     }
   }
@@ -271,9 +263,8 @@ class NotificationPopupService {
   Future<void> _markNotificationAsRead(NotificationModel notification, String userId) async {
     try {
       await _notificationService.markNotificationAsRead(notification.id, userId);
-      print('[NotificationPopupService] Marked notification as read: ${notification.id}');
     } catch (e) {
-      print('[NotificationPopupService] Error marking notification as read: $e');
+      // print('[NotificationPopupService] Error marking notification as read: $e');
     }
   }
 
@@ -321,9 +312,8 @@ class NotificationPopupService {
           ],
         ),
       );
-      print('[NotificationPopupService] Showed notifications dialog');
     } catch (e) {
-      print('[NotificationPopupService] Error showing notifications: $e');
+      // print('[NotificationPopupService] Error showing notifications: $e');
     }
   }
 
@@ -340,9 +330,8 @@ class NotificationPopupService {
           ),
         ),
       );
-      print('[NotificationPopupService] Navigated to video: $videoId');
     } catch (e) {
-      print('[NotificationPopupService] Error navigating to video: $e');
+      // print('[NotificationPopupService] Error navigating to video: $e');
     }
   }
 
@@ -354,9 +343,8 @@ class NotificationPopupService {
       // For now, navigate to the main profile page and show user info in a dialog
       // Since ProfilePage constructor doesn't support userId/username parameters
       await _showUserProfileDialog(userId, username);
-      print('[NotificationPopupService] Showed user profile dialog: $username');
     } catch (e) {
-      print('[NotificationPopupService] Error showing user profile: $e');
+      // print('[NotificationPopupService] Error showing user profile: $e');
     }
   }
 
@@ -449,7 +437,6 @@ class NotificationPopupService {
     _stopAutoCheck();
     _shownNotificationIds.clear();
     _popupsShownThisSession = 0;
-    print('[NotificationPopupService] Reset session data');
   }
 
   // Dispose service
@@ -459,7 +446,6 @@ class NotificationPopupService {
     _navigatorKey = null;
     _shownNotificationIds.clear();
     _popupsShownThisSession = 0;
-    print('[NotificationPopupService] Disposed');
   }
 }
 

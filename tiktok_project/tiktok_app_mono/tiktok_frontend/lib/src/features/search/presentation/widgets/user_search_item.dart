@@ -449,12 +449,7 @@ class _DonateDialogState extends State<_DonateDialog> {
                    'Cache Valid: ${status['cache_valid']}';
       });
       
-      print('[DonateDialog] Initialized upload URL: $_uploadUrl');
     } catch (e) {
-      print('[DonateDialog] Error initializing upload URL: $e');
-      setState(() {
-        _debugInfo = 'Error: Could not initialize upload URL\n$e';
-      });
     }
   }
 
@@ -484,25 +479,20 @@ class _DonateDialogState extends State<_DonateDialog> {
         setState(() {
           _selectedImageFile = result.files.single;
           _imageFileName = _selectedImageFile!.name;
-          print('[DonateDialog] Image selected: $_imageFileName');
           if (!kIsWeb && _selectedImageFile!.path != null) {
-             print('[DonateDialog] Image path (mobile/desktop): ${_selectedImageFile!.path}');
           } else if (kIsWeb && _selectedImageFile!.bytes != null) {
-             print('[DonateDialog] Image bytes selected (web): ${_selectedImageFile!.bytes!.length}');
           }
         });
         
         // Auto-upload after selection
         await _uploadProofImage();
       } else {
-        print('[DonateDialog] No image selected.');
         setState(() {
           _selectedImageFile = null;
           _imageFileName = null;
         });
       }
     } catch (e) {
-      print('[DonateDialog] Error picking image: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error selecting image: $e')),
@@ -540,10 +530,6 @@ class _DonateDialogState extends State<_DonateDialog> {
       request.fields['userId'] = currentUserId;
     }
 
-    print('[DonateDialog] Upload URL: $_uploadUrl');
-    print('[DonateDialog] Platform: ${_getPlatformName()}');
-    print('[DonateDialog] Fields: ${request.fields}');
-
     // Add file based on platform (same logic as upload_video_page.dart)
     if (kIsWeb && _selectedImageFile!.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
@@ -552,7 +538,6 @@ class _DonateDialogState extends State<_DonateDialog> {
         filename: _imageFileName ?? 'image_from_web.png',
         contentType: MediaType('image', _imageFileName?.split('.').last ?? 'png'), 
       ));
-      print('[DonateDialog] Added file from bytes (web)');
     } else if (!kIsWeb && _selectedImageFile!.path != null) {
       request.files.add(
         await http.MultipartFile.fromPath(
@@ -562,7 +547,6 @@ class _DonateDialogState extends State<_DonateDialog> {
           contentType: MediaType('image', _selectedImageFile!.path!.split('.').lastOrNull ?? 'png'),
         ),
       );
-      print('[DonateDialog] Added file from path (mobile/desktop)');
     } else {
       if (mounted) {
         setState(() {
@@ -574,12 +558,8 @@ class _DonateDialogState extends State<_DonateDialog> {
     }
     
     try {
-      print('[DonateDialog] Sending upload request to $_uploadUrl');
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
-
-      print('[DonateDialog] Upload Response status: ${response.statusCode}');
-      print('[DonateDialog] Upload Response body: ${response.body}');
 
       if (!mounted) return; 
 
@@ -612,7 +592,6 @@ class _DonateDialogState extends State<_DonateDialog> {
         });
       }
     } catch (e) {
-      print('[DonateDialog] Error uploading image: $e');
       if (mounted) {
         String errorMessage = 'Error uploading image: $e';
         if (e.toString().contains('Connection refused') || 

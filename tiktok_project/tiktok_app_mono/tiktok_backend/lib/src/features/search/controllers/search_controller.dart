@@ -13,8 +13,6 @@ class SearchController {
       final limit = int.tryParse(queryParams['limit'] ?? '20') ?? 20;
       final currentUserId = queryParams['currentUserId']; // Optional for follow status
 
-      print('[SearchController] searchUsers - query: "$query", page: $page, limit: $limit');
-
       if (query.isEmpty) {
         return Response(400, 
           body: jsonEncode({'error': 'Search query cannot be empty'}),
@@ -80,7 +78,6 @@ class SearchController {
             );
             userResult['isFollowing'] = followRecord != null;
           } catch (e) {
-            print('[SearchController] Error checking follow status: $e');
             userResult['isFollowing'] = false;
           }
         }
@@ -107,12 +104,8 @@ class SearchController {
       );
 
     } catch (e, s) {
-      print('[SearchController] Error in searchUsers: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({
-          'error': 'Failed to search users',
-          'details': e.toString(),
-        }),
+        body: jsonEncode({'error': 'Failed to search users'}),
         headers: {'Content-Type': 'application/json'}
       );
     }
@@ -124,8 +117,6 @@ class SearchController {
       final limit = int.tryParse(queryParams['limit'] ?? '10') ?? 10;
       final timeframe = queryParams['timeframe'] ?? '7d'; // 24h, 7d, 30d
       final currentUserId = queryParams['currentUserId']; // Optional for follow status
-
-      print('[SearchController] getTrendingUsers - limit: $limit, timeframe: $timeframe');
 
       final usersCollection = DatabaseService.db.collection('users');
       final followsCollection = DatabaseService.db.collection('follows');
@@ -178,7 +169,6 @@ class SearchController {
             );
             userResult['isFollowing'] = followRecord != null;
           } catch (e) {
-            print('[SearchController] Error checking follow status for trending: $e');
             userResult['isFollowing'] = false;
           }
         }
@@ -200,12 +190,8 @@ class SearchController {
       );
 
     } catch (e, s) {
-      print('[SearchController] Error in getTrendingUsers: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({
-          'error': 'Failed to get trending users',
-          'details': e.toString(),
-        }),
+        body: jsonEncode({'error': 'Failed to get trending users'}),
         headers: {'Content-Type': 'application/json'}
       );
     }
@@ -217,8 +203,6 @@ class SearchController {
       final query = queryParams['q']?.trim() ?? '';
       final page = int.tryParse(queryParams['page'] ?? '1') ?? 1;
       final limit = int.tryParse(queryParams['limit'] ?? '20') ?? 20;
-
-      print('[SearchController] searchVideos - query: "$query", page: $page, limit: $limit');
 
       if (query.isEmpty) {
         return Response(400, 
@@ -298,12 +282,8 @@ class SearchController {
       );
 
     } catch (e, s) {
-      print('[SearchController] Error in searchVideos: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({
-          'error': 'Failed to search videos',
-          'details': e.toString(),
-        }),
+        body: jsonEncode({'error': 'Failed to search videos'}),
         headers: {'Content-Type': 'application/json'}
       );
     }
@@ -314,8 +294,6 @@ class SearchController {
       final queryParams = request.url.queryParameters;
       final query = queryParams['q']?.trim() ?? '';
       final limit = int.tryParse(queryParams['limit'] ?? '5') ?? 5;
-
-      print('[SearchController] getSearchSuggestions - query: "$query", limit: $limit');
 
       if (query.length < 2) {
         return Response.ok(
@@ -358,12 +336,8 @@ class SearchController {
       );
 
     } catch (e, s) {
-      print('[SearchController] Error in getSearchSuggestions: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({
-          'error': 'Failed to get search suggestions',
-          'details': e.toString(),
-        }),
+        body: jsonEncode({'error': 'Failed to get search suggestions'}),
         headers: {'Content-Type': 'application/json'}
       );
     }

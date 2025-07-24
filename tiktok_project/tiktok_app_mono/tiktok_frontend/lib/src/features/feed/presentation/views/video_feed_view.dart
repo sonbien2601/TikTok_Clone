@@ -51,8 +51,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
   @override
   void initState() {
     super.initState();
-    debugPrint('[VideoFeedView] Initializing video feed...');
-    WidgetsBinding.instance.addObserver(this);
     
     // Add this instance to the static list
     _instances.add(this);
@@ -72,7 +70,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
       controller.dispose();
     }
     _videoControllers.clear();
-    debugPrint('[VideoFeedView] Disposed');
     super.dispose();
   }
 
@@ -118,8 +115,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
       _errorMessage = null;
     });
 
-    debugPrint('[VideoFeedView] Loading videos, page: $_currentPage');
-
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.id;
@@ -140,12 +135,8 @@ class _VideoFeedViewState extends State<VideoFeedView>
           _hasNextPage = response.pagination.hasNextPage;
           _isLoading = false;
         });
-
-        debugPrint('[VideoFeedView] Loaded ${response.videos.length} videos');
-        debugPrint('[VideoFeedView] Total videos: ${_videos.length}');
       }
     } catch (e) {
-      debugPrint('[VideoFeedView] Error loading videos: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -386,7 +377,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
 
   // Static method to pause all video controllers across all instances
   static void PauseAllVideos() {
-    debugPrint('[VideoFeedView] Pausing all videos across ${_instances.length} instances');
     for (final instance in _instances) {
       instance._pauseAllVideoControllers();
     }
@@ -394,7 +384,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
 
   // NEW: Static method to force dispose all video controllers
   static void ForceDisposeAllVideos() {
-    debugPrint('[VideoFeedView] Forcing dispose of all video controllers across ${_instances.length} instances');
     for (final instance in _instances) {
       instance._forceDisposeAllVideoControllers();
     }
@@ -402,7 +391,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
 
   // Instance method to pause all video controllers in this instance
   void _pauseAllVideoControllers() {
-    debugPrint('[VideoFeedView] Pausing all video controllers in this instance');
     for (final controller in _videoControllers.values) {
       if (controller.value.isInitialized && controller.value.isPlaying) {
         controller.pause();
@@ -412,7 +400,6 @@ class _VideoFeedViewState extends State<VideoFeedView>
 
   // NEW: Instance method to force dispose all video controllers in this instance
   void _forceDisposeAllVideoControllers() {
-    debugPrint('[VideoFeedView] Forcing dispose of all video controllers in this instance');
     for (final controller in _videoControllers.values) {
       controller.dispose();
     }

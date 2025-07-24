@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/core/config/network_debug_helper.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
@@ -7,6 +6,9 @@ import 'dart:convert';
 
 class NetworkDebugHelper {
   static Future<void> showDebugDialog(BuildContext context) async {
+    if (!kDebugMode) {
+      return; // Only show dialog in debug mode
+    }
     showDialog(
       context: context,
       builder: (context) => const NetworkDebugDialog(),

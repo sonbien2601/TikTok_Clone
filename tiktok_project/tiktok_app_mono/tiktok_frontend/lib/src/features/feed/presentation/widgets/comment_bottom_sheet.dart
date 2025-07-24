@@ -135,14 +135,11 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
         }
       }
     } catch (e) {
-      print('[CommentBottomSheet] Error loading comments: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-          _errorMessage = e.toString();
-        });
-      }
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = e.toString();
+      });
     }
   }
   
@@ -207,19 +204,16 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
         });
       }
     } catch (e) {
-      print('[CommentBottomSheet] Error loading more comments: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingMore = false;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi tải thêm comment: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      setState(() {
+        _isLoadingMore = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi khi tải thêm comment: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -276,19 +270,16 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
         );
       }
     } catch (e) {
-      print('[CommentBottomSheet] Error posting comment: $e');
-      if (mounted) {
-        setState(() {
-          _isPosting = false;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi đăng comment: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      setState(() {
+        _isPosting = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi khi đăng comment: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -306,12 +297,9 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
 
     // Prevent multiple edit requests for the same comment
     if (_editingComments.contains(comment.id)) {
-      print('[CommentBottomSheet] Edit already in progress for comment: ${comment.id}');
       return;
     }
 
-    print('[CommentBottomSheet] Starting edit process for comment: ${comment.id}');
-    
     setState(() {
       _editingComments.add(comment.id);
     });
@@ -333,29 +321,25 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
           _editingComments.remove(comment.id);
         });
         
-        print('[CommentBottomSheet] Comment edited successfully: ${comment.id}');
       }
     } catch (e) {
-      print('[CommentBottomSheet] Error editing comment: $e');
-      if (mounted) {
-        setState(() {
-          _editingComments.remove(comment.id);
-        });
-        
-        // Show more specific error messages
-        String errorMessage = 'Lỗi khi chỉnh sửa comment';
-        if (e.toString().contains('Connection refused') || e.toString().contains('Failed host lookup')) {
-          errorMessage = 'Không thể kết nối đến server';
-        } else if (e.toString().contains('404')) {
-          errorMessage = 'Không tìm thấy comment để chỉnh sửa';
-        } else if (e.toString().contains('403')) {
-          errorMessage = 'Bạn không có quyền chỉnh sửa comment này';
-        } else if (e.toString().contains('401')) {
-          errorMessage = 'Vui lòng đăng nhập lại';
-        }
-        
-        throw Exception(errorMessage); // Re-throw to be handled by EditCommentDialog
+      setState(() {
+        _editingComments.remove(comment.id);
+      });
+      
+      // Show more specific error messages
+      String errorMessage = 'Lỗi khi chỉnh sửa comment';
+      if (e.toString().contains('Connection refused') || e.toString().contains('Failed host lookup')) {
+        errorMessage = 'Không thể kết nối đến server';
+      } else if (e.toString().contains('404')) {
+        errorMessage = 'Không tìm thấy comment để chỉnh sửa';
+      } else if (e.toString().contains('403')) {
+        errorMessage = 'Bạn không có quyền chỉnh sửa comment này';
+      } else if (e.toString().contains('401')) {
+        errorMessage = 'Vui lòng đăng nhập lại';
       }
+      
+      throw Exception(errorMessage); // Re-throw to be handled by EditCommentDialog
     }
   }
 
@@ -373,12 +357,9 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
 
     // Prevent multiple delete requests for the same comment
     if (_deletingComments.contains(comment.id)) {
-      print('[CommentBottomSheet] Delete already in progress for comment: ${comment.id}');
       return;
     }
 
-    print('[CommentBottomSheet] Starting delete process for comment: ${comment.id}');
-    
     setState(() {
       _deletingComments.add(comment.id);
     });
@@ -410,45 +391,41 @@ class CommentBottomSheetState extends State<CommentBottomSheet>
           ),
         );
         
-        print('[CommentBottomSheet] Comment deleted successfully: ${comment.id}');
       }
     } catch (e) {
-      print('[CommentBottomSheet] Error deleting comment: $e');
-      if (mounted) {
-        setState(() {
-          _deletingComments.remove(comment.id);
-        });
-        
-        // Show more specific error messages
-        String errorMessage = 'Lỗi khi xóa comment';
-        if (e.toString().contains('Connection refused') || e.toString().contains('Failed host lookup')) {
-          errorMessage = 'Không thể kết nối đến server';
-        } else if (e.toString().contains('404')) {
-          errorMessage = 'Không tìm thấy comment để xóa';
-        } else if (e.toString().contains('403')) {
-          errorMessage = 'Bạn không có quyền xóa comment này';
-        } else if (e.toString().contains('401')) {
-          errorMessage = 'Vui lòng đăng nhập lại';
-        }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text(errorMessage)),
-              ],
-            ),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Thử lại',
-              textColor: Colors.white,
-              onPressed: () => _deleteComment(comment),
-            ),
-          ),
-        );
+      setState(() {
+        _deletingComments.remove(comment.id);
+      });
+      
+      // Show more specific error messages
+      String errorMessage = 'Lỗi khi xóa comment';
+      if (e.toString().contains('Connection refused') || e.toString().contains('Failed host lookup')) {
+        errorMessage = 'Không thể kết nối đến server';
+      } else if (e.toString().contains('404')) {
+        errorMessage = 'Không tìm thấy comment để xóa';
+      } else if (e.toString().contains('403')) {
+        errorMessage = 'Bạn không có quyền xóa comment này';
+      } else if (e.toString().contains('401')) {
+        errorMessage = 'Vui lòng đăng nhập lại';
       }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text(errorMessage)),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Thử lại',
+            textColor: Colors.white,
+            onPressed: () => _deleteComment(comment),
+          ),
+        ),
+      );
     }
   }
 

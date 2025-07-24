@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/notifications/presentation/widgets/notification_popup_settings.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../domain/services/notification_popup_service.dart';
@@ -128,8 +127,6 @@ class _NotificationPopupSettingsState extends State<NotificationPopupSettings> {
     final authService = Provider.of<AuthService>(context, listen: false);
     
     if (authService.isAuthenticated && authService.currentUser != null) {
-      print('[NotificationPopupSettings] 🧪 Testing notification popup');
-      
       // Show loading indicator
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -156,8 +153,6 @@ class _NotificationPopupSettingsState extends State<NotificationPopupSettings> {
       authService.notificationPopupService.checkNotificationsOnLogin(
         authService.currentUser!.id
       ).then((_) {
-        print('[NotificationPopupSettings] ✅ Test notification popup completed');
-        
         // Show success message after a delay
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
@@ -178,8 +173,6 @@ class _NotificationPopupSettingsState extends State<NotificationPopupSettings> {
         });
         
       }).catchError((e) {
-        print('[NotificationPopupSettings] ❌ Test notification popup failed: $e');
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

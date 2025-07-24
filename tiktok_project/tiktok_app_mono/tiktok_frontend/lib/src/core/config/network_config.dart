@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/core/config/network_config.dart
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -34,11 +33,8 @@ class NetworkConfig {
   static Future<String> getBaseUrl(String endpoint) async {
     // Kiểm tra cache trước
     if (_isCacheValid()) {
-      print('[NetworkConfig] 📋 Using cached URL: $_cachedBaseUrl');
       return '$_cachedBaseUrl$endpoint';
     }
-    
-    print('[NetworkConfig] 🔍 Discovering best URL for ${_getPlatformName()}...');
     
     // Discover URL mới
     final baseUrl = await _discoverBestUrl();
@@ -47,7 +43,6 @@ class NetworkConfig {
     _cachedBaseUrl = baseUrl;
     _cacheExpiry = DateTime.now().add(_cacheValidDuration);
     
-    print('[NetworkConfig] ✅ Using URL: $baseUrl$endpoint');
     return '$baseUrl$endpoint';
   }
   
@@ -79,41 +74,32 @@ class NetworkConfig {
       urlsToTest = [
         _androidEmulatorUrl,    // 10.0.2.2:8080 - CHÍNH CHO EMULATOR
         _localhostAltUrl,       // 127.0.0.1:8080 - DỰ PHÒNG
-        _networkIpUrl,          // 172.31.98.67:8080 - THỬ THÊM
+        _networkIpUrl,          // 192.2.26.102:8080 - THỬ THÊM
       ];
-      print('[NetworkConfig] 🤖 Android Emulator detected');
     } else if (_isRealDevice) {
       urlsToTest = [
-        _networkIpUrl,          // 172.31.98.67:8080 - CHÍNH CHO REAL DEVICE
+        _networkIpUrl,          // 192.2.26.102:8080 - CHÍNH CHO REAL DEVICE
         _androidEmulatorUrl,    // 10.0.2.2:8080 - DỰ PHÒNG
         _localhostUrl,          // localhost:8080 - THỬ THÊM
       ];
-      print('[NetworkConfig] 📱 Real Device detected');
     } else {
       urlsToTest = [
         _localhostUrl,          // localhost:8080
         _localhostAltUrl,       // 127.0.0.1:8080
-        _networkIpUrl,          // 172.31.98.67:8080
+        _networkIpUrl,          // 192.2.26.102:8080
       ];
-      print('[NetworkConfig] 🌐 Web Browser detected');
     }
     
     // Test từng URL
     for (final url in urlsToTest) {
-      print('[NetworkConfig] 🧪 Testing: $url');
-      
       if (await _testConnection(url)) {
-        print('[NetworkConfig] ✅ Success: $url');
         return url;
-      } else {
-        print('[NetworkConfig] ❌ Failed: $url');
       }
     }
     
     // Fallback
     final fallbackUrl = _isAndroidEmulator ? _androidEmulatorUrl : 
                        _isRealDevice ? _networkIpUrl : _localhostUrl;
-    print('[NetworkConfig] ⚠️ No working URL found, using fallback: $fallbackUrl');
     return fallbackUrl;
   }
   
@@ -132,12 +118,8 @@ class NetworkConfig {
       
       stopwatch.stop();
       
-      final success = response.statusCode == 200;
-      print('[NetworkConfig] 📊 $baseUrl -> ${response.statusCode} (${stopwatch.elapsedMilliseconds}ms) ${success ? '✅' : '❌'}');
-      
-      return success;
+      return response.statusCode == 200;
     } catch (e) {
-      print('[NetworkConfig] 💥 $baseUrl -> Error: ${e.toString()}');
       return false;
     }
   }
@@ -154,13 +136,11 @@ class NetworkConfig {
   }
   
   static void clearCache() {
-    print('[NetworkConfig] 🗑️ Clearing cache');
     _cachedBaseUrl = null;
     _cacheExpiry = null;
   }
   
   static void setCachedUrl(String url) {
-    print('[NetworkConfig] 📌 Manually setting URL: $url');
     _cachedBaseUrl = url;
     _cacheExpiry = DateTime.now().add(_cacheValidDuration);
   }
@@ -170,8 +150,6 @@ class NetworkConfig {
   // ==========================================
   
   static Future<Map<String, dynamic>> runDiagnostic() async {
-    print('[NetworkConfig] 🔍 Running comprehensive diagnostic...');
-    
     final results = <String, dynamic>{
       'timestamp': DateTime.now().toIso8601String(),
       'platform': _getPlatformName(),
@@ -279,58 +257,14 @@ class NetworkConfig {
     return 'unknown';
   }
   
-  static void printDiagnostic() async {
-    if (!kDebugMode) return;
-    
-    print('');
-    print('=== 🌐 NETWORK CONFIG DIAGNOSTIC ===');
-    print('Platform: ${_getPlatformName()}');
-    print('Server Port: $_serverPort');
-    print('Cached URL: $_cachedBaseUrl');
-    print('Cache Valid: ${_isCacheValid()}');
-    print('');
-    
-    final diagnostic = await runDiagnostic();
-    final tests = diagnostic['tests'] as Map<String, dynamic>;
-    
-    print('📊 Connection Tests:');
-    for (final entry in tests.entries) {
-      final name = entry.key;
-      final test = entry.value as Map<String, dynamic>;
-      final status = test['success'] ? '✅' : '❌';
-      final time = test['response_time_ms']?.toString() ?? 'N/A';
-      final url = test['url'];
-      
-      print('$status $name: $url (${time}ms)');
-      if (test['error'] != null) {
-        print('   Error: ${test['error']}');
-      }
-    }
-    
-    final recommended = diagnostic['recommended'] as Map<String, dynamic>;
-    if (recommended['url'] != null) {
-      print('');
-      print('💡 Recommended: ${recommended['url']} (${recommended['time_ms']}ms)');
-    } else {
-      print('');
-      print('⚠️ No working URLs found!');
-    }
-    
-    print('🎯 Platform Default: ${recommended['platform_default']}');
-    print('===================================');
-    print('');
-  }
-  
-  // Force discovery với logging
+  // Force discovery
   static Future<String> forceDiscovery() async {
     clearCache();
-    print('[NetworkConfig] 🔄 Forcing URL discovery...');
     
     final url = await _discoverBestUrl();
     _cachedBaseUrl = url;
     _cacheExpiry = DateTime.now().add(_cacheValidDuration);
     
-    print('[NetworkConfig] ✅ Forced discovery result: $url');
     return url;
   }
   
@@ -362,7 +296,6 @@ class NetworkConfig {
   
   // Set manual override (for testing)
   static void setManualOverride(String baseUrl) {
-    print('[NetworkConfig] 🔧 Manual override set: $baseUrl');
     _cachedBaseUrl = baseUrl;
     _cacheExpiry = DateTime.now().add(const Duration(hours: 1)); // Longer cache for manual override
   }
@@ -379,7 +312,6 @@ class NetworkConfig {
   // Manual IP override for troubleshooting
   static void setManualIP(String ip) {
     final manualUrl = 'http://$ip:$_serverPort';
-    print('[NetworkConfig] 🔧 Setting manual IP override: $manualUrl');
     _cachedBaseUrl = manualUrl;
     _cacheExpiry = DateTime.now().add(const Duration(hours: 1));
   }
@@ -395,17 +327,14 @@ class NetworkConfig {
       
       for (final url in testUrls) {
         if (await _testConnection(url)) {
-          print('[NetworkConfig] ✅ Quick test passed for: $url');
           _cachedBaseUrl = url;
           _cacheExpiry = DateTime.now().add(_cacheValidDuration);
           return true;
         }
       }
       
-      print('[NetworkConfig] ❌ Quick connectivity test failed for all URLs');
       return false;
     } catch (e) {
-      print('[NetworkConfig] ❌ Quick connectivity test error: $e');
       return false;
     }
   }

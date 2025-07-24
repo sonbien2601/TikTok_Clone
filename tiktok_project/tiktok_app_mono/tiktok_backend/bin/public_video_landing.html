@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}} - by @{{username}} | TikTok Clone</title>
+    <!-- ... meta tags ... -->
+    <style>
+        /* ... giữ nguyên style như cũ ... */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="video-card">
+            <div class="user-info">
+                <div class="avatar">
+                    {{userAvatar}}
+                </div>
+                <div class="username">@{{username}}</div>
+            </div>
+            <div class="video-title">{{title}}</div>
+            <video class="video-player" controls autoplay muted loop>
+                <source src="{{videoUrl}}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number">{{viewsCount}}</span>
+                    <span class="stat-label">Views</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">{{likesCount}}</span>
+                    <span class="stat-label">Likes</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">{{sharesCount}}</span>
+                    <span class="stat-label">Shares</span>
+                </div>
+            </div>
+            <a href="#" class="download-app" onclick="openApp()">
+                📱 Open in TikTok Clone App
+            </a>
+            <div class="footer">
+                Made with ❤️ on TikTok Clone
+            </div>
+        </div>
+    </div>
+    <script>
+        function openApp() {
+            // ... giữ nguyên script ...
+        }
+    </script>
+</body>
+</html> 

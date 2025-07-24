@@ -23,16 +23,12 @@ import 'package:tiktok_backend/src/features/analytics/analytics_routes.dart';
 import 'package:tiktok_backend/src/features/search/search_routes.dart';
 
 Future<void> main(List<String>? args) async {
-  print('[Server] 🚀 Starting TikTok Backend Server with Follow System and Analytics...');
-
   try {
     // Load configuration
     await EnvConfig.loadConfig();
-    print('[Server] ✅ Configuration loaded successfully');
 
     // Connect to database
     await DatabaseService.connect();
-    print('[Server] ✅ Database connected successfully');
 
     final router = Router();
 
@@ -70,7 +66,6 @@ Future<void> main(List<String>? args) async {
     final uploadsDir = Directory(uploadsPath);
     if (!await uploadsDir.exists()) {
       await uploadsDir.create(recursive: true);
-      print('[Server] ✅ Created uploads directory at: $uploadsPath');
     }
 
     router.get('/uploads/<path|.*>', (Request request, String path) async {
@@ -126,8 +121,6 @@ Future<void> main(List<String>? args) async {
 
     // PUBLIC VIDEO ACCESS - No auth required
     router.get('/video/<videoId>', (Request request, String videoId) async {
-      print('[Server] Public video access: $videoId');
-
       try {
         // Validate video ID format
         if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
@@ -181,16 +174,13 @@ Future<void> main(List<String>? args) async {
           },
         );
 
-      } catch (e, s) {
-        print('[Server] Error serving public video: $e\n$s');
+      } catch (e) {
         return _buildErrorPage();
       }
     });
 
     // API endpoint to get video data for embedding
     router.get('/api/public/video/<videoId>', (Request request, String videoId) async {
-      print('[Server] Public video API access: $videoId');
-
       try {
         if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
           return Response(404,
@@ -247,8 +237,7 @@ Future<void> main(List<String>? args) async {
           },
         );
 
-      } catch (e, s) {
-        print('[Server] Error in public video API: $e\n$s');
+      } catch (e) {
         return Response.internalServerError(
           body: jsonEncode({'error': 'Internal server error'}),
           headers: {'Content-Type': 'application/json'}
@@ -393,74 +382,12 @@ Future<void> main(List<String>? args) async {
       EnvConfig.serverPort,
     );
 
-    // Success messages
-    print('\n🎉 ================================================');
-    print('✅ TikTok Backend Server with Follow System and Analytics Started!');
-    print('================================================');
-    print('🌐 Server URL: http://${server.address.host}:${server.port}');
-    print('🎯 API Base URL: http://${server.address.host}:${server.port}/api');
-    print('🐛 Debug Info: http://${server.address.host}:${server.port}/api/debug');
-    print('🏥 Health Check: http://${server.address.host}:${server.port}/health');
-    print('📁 Static Files: http://${server.address.host}:${server.port}/uploads');
-    print('');
-    print('🆕 NEW FEATURES (Phase 1):');
-    print('🤝 Follow System: http://${server.address.host}:${server.port}/api/follow');
-    print('   - Follow/Unfollow users');
-    print('   - View followers/following lists');
-    print('   - Check follow status');
-    print('   - Test: http://${server.address.host}:${server.port}/api/follow/test-follow-api');
-    print('');
-    print('🆕 NEW FEATURES (Phase 2):');
-    print('📊 Video Analytics: http://${server.address.host}:${server.port}/api/analytics');
-    print('   - Track video views and engagement');
-    print('   - Get detailed video analytics');
-    print('   - View trending videos');
-    print('   - User analytics dashboard');
-    print('   - Test: http://${server.address.host}:${server.port}/api/analytics/debug/info');
-    print('');
-    print('🆕 NEW FEATURES (Phase 3):');
-    print('🔍 User Search & Discovery: http://${server.address.host}:${server.port}/api/search');
-    print('   - Search users by username/email/display name');
-    print('   - Get trending users with activity scoring');
-    print('   - Search videos by description and hashtags');
-    print('   - Real-time search suggestions');
-    print('   - Test: http://${server.address.host}:${server.port}/api/search/test');
-    print('');
-    print('🆕 NEW FEATURES (Public Access):');
-    print('🎥 Public Video Access: http://${server.address.host}:${server.port}/video/{videoId}');
-    print('   - Public video landing page');
-    print('   - Video embedding API: http://${server.address.host}:${server.port}/api/public/video/{videoId}');
-    print('   - Social media sharing support');
-    print('   - Mobile app deep linking');
-    print('');
-    print('📖 EXAMPLE REQUESTS:');
-    print('   - Follow user: POST /api/follow/follow/USER_ID_1/USER_ID_2');
-    print('   - Get followers: GET /api/follow/followers/USER_ID?page=1&limit=20');
-    print('   - Check status: GET /api/follow/status/USER_ID_1/USER_ID_2');
-    print('   - Track view: POST /api/analytics/track-view');
-    print('   - Video analytics: GET /api/analytics/video/VIDEO_ID');
-    print('   - User analytics: GET /api/analytics/user/USER_ID');
-    print('   - Trending videos: GET /api/analytics/trending?timeframe=24h');
-    print('   - Public video: GET /video/VIDEO_ID');
-    print('   - Public video API: GET /api/public/video/VIDEO_ID');
-    print('   - Search users: GET /api/search/users?q=john&limit=10');
-    print('   - Trending users: GET /api/search/trending?timeframe=24h&limit=5');
-    print('   - Search videos: GET /api/search/videos?q=dance&limit=10');
-    print('   - Search suggestions: GET /api/search/suggestions?q=jo&limit=5');
-    print('   - Search debug: GET /api/search/debug/info');
-    print('================================================\n');
   } catch (e, stackTrace) {
-    print('\n❌ ================================================');
-    print('CRITICAL ERROR: Failed to start TikTok Backend Server');
-    print('================================================');
-    print('Error: $e');
-    print('Stack trace: $stackTrace');
-    print('================================================\n');
     exit(1);
   }
 }
 
-// Helper function to build video landing page HTML
+// Thay thế _buildVideoLandingPage bằng đọc file HTML template
 String _buildVideoLandingPage({
   required String videoId,
   required String title,
@@ -472,259 +399,23 @@ String _buildVideoLandingPage({
   required int sharesCount,
   String? createdAt,
 }) {
-  final fullVideoUrl = videoUrl.startsWith('http') ? videoUrl : 'http://localhost:8080$videoUrl';
-
-  return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$title - by @$username | TikTok Clone</title>
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="video.other">
-    <meta property="og:url" content="http://192.168.1.100:8080/video/$videoId">
-    <meta property="og:title" content="$title - by @$username">
-    <meta property="og:description" content="Watch this amazing video by @$username on TikTok Clone! $viewsCount views, $likesCount likes">
-    <meta property="og:video" content="$fullVideoUrl">
-    <meta property="og:video:type" content="video/mp4">
-    <meta property="og:video:width" content="720">
-    <meta property="og:video:height" content="1280">
-    
-    <!-- Twitter -->
-    <meta property="twitter:card" content="player">
-    <meta property="twitter:url" content="http://192.168.1.100:8080/video/$videoId">
-    <meta property="twitter:title" content="$title - by @$username">
-    <meta property="twitter:description" content="Watch this amazing video by @$username! $viewsCount views, $likesCount likes">
-    <meta property="twitter:player" content="http://192.168.1.100:8080/video/$videoId/player">
-    <meta property="twitter:player:width" content="720">
-    <meta property="twitter:player:height" content="1280">
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #ff0050, #ff4081, #9c27b0);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-        }
-        
-        .container {
-            max-width: 800px;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        .video-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        
-        .avatar {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            font-size: 24px;
-        }
-        
-        .username {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        
-        .video-title {
-            font-size: 20px;
-            margin: 20px 0;
-            line-height: 1.4;
-        }
-        
-        .video-player {
-            width: 100%;
-            max-width: 500px;
-            height: 600px;
-            border-radius: 15px;
-            margin: 20px auto;
-            background: black;
-        }
-        
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }
-        
-        .stat {
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            display: block;
-        }
-        
-        .stat-label {
-            font-size: 14px;
-            opacity: 0.8;
-        }
-        
-        .download-app {
-            background: linear-gradient(45deg, #ff0050, #ff4081);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 30px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            margin-top: 20px;
-            transition: transform 0.2s;
-        }
-        
-        .download-app:hover {
-            transform: scale(1.05);
-        }
-        
-        .footer {
-            margin-top: 30px;
-            opacity: 0.7;
-            font-size: 14px;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                padding: 10px;
-            }
-            
-            .video-card {
-                padding: 20px;
-            }
-            
-            .video-player {
-                height: 400px;
-            }
-            
-            .stats {
-                gap: 15px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="video-card">
-            <div class="user-info">
-                <div class="avatar">
-                    ${userAvatar != null ? '<img src="$userAvatar" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">' : '👤'}
-                </div>
-                <div class="username">@$username</div>
-            </div>
-            
-            <div class="video-title">$title</div>
-            
-            <video class="video-player" controls autoplay muted loop>
-                <source src="$fullVideoUrl" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-            
-            <div class="stats">
-                <div class="stat">
-                    <span class="stat-number">$viewsCount</span>
-                    <span class="stat-label">Views</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-number">$likesCount</span>
-                    <span class="stat-label">Likes</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-number">$sharesCount</span>
-                    <span class="stat-label">Shares</span>
-                </div>
-            </div>
-            
-            <a href="#" class="download-app" onclick="openApp()">
-                📱 Open in TikTok Clone App
-            </a>
-            
-            <div class="footer">
-                Made with ❤️ on TikTok Clone
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        function openApp() {
-            // Try to open the mobile app
-            const userAgent = navigator.userAgent.toLowerCase();
-            
-            if (userAgent.includes('android')) {
-                // Android deep link
-                window.location.href = 'tiktokclone://video/$videoId';
-                
-                // Fallback after 2 seconds
-                setTimeout(() => {
-                    window.location.href = 'https://play.google.com/store/apps/details?id=com.yourcompany.tiktokclone';
-                }, 2000);
-                
-            } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
-                // iOS deep link
-                window.location.href = 'tiktokclone://video/$videoId';
-                
-                // Fallback after 2 seconds
-                setTimeout(() => {
-                    window.location.href = 'https://apps.apple.com/app/your-tiktok-clone/id123456789';
-                }, 2000);
-                
-            } else {
-                // Desktop - show QR code or redirect to web app
-                alert('Scan QR code with your phone to open in the app!');
-            }
-        }
-        
-        // Track page view
-        fetch('/api/videos/$videoId/share', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                shareMethod: 'public_view',
-                shareText: 'Public video view'
-            })
-        }).catch(console.error);
-    </script>
-</body>
-</html>
-''';
+  final templatePath = 'public_video_landing.html';
+  String html = '';
+  try {
+    html = File(templatePath).readAsStringSync();
+    html = html.replaceAll('{{videoId}}', videoId)
+               .replaceAll('{{title}}', title)
+               .replaceAll('{{username}}', username)
+               .replaceAll('{{userAvatar}}', userAvatar ?? '')
+               .replaceAll('{{videoUrl}}', videoUrl)
+               .replaceAll('{{viewsCount}}', viewsCount.toString())
+               .replaceAll('{{likesCount}}', likesCount.toString())
+               .replaceAll('{{sharesCount}}', sharesCount.toString())
+               .replaceAll('{{createdAt}}', createdAt ?? '');
+  } catch (e) {
+    html = '<html><body>Error loading video page</body></html>';
+  }
+  return html;
 }
 
 // Helper function for video not found page
@@ -835,6 +526,6 @@ void _trackPublicView(String videoId) {
       );
     }();
   } catch (e) {
-    print('[Server] Error tracking public view: $e');
+    // No debug print here
   }
 }

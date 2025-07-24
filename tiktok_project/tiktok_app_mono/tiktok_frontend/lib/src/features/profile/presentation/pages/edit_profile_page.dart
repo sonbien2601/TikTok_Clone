@@ -95,9 +95,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                    'Cache Valid: ${status['cache_valid']}';
       });
       
-      print('[EditProfilePage] Initialized upload URL: $_uploadUrl');
     } catch (e) {
-      print('[EditProfilePage] Error initializing upload URL: $e');
       setState(() {
         _debugInfo = 'Error: Could not initialize upload URL\n$e';
       });
@@ -148,7 +146,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               _selectedDateOfBirth = DateFormat('dd/MM/yyyy').parse(user.dateOfBirth!);
               _dobController.text = user.dateOfBirth!;
             } catch (e2) {
-              print('[EditProfilePage] Could not parse date: ${user.dateOfBirth}');
             }
           }
         }
@@ -177,7 +174,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _isLoading = false;
       });
     } catch (e) {
-      print('[EditProfilePage] Error loading profile: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -460,12 +456,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     NetworkConfig.clearCache();
     await _initializeUploadUrl();
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Connection refreshed'),
-        duration: Duration(seconds: 1),
-      ),
-    );
   }
 
   Future<void> _pickAvatarImage() async {
@@ -558,7 +548,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         }
       }
     } catch (e) {
-      print('[EditProfilePage] Error saving profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -19,8 +19,6 @@ class ProfileService {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final url = Uri.parse('$baseUrl/$userId');
       
-      print('[ProfileService] Updating profile for user: $userId');
-      
       final response = await http.put(
         url,
         headers: {
@@ -36,18 +34,13 @@ class ProfileService {
         }),
       ).timeout(const Duration(seconds: 10));
 
-      print('[ProfileService] Update Profile Response Status: ${response.statusCode}');
-      
       if (response.statusCode == 200) {
-        print('[ProfileService] Profile updated successfully');
         return true;
       } else {
         final errorMessage = 'Failed to update profile. Status: ${response.statusCode}';
-        print('[ProfileService] $errorMessage, Body: ${response.body}');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[ProfileService] Error updating profile: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -111,8 +104,6 @@ class ProfileService {
         updateData['avatarUrl'] = avatarUrl;
       }
       
-      print('[ProfileService] Updating profile with data: ${updateData.keys}');
-      
       final response = await http.put(
         url,
         headers: {
@@ -122,19 +113,13 @@ class ProfileService {
         body: jsonEncode(updateData),
       ).timeout(const Duration(seconds: 10));
       
-      print('[ProfileService] Update response: ${response.statusCode}');
-      print('[ProfileService] Update response body: ${response.body}');
-      
       if (response.statusCode == 200) {
-        print('[ProfileService] Profile with bank info updated successfully');
         return true;
       } else {
         final errorMessage = 'Failed to update profile. Status: ${response.statusCode}';
-        print('[ProfileService] $errorMessage, Body: ${response.body}');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[ProfileService] Error updating profile: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -189,9 +174,6 @@ class ProfileService {
         updateData['bankQrImageUrl'] = bankQrImageUrl;
       }
       
-      print('[ProfileService] Updating profile with data: ${updateData.keys}');
-      print('[ProfileService] bankQrImageUrl: $bankQrImageUrl');
-      
       final response = await http.put(
         url,
         headers: {
@@ -201,19 +183,13 @@ class ProfileService {
         body: jsonEncode(updateData),
       ).timeout(const Duration(seconds: 10));
       
-      print('[ProfileService] Update response: ${response.statusCode}');
-      print('[ProfileService] Update response body: ${response.body}');
-      
       if (response.statusCode == 200) {
-        print('[ProfileService] Profile with bank info updated successfully');
         return true;
       } else {
         final errorMessage = 'Failed to update profile. Status: ${response.statusCode}';
-        print('[ProfileService] $errorMessage, Body: ${response.body}');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[ProfileService] Error updating profile: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -228,8 +204,6 @@ class ProfileService {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final url = Uri.parse('$baseUrl/$userId/liked-videos?page=$page&limit=$limit');
       
-      print('[ProfileService] Getting liked videos for user: $userId');
-      
       final response = await http.get(
         url,
         headers: {
@@ -238,8 +212,6 @@ class ProfileService {
         },
       ).timeout(const Duration(seconds: 10));
 
-      print('[ProfileService] Get Liked Videos Response Status: ${response.statusCode}');
-      
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         
@@ -270,11 +242,9 @@ class ProfileService {
         };
       } else {
         final errorMessage = 'Failed to get liked videos. Status: ${response.statusCode}';
-        print('[ProfileService] $errorMessage, Body: ${response.body}');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[ProfileService] Error getting liked videos: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -289,8 +259,6 @@ class ProfileService {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final url = Uri.parse('$baseUrl/$userId/saved-videos?page=$page&limit=$limit');
       
-      print('[ProfileService] Getting saved videos for user: $userId');
-      
       final response = await http.get(
         url,
         headers: {
@@ -299,8 +267,6 @@ class ProfileService {
         },
       ).timeout(const Duration(seconds: 10));
 
-      print('[ProfileService] Get Saved Videos Response Status: ${response.statusCode}');
-      
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         
@@ -331,11 +297,9 @@ class ProfileService {
         };
       } else {
         final errorMessage = 'Failed to get saved videos. Status: ${response.statusCode}';
-        print('[ProfileService] $errorMessage, Body: ${response.body}');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[ProfileService] Error getting saved videos: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -350,8 +314,6 @@ class ProfileService {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final url = Uri.parse('$baseUrl/$userId/videos?page=$page&limit=$limit');
       
-      print('[ProfileService] Getting user videos for user: $userId');
-      
       final response = await http.get(
         url,
         headers: {
@@ -360,8 +322,6 @@ class ProfileService {
         },
       ).timeout(const Duration(seconds: 10));
 
-      print('[ProfileService] Get User Videos Response Status: ${response.statusCode}');
-      
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         
@@ -392,11 +352,9 @@ class ProfileService {
         };
       } else {
         final errorMessage = 'Failed to get user videos. Status: ${response.statusCode}';
-        print('[ProfileService] $errorMessage, Body: ${response.body}');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[ProfileService] Error getting user videos: $e');
       if (e.toString().contains('Connection refused') || 
           e.toString().contains('Failed host lookup')) {
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -409,13 +367,10 @@ class ProfileService {
   Future<bool> testConnection() async {
     try {
       final healthUrl = Uri.parse('${await NetworkConfig.getFileBaseUrl()}/health');
-      print('[ProfileService] Testing connection to $healthUrl');
       
       final response = await http.get(healthUrl).timeout(const Duration(seconds: 5));
-      print('[ProfileService] Health check response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
-      print('[ProfileService] Connection test failed: $e');
       return false;
     }
   }

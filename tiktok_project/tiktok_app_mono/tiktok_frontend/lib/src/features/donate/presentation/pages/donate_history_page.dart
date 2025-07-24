@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DonateHistoryPage extends StatefulWidget {
   const DonateHistoryPage({Key? key}) : super(key: key);
@@ -137,6 +138,21 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
     return 'http://localhost:8080/$imageUrl';
   }
 
+  String fixImageUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    String base;
+    if (kIsWeb) {
+      base = 'http://localhost:8080';
+    } else {
+      base = 'http://10.0.2.2:8080';
+    }
+    if (url.startsWith('/')) {
+      return base + url;
+    }
+    return base + '/' + url;
+  }
+
   // Tham khảo từ DonatePage - method hiển thị QR dialog
   void _showQrImageDialog(String imageUrl) {
     showDialog(
@@ -198,7 +214,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.network(
-                              qrUrl,
+                              fixImageUrl(imageUrl),
                               fit: BoxFit.contain,
                               loadingBuilder: (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
@@ -210,7 +226,6 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                                 );
                               },
                               errorBuilder: (context, error, stackTrace) {
-                                print('[DonateHistoryPage] Error loading QR image: $error');
                                 return Container(
                                   height: 300,
                                   decoration: BoxDecoration(
@@ -236,7 +251,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'URL: $qrUrl',
+                                        'URL: $imageUrl',
                                         style: TextStyle(
                                           color: Colors.grey[500],
                                           fontSize: 10,
@@ -350,7 +365,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                                   item['recipientAvatarUrl'] != null
                                       ? CircleAvatar(
                                           radius: 25,
-                                          backgroundImage: NetworkImage(_buildImageUrl(item['recipientAvatarUrl'])),
+                                          backgroundImage: NetworkImage(fixImageUrl(item['recipientAvatarUrl'])),
                                         )
                                       : const CircleAvatar(
                                           radius: 25,
@@ -465,7 +480,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                                 ),
                                 const SizedBox(height: 12),
                                 GestureDetector(
-                                  onTap: () => _showQrImageDialog(item['donateProofImageUrl']),
+                                  onTap: () => _showQrImageDialog(item['donateProofImageUrl']!),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(12),
@@ -480,7 +495,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(12),
                                       child: Image.network(
-                                        _buildImageUrl(item['donateProofImageUrl']),
+                                        fixImageUrl(item['donateProofImageUrl']),
                                         height: 200,
                                         width: 200,
                                         fit: BoxFit.contain,
@@ -496,7 +511,6 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                                           );
                                         },
                                         errorBuilder: (context, error, stackTrace) {
-                                          print('[DonateHistoryPage] Error loading image: $error');
                                           return Container(
                                             height: 200,
                                             width: 200,
@@ -683,7 +697,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                         (isReceived ? item['senderAvatarUrl'] : item['recipientAvatarUrl']) != null
                             ? CircleAvatar(
                                 radius: 25,
-                                backgroundImage: NetworkImage(_buildImageUrl(isReceived ? item['senderAvatarUrl'] : item['recipientAvatarUrl'])),
+                                backgroundImage: NetworkImage(fixImageUrl(isReceived ? item['senderAvatarUrl'] : item['recipientAvatarUrl'])),
                               )
                             : const CircleAvatar(
                                 radius: 25,
@@ -762,7 +776,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with SingleTicker
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(
-                                _buildImageUrl(item['donateProofImageUrl']),
+                                fixImageUrl(item['donateProofImageUrl']),
                                 height: 50,
                                 width: 50,
                                 fit: BoxFit.cover,

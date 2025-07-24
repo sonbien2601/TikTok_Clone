@@ -13,7 +13,8 @@ class AuthController {
     try {
       final requestBody = await request.readAsString();
       if (requestBody.isEmpty) {
-        return Response(400, body: jsonEncode({'error': 'Request body is empty'}));
+        return Response(400,
+            body: jsonEncode({'error': 'Request body is empty'}));
       }
       final Map<String, dynamic> payload = jsonDecode(requestBody);
 
@@ -26,27 +27,38 @@ class AuthController {
       final avatarUrl = payload['avatarUrl'] as String?;
 
       if (username == null || email == null || password == null) {
-        return Response(400, body: jsonEncode({'error': 'Username, email, and password are required'}));
+        return Response(400,
+            body: jsonEncode(
+                {'error': 'Username, email, and password are required'}));
       }
       if (password.length < 6) {
-        return Response(400, body: jsonEncode({'error': 'Password must be at least 6 characters long'}));
+        return Response(400,
+            body: jsonEncode(
+                {'error': 'Password must be at least 6 characters long'}));
       }
 
       final usersCollection = DatabaseService.db.collection('users');
-      final Map<String, dynamic>? existingUserEmail = await usersCollection.findOne({'email': email});
+      final Map<String, dynamic>? existingUserEmail =
+          await usersCollection.findOne({'email': email});
       if (existingUserEmail != null) {
-        return Response(409, body: jsonEncode({'error': 'Email already exists'}));
+        return Response(409,
+            body: jsonEncode({'error': 'Email already exists'}));
       }
-      final Map<String, dynamic>? existingUserUsername = await usersCollection.findOne({'username': username.toLowerCase()}); // Kiểm tra username chữ thường
+      final Map<String, dynamic>? existingUserUsername = await usersCollection
+          .findOne({
+        'username': username.toLowerCase()
+      }); // Kiểm tra username chữ thường
       if (existingUserUsername != null) {
-        return Response(409, body: jsonEncode({'error': 'Username already exists'}));
+        return Response(409,
+            body: jsonEncode({'error': 'Username already exists'}));
       }
 
-      final hashedPassword = crypto.sha256.convert(utf8.encode(password)).toString();
-      print('[AuthController] Registering user. Email: $email, Hashed: $hashedPassword');
+      final hashedPassword =
+          crypto.sha256.convert(utf8.encode(password)).toString();
 
       final newUser = User(
-        username: username, // Lưu username gốc (có thể phân biệt hoa thường nếu muốn, nhưng tìm kiếm nên chuẩn hóa)
+        username:
+            username, // Lưu username gốc (có thể phân biệt hoa thường nếu muốn, nhưng tìm kiếm nên chuẩn hóa)
         email: email,
         passwordHash: hashedPassword,
         dateOfBirth: dobString != null ? DateTime.tryParse(dobString) : null,
@@ -58,9 +70,13 @@ class AuthController {
       final result = await usersCollection.insertOne(newUser.toMap());
 
       if (result.isSuccess) {
-        final Map<String, dynamic>? insertedUserMapNullable = await usersCollection.findOne({'_id': result.id});
+        final Map<String, dynamic>? insertedUserMapNullable =
+            await usersCollection.findOne({'_id': result.id});
         if (insertedUserMapNullable == null) {
-          return Response.internalServerError(body: jsonEncode({'error': 'Failed to retrieve user details after registration'}));
+          return Response.internalServerError(
+              body: jsonEncode({
+            'error': 'Failed to retrieve user details after registration'
+          }));
         }
         Map<String, dynamic> insertedUserMap = insertedUserMapNullable;
         insertedUserMap.remove('passwordHash');
@@ -68,17 +84,24 @@ class AuthController {
           insertedUserMap['_id'] = result.id!.toHexString();
         }
         return Response(201,
-            body: jsonEncode({'message': 'User registered successfully', 'user': insertedUserMap}),
+            body: jsonEncode({
+              'message': 'User registered successfully',
+              'user': insertedUserMap
+            }),
             headers: {'Content-Type': 'application/json'});
       } else {
-        return Response.internalServerError(body: jsonEncode({'error': 'Failed to register user: ${result.writeError?.errmsg}'}));
+        return Response.internalServerError(
+            body: jsonEncode({
+          'error': 'Failed to register user: ${result.writeError?.errmsg}'
+        }));
       }
     } catch (e, stackTrace) {
-      print('[AuthController.register] Error: $e \nStack: $stackTrace');
       if (e is FormatException) {
-        return Response(400, body: jsonEncode({'error': 'Invalid JSON format'}));
+        return Response(400,
+            body: jsonEncode({'error': 'Invalid JSON format'}));
       }
-      return Response.internalServerError(body: jsonEncode({'error': 'An unexpected error occurred'}));
+      return Response.internalServerError(
+          body: jsonEncode({'error': 'An unexpected error occurred'}));
     }
   }
 
@@ -87,7 +110,8 @@ class AuthController {
     try {
       final requestBody = await request.readAsString();
       if (requestBody.isEmpty) {
-        return Response(400, body: jsonEncode({'error': 'Request body is empty'}));
+        return Response(400,
+            body: jsonEncode({'error': 'Request body is empty'}));
       }
       final Map<String, dynamic> payload = jsonDecode(requestBody);
 
@@ -95,7 +119,11 @@ class AuthController {
       final password = payload['password'] as String?;
 
       if (identifier == null || password == null) {
-        return Response(400, body: jsonEncode({'error': 'Identifier (username or email) and password are required'}));
+        return Response(400,
+            body: jsonEncode({
+              'error':
+                  'Identifier (username or email) and password are required'
+            }));
       }
 
       final usersCollection = DatabaseService.db.collection('users');
@@ -103,40 +131,48 @@ class AuthController {
       final lowercasedIdentifier = identifier.toLowerCase();
 
       if (lowercasedIdentifier.contains('@')) {
-        userDocNullable = await usersCollection.findOne({'email': lowercasedIdentifier});
+        userDocNullable =
+            await usersCollection.findOne({'email': lowercasedIdentifier});
       }
-      userDocNullable ??= await usersCollection.findOne({'username': lowercasedIdentifier});
+      userDocNullable ??=
+          await usersCollection.findOne({'username': lowercasedIdentifier});
 
       if (userDocNullable == null) {
-        return Response(401, body: jsonEncode({'error': 'Invalid identifier or password'}));
+        return Response(401,
+            body: jsonEncode({'error': 'Invalid identifier or password'}));
       }
       Map<String, dynamic> userDoc = userDocNullable;
 
       final storedPasswordHash = userDoc['passwordHash'] as String?;
       if (storedPasswordHash == null) {
-        return Response(500, body: jsonEncode({'error': 'User data integrity issue: missing password hash.'}));
+        return Response(500,
+            body: jsonEncode({
+              'error': 'User data integrity issue: missing password hash.'
+            }));
       }
 
-      final inputPasswordHash = crypto.sha256.convert(utf8.encode(password)).toString();
+      final inputPasswordHash =
+          crypto.sha256.convert(utf8.encode(password)).toString();
       if (inputPasswordHash != storedPasswordHash) {
-        return Response(401, body: jsonEncode({'error': 'Invalid identifier or password'}));
+        return Response(401,
+            body: jsonEncode({'error': 'Invalid identifier or password'}));
       }
 
       userDoc.remove('passwordHash');
       if (userDoc['_id'] is ObjectId) {
         userDoc['_id'] = (userDoc['_id'] as ObjectId).toHexString();
       }
-      
-      // TODO: Implement JWT generation and return token
+
       return Response.ok(
           jsonEncode({'message': 'Login successful', 'user': userDoc}),
           headers: {'Content-Type': 'application/json'});
     } catch (e, stackTrace) {
-      print('[AuthController.login] Error: $e \nStack: $stackTrace');
       if (e is FormatException) {
-        return Response(400, body: jsonEncode({'error': 'Invalid JSON format'}));
+        return Response(400,
+            body: jsonEncode({'error': 'Invalid JSON format'}));
       }
-      return Response.internalServerError(body: jsonEncode({'error': 'An unexpected error occurred'}));
+      return Response.internalServerError(
+          body: jsonEncode({'error': 'An unexpected error occurred'}));
     }
   }
 }

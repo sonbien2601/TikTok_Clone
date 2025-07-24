@@ -7,23 +7,20 @@ import 'package:tiktok_frontend/src/features/notifications/domain/services/notif
 import 'package:tiktok_frontend/src/features/notifications/domain/services/notification_popup_service.dart'; // NEW IMPORT
 import 'package:tiktok_frontend/src/core/services/http_service.dart';
 import 'package:tiktok_frontend/src/app.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; // Đảm bảo dòng này KHÔNG bị comment
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize HTTP service for analytics
-  HttpService().initialize();
-  
-  print('🚀 TikTok Clone App Starting...');
-  print('🔔 Notification services initializing...');
-  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform, // BẮT BUỘC phải có dòng này!
+  );
   runApp(
     MultiProvider(
       providers: [
         // HTTP Service Provider
         Provider<HttpService>(
           create: (_) {
-            print('📡 HTTP Service created');
             return HttpService();
           },
           dispose: (_, service) => service.dispose(),
@@ -32,7 +29,6 @@ void main() {
         // NEW: Notification Service Provider
         Provider<NotificationService>(
           create: (_) {
-            print('🔔 Notification Service created');
             return NotificationService();
           },
         ),
@@ -40,11 +36,9 @@ void main() {
         // NEW: Notification Popup Service Provider  
         Provider<NotificationPopupService>(
           create: (_) {
-            print('🔔 Notification Popup Service created');
             return NotificationPopupService();
           },
           dispose: (_, service) {
-            print('🔔 Notification Popup Service disposed');
             service.dispose();
           },
         ),
@@ -52,7 +46,6 @@ void main() {
         // Auth Service Provider (updated to work with notification popup)
         ChangeNotifierProvider(
           create: (context) {
-            print('🔐 Auth Service created');
             return AuthService();
           },
         ),
@@ -60,7 +53,6 @@ void main() {
         // Analytics Service Provider
         ChangeNotifierProvider<AnalyticsService>(
           create: (_) {
-            print('📊 Analytics Service created');
             return AnalyticsService();
           },
         ),
@@ -69,5 +61,4 @@ void main() {
     ),
   );
   
-  print('✅ TikTok Clone App started successfully');
 }

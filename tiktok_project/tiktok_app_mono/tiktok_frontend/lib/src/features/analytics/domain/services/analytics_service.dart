@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/analytics/domain/services/analytics_service.dart
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
@@ -18,10 +17,8 @@ class AnalyticsService extends ChangeNotifier {
     String viewSource = 'feed',
   }) async {
     try {
-      debugPrint('[AnalyticsService] Tracking view for video: $videoId');
-      
       final response = await _httpService.post(
-        '/api/analytics/track-view', // FIXED: Added /api/ prefix
+        '/api/analytics/track-view',
         body: {
           'videoId': videoId,
           'userId': userId,
@@ -32,16 +29,11 @@ class AnalyticsService extends ChangeNotifier {
       );
 
       if (response.isSuccess) {
-        final data = response.json;
-        debugPrint('[AnalyticsService] View tracked successfully: ${data?['message']}');
         return true;
       } else {
-        final error = response.json;
-        debugPrint('[AnalyticsService] Failed to track view: ${error?['error']}');
         return false;
       }
     } catch (e) {
-      debugPrint('[AnalyticsService] Error tracking view: $e');
       return false;
     }
   }
@@ -49,26 +41,19 @@ class AnalyticsService extends ChangeNotifier {
   // Bulk track views (for performance optimization)
   Future<bool> trackViewsBulk(List<Map<String, dynamic>> views) async {
     try {
-      debugPrint('[AnalyticsService] Bulk tracking ${views.length} views');
-      
       final response = await _httpService.post(
-        '/api/analytics/track-views-bulk', // FIXED: Added /api/ prefix
+        '/api/analytics/track-views-bulk',
         body: {
           'views': views,
         },
       );
 
       if (response.isSuccess) {
-        final data = response.json;
-        debugPrint('[AnalyticsService] Bulk views tracked: ${data?['totalProcessed']} processed');
         return true;
       } else {
-        final error = response.json;
-        debugPrint('[AnalyticsService] Failed to bulk track views: ${error?['error']}');
         return false;
       }
     } catch (e) {
-      debugPrint('[AnalyticsService] Error bulk tracking views: $e');
       return false;
     }
   }
@@ -76,25 +61,16 @@ class AnalyticsService extends ChangeNotifier {
   // Get video analytics
   Future<VideoAnalytics?> getVideoAnalytics(String videoId) async {
     try {
-      debugPrint('[AnalyticsService] Getting analytics for video: $videoId');
-      
-      final response = await _httpService.get('/api/analytics/video/$videoId'); // FIXED: Added /api/ prefix
+      final response = await _httpService.get('/api/analytics/video/$videoId');
 
       if (response.isSuccess) {
         final data = response.json;
         final analytics = VideoAnalytics.fromJson(data?['analytics']);
-        debugPrint('[AnalyticsService] Video analytics retrieved successfully');
         return analytics;
-      } else if (response.isNotFound) {
-        debugPrint('[AnalyticsService] Video not found: $videoId');
-        return null;
       } else {
-        final error = response.json;
-        debugPrint('[AnalyticsService] Failed to get video analytics: ${error?['error']}');
         return null;
       }
     } catch (e) {
-      debugPrint('[AnalyticsService] Error getting video analytics: $e');
       return null;
     }
   }
@@ -102,25 +78,16 @@ class AnalyticsService extends ChangeNotifier {
   // Get user analytics
   Future<UserAnalytics?> getUserAnalytics(String userId) async {
     try {
-      debugPrint('[AnalyticsService] Getting analytics for user: $userId');
-      
-      final response = await _httpService.get('/api/analytics/user/$userId'); // FIXED: Added /api/ prefix
+      final response = await _httpService.get('/api/analytics/user/$userId');
 
       if (response.isSuccess) {
         final data = response.json;
         final analytics = UserAnalytics.fromJson(data?['analytics']);
-        debugPrint('[AnalyticsService] User analytics retrieved successfully');
         return analytics;
-      } else if (response.isNotFound) {
-        debugPrint('[AnalyticsService] User not found or has no videos: $userId');
-        return null;
       } else {
-        final error = response.json;
-        debugPrint('[AnalyticsService] Failed to get user analytics: ${error?['error']}');
         return null;
       }
     } catch (e) {
-      debugPrint('[AnalyticsService] Error getting user analytics: $e');
       return null;
     }
   }
@@ -131,10 +98,8 @@ class AnalyticsService extends ChangeNotifier {
     int limit = 10,
   }) async {
     try {
-      debugPrint('[AnalyticsService] Getting trending videos: timeframe=$timeframe, limit=$limit');
-      
       final response = await _httpService.get(
-        '/api/analytics/trending', // FIXED: Added /api/ prefix
+        '/api/analytics/trending',
         queryParameters: {
           'timeframe': timeframe,
           'limit': limit.toString(),
@@ -147,15 +112,11 @@ class AnalyticsService extends ChangeNotifier {
             .map((json) => TrendingVideo.fromJson(json))
             .toList();
         
-        debugPrint('[AnalyticsService] Retrieved ${trendingVideos.length} trending videos');
         return trendingVideos;
       } else {
-        final error = response.json;
-        debugPrint('[AnalyticsService] Failed to get trending videos: ${error?['error']}');
         return [];
       }
     } catch (e) {
-      debugPrint('[AnalyticsService] Error getting trending videos: $e');
       return [];
     }
   }
@@ -163,10 +124,8 @@ class AnalyticsService extends ChangeNotifier {
   // Get analytics summary
   Future<AnalyticsSummary?> getAnalyticsSummary({String timeframe = '24h'}) async {
     try {
-      debugPrint('[AnalyticsService] Getting analytics summary: timeframe=$timeframe');
-      
       final response = await _httpService.get(
-        '/api/analytics/summary', // FIXED: Added /api/ prefix
+        '/api/analytics/summary',
         queryParameters: {
           'timeframe': timeframe,
         },
@@ -175,15 +134,11 @@ class AnalyticsService extends ChangeNotifier {
       if (response.isSuccess) {
         final data = response.json;
         final summary = AnalyticsSummary.fromJson(data?['summary']);
-        debugPrint('[AnalyticsService] Analytics summary retrieved successfully');
         return summary;
       } else {
-        final error = response.json;
-        debugPrint('[AnalyticsService] Failed to get analytics summary: ${error?['error']}');
         return null;
       }
     } catch (e) {
-      debugPrint('[AnalyticsService] Error getting analytics summary: $e');
       return null;
     }
   }
@@ -203,7 +158,6 @@ class AnalyticsService extends ChangeNotifier {
     final lastTrack = _lastViewTracks[videoId];
     
     if (lastTrack != null && now.difference(lastTrack) < _viewTrackCooldown) {
-      debugPrint('[AnalyticsService] Skipping view track due to cooldown: $videoId');
       return;
     }
 
@@ -215,14 +169,11 @@ class AnalyticsService extends ChangeNotifier {
       userId: userId,
       viewDuration: viewDuration,
       viewSource: viewSource,
-    ).catchError((error) {
-      debugPrint('[AnalyticsService] Background view tracking failed: $error');
-    });
+    ).catchError((error) {});
   }
 
   // Clear view tracking cache (useful for testing or memory management)
   static void clearViewTrackingCache() {
     _lastViewTracks.clear();
-    debugPrint('[AnalyticsService] View tracking cache cleared');
   }
 }

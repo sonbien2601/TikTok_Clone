@@ -16,6 +16,7 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:http_parser/http_parser.dart';
 import 'package:tiktok_frontend/src/core/navigation/main_tab_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 enum Gender { male, female, other }
 
@@ -33,6 +34,13 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _dobController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
+  String? _verificationId;
+  bool _otpSent = false;
+  bool _otpVerified = false;
+  bool _isSendingOtp = false;
+  bool _isVerifyingOtp = false;
 
   bool _isLoading = false;
   DateTime? _selectedDateOfBirth;
@@ -68,6 +76,8 @@ class _RegisterPageState extends State<RegisterPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _dobController.dispose();
+    _phoneController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -233,6 +243,62 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  Future<void> _sendOtp() async {
+    setState(() { _isSendingOtp = true; });
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: _phoneController.text.trim(),
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Tự động xác thực (Android)
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          setState(() { _otpVerified = true; });
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gửi OTP thất bại: ${e.message}'), backgroundColor: Colors.red),
+          );
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _otpSent = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã gửi mã OTP về điện thoại.')),
+          );
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          setState(() { _verificationId = verificationId; });
+        },
+      );
+    } finally {
+      setState(() { _isSendingOtp = false; });
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    if (_verificationId == null) return;
+    setState(() { _isVerifyingOtp = true; });
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: _otpController.text.trim(),
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      setState(() { _otpVerified = true; });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Xác thực OTP thành công!'), backgroundColor: Colors.green),
+      );
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Xác thực OTP thất bại: ${e.message}'), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() { _isVerifyingOtp = false; });
+    }
+  }
+
   Future<void> _register() async {
     FocusScope.of(context).unfocus();
 
@@ -264,6 +330,13 @@ class _RegisterPageState extends State<RegisterPage> {
           const SnackBar(content: Text('Vui lòng chọn giới tính của bạn')),
         );
       }
+      return;
+    }
+
+    if (!_otpVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng xác thực số điện thoại bằng OTP!'), backgroundColor: Colors.red),
+      );
       return;
     }
 
@@ -376,6 +449,46 @@ class _RegisterPageState extends State<RegisterPage> {
                   if (!value.contains('@') || !value.contains('.')) return 'Please enter a valid email';
                   return null;
                 }),
+                AuthTextField(
+                  controller: _phoneController,
+                  hintText: 'Số điện thoại',
+                  prefixIcon: Icons.phone,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Vui lòng nhập số điện thoại';
+                    if (!RegExp(r'^\+?\d{9,15}$').hasMatch(value)) return 'Số điện thoại không hợp lệ';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _otpController,
+                        decoration: const InputDecoration(
+                          hintText: 'Nhập mã OTP',
+                          prefixIcon: Icon(Icons.sms),
+                        ),
+                        keyboardType: TextInputType.number,
+                        enabled: _otpSent,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _isSendingOtp ? null : _sendOtp,
+                      child: _isSendingOtp ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Gửi OTP'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: (_otpSent && !_isVerifyingOtp) ? _verifyOtp : null,
+                      child: _isVerifyingOtp ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Xác thực'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_otpVerified)
+                  const Text('Số điện thoại đã xác thực!', style: TextStyle(color: Colors.green)),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: TextFormField(

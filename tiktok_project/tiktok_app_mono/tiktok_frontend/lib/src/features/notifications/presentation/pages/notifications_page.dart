@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/notifications/presentation/pages/notifications_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
@@ -90,7 +89,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
         });
       }
     } catch (e) {
-      print('[NotificationsPage] Error loading notifications: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -129,7 +127,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
         });
       }
     } catch (e) {
-      print('[NotificationsPage] Error loading more notifications: $e');
       if (mounted) {
         setState(() {
           _isLoadingMore = false;
@@ -159,55 +156,49 @@ class _NotificationsPageState extends State<NotificationsPage> {
         });
       }
     } catch (e) {
-      print('[NotificationsPage] Error loading unread count: $e');
+      // No debug print here
     }
   }
 
   Future<void> _markAsRead(NotificationModel notification) async {
-  print('[NotificationsPage] _markAsRead called for notification: ${notification.id}');
-  print('[NotificationsPage] Notification type: ${notification.type}');
-  print('[NotificationsPage] Related video ID: ${notification.relatedVideoId}');
-  print('[NotificationsPage] Has related video: ${notification.hasRelatedVideo}');
-  
-  final authService = Provider.of<AuthService>(context, listen: false);
-  if (!authService.isAuthenticated || authService.currentUser == null) {
-    return;
-  }
-
-  if (notification.isRead || _markingAsRead.contains(notification.id)) {
-    return;
-  }
-
-  setState(() {
-    _markingAsRead.add(notification.id);
-  });
-
-  try {
-    final newUnreadCount = await _notificationService.markNotificationAsRead(
-      notification.id,
-      authService.currentUser!.id,
-    );
-
-    if (mounted) {
-      setState(() {
-        // Update notification in list
-        final index = _notifications.indexWhere((n) => n.id == notification.id);
-        if (index != -1) {
-          _notifications[index] = _notifications[index].copyWith(isRead: true);
-        }
-        _unreadCount = newUnreadCount;
-        _markingAsRead.remove(notification.id);
-      });
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.isAuthenticated || authService.currentUser == null) {
+      return;
     }
-  } catch (e) {
-    print('[NotificationsPage] Error marking notification as read: $e');
-    if (mounted) {
-      setState(() {
-        _markingAsRead.remove(notification.id);
-      });
+
+    if (notification.isRead || _markingAsRead.contains(notification.id)) {
+      return;
+    }
+
+    setState(() {
+      _markingAsRead.add(notification.id);
+    });
+
+    try {
+      final newUnreadCount = await _notificationService.markNotificationAsRead(
+        notification.id,
+        authService.currentUser!.id,
+      );
+
+      if (mounted) {
+        setState(() {
+          // Update notification in list
+          final index = _notifications.indexWhere((n) => n.id == notification.id);
+          if (index != -1) {
+            _notifications[index] = _notifications[index].copyWith(isRead: true);
+          }
+          _unreadCount = newUnreadCount;
+          _markingAsRead.remove(notification.id);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _markingAsRead.remove(notification.id);
+        });
+      }
     }
   }
-}
 
   Future<void> _markAllAsRead() async {
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -234,7 +225,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
         );
       }
     } catch (e) {
-      print('[NotificationsPage] Error marking all as read: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -282,7 +272,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
         );
       }
     } catch (e) {
-      print('[NotificationsPage] Error deleting notification: $e');
       if (mounted) {
         setState(() {
           _deleting.remove(notification.id);

@@ -20,11 +20,11 @@ import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_pa
 
 class FullScreenVideoItem extends StatefulWidget {
   final VideoPost videoPost;
-  final bool isActive; 
+  final bool isActive;
   final Function(VideoPlayerController) onVideoInitialized;
-  final VoidCallback onDispose; 
-  final VoidCallback onLikeButtonPressed; 
-  final VoidCallback onSaveButtonPressed; 
+  final VoidCallback onDispose;
+  final VoidCallback onLikeButtonPressed;
+  final VoidCallback onSaveButtonPressed;
   final Function(int)? onSharesCountChanged;
 
   const FullScreenVideoItem({
@@ -42,17 +42,18 @@ class FullScreenVideoItem extends StatefulWidget {
   State<FullScreenVideoItem> createState() => _FullScreenVideoItemState();
 }
 
-class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsBindingObserver {
+class _FullScreenVideoItemState extends State<FullScreenVideoItem>
+    with WidgetsBindingObserver {
   VideoPlayerController? _videoPlayerController;
   bool _isInitialized = false;
   bool _isPlaying = false;
-  bool _showControlsOverlay = false; 
+  bool _showControlsOverlay = false;
   bool _isBuffering = false;
   bool _hasError = false;
-  
+
   late int _localCommentsCount;
   late int _localSharesCount;
-  
+
   DateTime? _playStartTime;
   Duration _totalWatchTime = Duration.zero;
   bool _hasTrackedInitialView = false;
@@ -65,81 +66,87 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     WidgetsBinding.instance.addObserver(this);
     _localCommentsCount = widget.videoPost.commentsCount;
     _localSharesCount = widget.videoPost.sharesCount;
-    
+
     _analyticsService = Provider.of<AnalyticsService>(context, listen: false);
-    
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] === INIT STATE ===");
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] Username: '${widget.videoPost.user.username}'");
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] Views: ${widget.videoPost.viewsCount}");
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] Shares: ${widget.videoPost.sharesCount}");
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] URL: ${widget.videoPost.videoUrl}");
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] ================");
-    
+
     _initializeVideoPlayer();
   }
 
   Future<void> _initializeVideoPlayer() async {
-    await _videoPlayerController?.dispose(); 
-    _isInitialized = false; _isPlaying = false; _isBuffering = true; _hasError = false;
-    if (mounted) setState((){});
+    await _videoPlayerController?.dispose();
+    _isInitialized = false;
+    _isPlaying = false;
+    _isBuffering = true;
+    _hasError = false;
+    if (mounted) setState(() {});
 
-    if (widget.videoPost.videoUrl.isEmpty || !Uri.tryParse(widget.videoPost.videoUrl)!.isAbsolute) {
-      print("[FullScreenVideoItem: ${widget.videoPost.id}] Video URL is empty or invalid: '${widget.videoPost.videoUrl}'. Cannot initialize player.");
+    if (widget.videoPost.videoUrl.isEmpty ||
+        !Uri.tryParse(widget.videoPost.videoUrl)!.isAbsolute) {
       if (mounted) setState(() => _hasError = true);
       return;
     }
 
     try {
-      _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(widget.videoPost.videoUrl));
-      
+      _videoPlayerController = VideoPlayerController.networkUrl(
+          Uri.parse(widget.videoPost.videoUrl));
+
       _videoPlayerController!.addListener(_videoPlayerListener);
 
       await _videoPlayerController!.initialize();
-      print("[FullScreenVideoItem: ${widget.videoPost.id}] Player Initialized. Duration: ${_videoPlayerController!.value.duration}");
-      
+
       await _videoPlayerController!.setLooping(true);
-      
+
       if (mounted) {
-        setState(() { _isInitialized = true; _isBuffering = false; });
-        widget.onVideoInitialized(_videoPlayerController!); 
+        setState(() {
+          _isInitialized = true;
+          _isBuffering = false;
+        });
+        widget.onVideoInitialized(_videoPlayerController!);
 
         if (widget.isActive) {
           await _videoPlayerController!.play();
-          print("[FullScreenVideoItem: ${widget.videoPost.id}] Auto-playing because isActive is true.");
-          
+
           _trackVideoPlay();
         } else {
           await _videoPlayerController!.pause();
         }
       }
     } catch (e, s) {
-      print("[FullScreenVideoItem: ${widget.videoPost.id}] Error initializing video player for ${widget.videoPost.videoUrl}: $e");
-      print(s);
-      if (mounted) setState(() { _isInitialized = false; _hasError = true; _isBuffering = false; });
+      if (mounted)
+        setState(() {
+          _isInitialized = false;
+          _hasError = true;
+          _isBuffering = false;
+        });
     }
   }
-  
+
   void _videoPlayerListener() {
-    if (!mounted || _videoPlayerController == null || !_videoPlayerController!.value.isInitialized) return;
+    if (!mounted ||
+        _videoPlayerController == null ||
+        !_videoPlayerController!.value.isInitialized) return;
     final value = _videoPlayerController!.value;
     bool needsSetState = false;
-    
-    if (_isPlaying != value.isPlaying) { 
-      _isPlaying = value.isPlaying; 
+
+    if (_isPlaying != value.isPlaying) {
+      _isPlaying = value.isPlaying;
       needsSetState = true;
-      
+
       if (_isPlaying) {
         _trackVideoPlay();
       } else {
         _trackVideoPause();
       }
     }
-    
-    if (_isBuffering != value.isBuffering) { _isBuffering = value.isBuffering; needsSetState = true; }
-    if (value.hasError && !_hasError) { 
-      print("[FullScreenVideoItem: ${widget.videoPost.id}] VideoPlayerError: ${value.errorDescription}");
-      _hasError = true; needsSetState = true;
-      
+
+    if (_isBuffering != value.isBuffering) {
+      _isBuffering = value.isBuffering;
+      needsSetState = true;
+    }
+    if (value.hasError && !_hasError) {
+      _hasError = true;
+      needsSetState = true;
+
       _trackVideoError(value.errorDescription);
     }
     if (needsSetState) setState(() {});
@@ -149,13 +156,11 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     if (!_isViewingActivelyTracked) {
       _playStartTime = DateTime.now();
       _isViewingActivelyTracked = true;
-      
+
       if (!_hasTrackedInitialView) {
         _trackInitialView();
         _hasTrackedInitialView = true;
       }
-      
-      print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Started tracking video play at ${_playStartTime}");
     }
   }
 
@@ -164,9 +169,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
       final watchDuration = DateTime.now().difference(_playStartTime!);
       _totalWatchTime += watchDuration;
       _isViewingActivelyTracked = false;
-      
-      print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Paused video, watch duration: ${watchDuration.inSeconds}s, total: ${_totalWatchTime.inSeconds}s");
-      
+
       if (watchDuration.inSeconds >= 1) {
         _trackViewWithDuration(watchDuration.inSeconds);
       }
@@ -176,38 +179,31 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
   void _trackInitialView() {
     final authService = Provider.of<AuthService>(context, listen: false);
     final currentUserId = authService.currentUser?.id;
-    
+
     _analyticsService.autoTrackView(
       videoId: widget.videoPost.id,
       userId: currentUserId,
       viewDuration: 0,
       viewSource: 'feed',
     );
-    
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Tracked initial view for user: $currentUserId");
   }
 
   void _trackViewWithDuration(int durationSeconds) {
     final authService = Provider.of<AuthService>(context, listen: false);
     final currentUserId = authService.currentUser?.id;
-    
+
     _analyticsService.autoTrackView(
       videoId: widget.videoPost.id,
       userId: currentUserId,
       viewDuration: durationSeconds,
       viewSource: 'feed',
     );
-    
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Tracked view with duration: ${durationSeconds}s for user: $currentUserId");
   }
 
-  void _trackVideoError(String? errorDescription) {
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Video error tracked: $errorDescription");
-  }
+  void _trackVideoError(String? errorDescription) {}
 
   void _trackVideoComplete() {
     _trackVideoPause();
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Video playback completed");
   }
 
   void _resetAnalyticsTracking() {
@@ -216,11 +212,12 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     _totalWatchTime = Duration.zero;
     _hasTrackedInitialView = false;
     _isViewingActivelyTracked = false;
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] 📊 Analytics tracking reset");
   }
 
   void _showShareBottomSheet() {
-    if (_isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+    if (_isInitialized &&
+        _videoPlayerController != null &&
+        _videoPlayerController!.value.isInitialized) {
       _videoPlayerController!.pause();
     }
 
@@ -240,7 +237,10 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
         },
       ),
     ).then((_) {
-      if (widget.isActive && _isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+      if (widget.isActive &&
+          _isInitialized &&
+          _videoPlayerController != null &&
+          _videoPlayerController!.value.isInitialized) {
         _videoPlayerController!.play();
       }
     });
@@ -249,14 +249,13 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
   @override
   void didUpdateWidget(FullScreenVideoItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
-    if (widget.videoPost.user.username != oldWidget.videoPost.user.username) {
-      print("[FullScreenVideoItem: ${widget.videoPost.id}] ⚠️ Username changed from '${oldWidget.videoPost.user.username}' to '${widget.videoPost.user.username}'");
-    }
-    
+
+    if (widget.videoPost.user.username != oldWidget.videoPost.user.username) {}
+
     if (widget.isActive != oldWidget.isActive) {
-      print("[FullScreenVideoItem: ${widget.videoPost.id}] isActive changed to ${widget.isActive}");
-      if (_isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+      if (_isInitialized &&
+          _videoPlayerController != null &&
+          _videoPlayerController!.value.isInitialized) {
         if (widget.isActive) {
           _videoPlayerController!.play();
         } else {
@@ -264,21 +263,21 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
         }
       }
     }
-    
+
     if (widget.videoPost.id != oldWidget.videoPost.id) {
       _resetAnalyticsTracking();
     }
-    
+
     if (widget.videoPost.videoUrl != oldWidget.videoPost.videoUrl) {
-        print("[FullScreenVideoItem: ${widget.videoPost.id}] Video URL changed. Re-initializing player.");
-        _resetAnalyticsTracking();
-        _initializeVideoPlayer();
+      _resetAnalyticsTracking();
+      _initializeVideoPlayer();
     }
-    if (widget.videoPost.isLikedByCurrentUser != oldWidget.videoPost.isLikedByCurrentUser ||
+    if (widget.videoPost.isLikedByCurrentUser !=
+            oldWidget.videoPost.isLikedByCurrentUser ||
         widget.videoPost.likesCount != oldWidget.videoPost.likesCount ||
-        widget.videoPost.isSavedByCurrentUser != oldWidget.videoPost.isSavedByCurrentUser) {
+        widget.videoPost.isSavedByCurrentUser !=
+            oldWidget.videoPost.isSavedByCurrentUser) {
       if (mounted) {
-        print("[FullScreenVideoItem: ${widget.videoPost.id}] Like/Save state updated from prop. Rebuilding.");
         setState(() {});
       }
     }
@@ -297,8 +296,10 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (!_isInitialized || _videoPlayerController == null || !_videoPlayerController!.value.isInitialized) return;
-    
+    if (!_isInitialized ||
+        _videoPlayerController == null ||
+        !_videoPlayerController!.value.isInitialized) return;
+
     if (state == AppLifecycleState.paused) {
       if (_videoPlayerController!.value.isPlaying) {
         _videoPlayerController!.pause();
@@ -312,30 +313,35 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
 
   @override
   void dispose() {
-    print("[FullScreenVideoItem: ${widget.videoPost.id}] dispose called.");
-    
     _trackVideoPause();
-    
+
     WidgetsBinding.instance.removeObserver(this);
-    widget.onDispose(); 
+    widget.onDispose();
     _videoPlayerController?.removeListener(_videoPlayerListener);
     _videoPlayerController?.dispose();
     super.dispose();
   }
 
   void _togglePlayPause() {
-    if (!_isInitialized || _videoPlayerController == null || !_videoPlayerController!.value.isInitialized) return;
+    if (!_isInitialized ||
+        _videoPlayerController == null ||
+        !_videoPlayerController!.value.isInitialized) return;
     setState(() {
-      _videoPlayerController!.value.isPlaying ? _videoPlayerController!.pause() : _videoPlayerController!.play();
-      _showControlsOverlay = true; 
+      _videoPlayerController!.value.isPlaying
+          ? _videoPlayerController!.pause()
+          : _videoPlayerController!.play();
+      _showControlsOverlay = true;
     });
-    Future.delayed(const Duration(seconds: 1), () { 
-      if (mounted && _showControlsOverlay) setState(() => _showControlsOverlay = false);
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted && _showControlsOverlay)
+        setState(() => _showControlsOverlay = false);
     });
   }
 
   void _showComments() {
-    if (_isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+    if (_isInitialized &&
+        _videoPlayerController != null &&
+        _videoPlayerController!.value.isInitialized) {
       _videoPlayerController!.pause();
     }
 
@@ -355,7 +361,10 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
         },
       ),
     ).then((_) {
-      if (widget.isActive && _isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+      if (widget.isActive &&
+          _isInitialized &&
+          _videoPlayerController != null &&
+          _videoPlayerController!.value.isInitialized) {
         _videoPlayerController!.play();
       }
     });
@@ -366,31 +375,141 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     if (!authService.isAuthenticated || authService.currentUser == null) {
       return false;
     }
-    
+
     return authService.currentUser!.id != widget.videoPost.user.id;
   }
 
-  // Thêm method để lấy avatar URL tương tự SearchPage
+  // Cải thiện method để lấy avatar URL với edge case handling
   String _getAvatarUrl(String? avatarUrl) {
-    if (avatarUrl == null || avatarUrl.isEmpty) return '';
-    if (avatarUrl.startsWith('http')) return avatarUrl;
+    // Handle null hoặc empty hoặc string "null"
+    if (avatarUrl == null || avatarUrl.isEmpty || avatarUrl == "null") {
+      return '';
+    }
 
-    // Sử dụng NetworkConfig để lấy file URLs
-    return '${NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080'}$avatarUrl';
+    // Nếu đã là URL đầy đủ thì return luôn
+    if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+      return avatarUrl;
+    }
+
+    // Tạo URL đầy đủ từ NetworkConfig
+    final networkStatus = NetworkConfig.getStatus();
+    final baseUrl = networkStatus['cached_url'] ??
+        networkStatus['base_url'] ??
+        'http://localhost:8080';
+
+    // Đảm bảo không có double slash
+    final cleanAvatarUrl =
+        avatarUrl.startsWith('/') ? avatarUrl : '/$avatarUrl';
+    final fullUrl = '$baseUrl$cleanAvatarUrl';
+
+    return fullUrl;
+  }
+
+  // Widget hiển thị avatar được cải thiện - đảm bảo hiển thị cho TẤT CẢ users
+  Widget _buildUserAvatar() {
+    return Consumer<AuthService>(
+      builder: (context, authService, child) {
+        // Luôn ưu tiên hiển thị avatar của user trong video post
+        final isCurrentUser =
+            authService.currentUser?.id == widget.videoPost.user.id;
+
+        String? avatarUrl;
+        String sourceInfo;
+
+        if (isCurrentUser &&
+            authService.currentUser?.avatarUrl != null &&
+            authService.currentUser!.avatarUrl!.isNotEmpty) {
+          // Chỉ dùng current user avatar nếu là chính họ VÀ có avatar hợp lệ
+          avatarUrl = authService.currentUser!.avatarUrl;
+          sourceInfo = 'current user: ${authService.currentUser!.username}';
+        } else {
+          // LUÔN fallback về video post user avatar (kể cả khi null)
+          avatarUrl = widget.videoPost.user.avatarUrl;
+          sourceInfo = 'video post user: ${widget.videoPost.user.username}';
+        }
+
+        // Xử lý case avatarUrl == "null" string hoặc null thật
+        if (avatarUrl == null || avatarUrl == "null" || avatarUrl.isEmpty) {
+          return _buildInitialAvatar();
+        }
+
+        final fullAvatarUrl = _getAvatarUrl(avatarUrl);
+
+        return CircleAvatar(
+          radius: 16,
+          backgroundColor: Theme.of(context).primaryColor,
+          child: ClipOval(
+            child: Image.network(
+              fullAvatarUrl,
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey.shade300,
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback về initial letter khi load failed
+                return _buildInitialAvatar();
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget fallback cho avatar khi không có ảnh
+  Widget _buildInitialAvatar() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).primaryColor,
+            Theme.of(context).primaryColor.withOpacity(0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          (widget.videoPost.user.username.isNotEmpty
+                  ? widget.videoPost.user.username[0]
+                  : '?')
+              .toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    print('[FullScreenVideoItem] DEBUG: user.id = \'${widget.videoPost.user.id}\', user.username = \'${widget.videoPost.user.username}\', avatarUrl = \'${widget.videoPost.user.avatarUrl}\'');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] === BUILD ===');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] Username: "${widget.videoPost.user.username}"');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] Views: ${widget.videoPost.formattedViewsCount}');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] Likes: ${widget.videoPost.likesCount}');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] Shares: ${_localSharesCount}');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] Engagement: ${widget.videoPost.formattedEngagementRate}');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] IsActive: ${widget.isActive}');
-    print('[FullScreenVideoItem: ${widget.videoPost.id}] =============');
-    
     final screenSize = MediaQuery.of(context).size;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -404,79 +523,76 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (_isInitialized && _videoPlayerController != null && _videoPlayerController!.value.isInitialized)
+            if (_isInitialized &&
+                _videoPlayerController != null &&
+                _videoPlayerController!.value.isInitialized)
               SizedBox.expand(
-                child: FittedBox(
-                  fit: BoxFit.cover, 
-                  child: SizedBox(
-                    width: _videoPlayerController!.value.size.width, 
-                    height: _videoPlayerController!.value.size.height, 
-                    child: VideoPlayer(_videoPlayerController!)
-                  )
-                )
-              )
-            else if (_hasError || widget.videoPost.videoUrl.isEmpty || !Uri.tryParse(widget.videoPost.videoUrl)!.isAbsolute)
-               Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center, 
-                  children: [ 
-                    const Icon(Icons.error_outline, color: Colors.red, size: 48), 
-                    const SizedBox(height: 8), 
-                    Text(
-                      widget.videoPost.videoUrl.isEmpty || !Uri.tryParse(widget.videoPost.videoUrl)!.isAbsolute ? "Video URL không hợp lệ." : "Không thể phát video.", 
-                      style: const TextStyle(color: Colors.white, backgroundColor: Colors.black54)
-                    )
-                  ]
-                )
-              )
-            else 
-              const Center(child: CircularProgressIndicator(color: Colors.white)),
-              
-            if (_isBuffering && !_isPlaying) 
-              const Center(child: CircularProgressIndicator(color: Colors.white70, strokeWidth: 2)),
-              
-            if (_isInitialized && _showControlsOverlay) 
+                  child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                          width: _videoPlayerController!.value.size.width,
+                          height: _videoPlayerController!.value.size.height,
+                          child: VideoPlayer(_videoPlayerController!))))
+            else if (_hasError ||
+                widget.videoPost.videoUrl.isEmpty ||
+                !Uri.tryParse(widget.videoPost.videoUrl)!.isAbsolute)
               Center(
-                child: Icon(
-                  _isPlaying ? Icons.pause_circle_outline : Icons.play_circle_outline, 
-                  color: Colors.white.withOpacity(0.7), 
-                  size: 70
-                )
-              ),
-            
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                    const Icon(Icons.error_outline,
+                        color: Colors.red, size: 48),
+                    const SizedBox(height: 8),
+                    Text(
+                        widget.videoPost.videoUrl.isEmpty ||
+                                !Uri.tryParse(widget.videoPost.videoUrl)!
+                                    .isAbsolute
+                            ? "Video URL không hợp lệ."
+                            : "Không thể phát video.",
+                        style: const TextStyle(
+                            color: Colors.white,
+                            backgroundColor: Colors.black54))
+                  ]))
+            else
+              const Center(
+                  child: CircularProgressIndicator(color: Colors.white)),
+            if (_isBuffering && !_isPlaying)
+              const Center(
+                  child: CircularProgressIndicator(
+                      color: Colors.white70, strokeWidth: 2)),
+            if (_isInitialized && _showControlsOverlay)
+              Center(
+                  child: Icon(
+                      _isPlaying
+                          ? Icons.pause_circle_outline
+                          : Icons.play_circle_outline,
+                      color: Colors.white.withOpacity(0.7),
+                      size: 70)),
             Positioned(
-              top: MediaQuery.of(context).padding.top + 10, 
-              left: 0, right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Following", 
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7), 
-                      fontSize: 16, 
-                      fontWeight: FontWeight.w500
-                    )
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    height: 12, 
-                    width: 1, 
-                    color: Colors.white.withOpacity(0.7)
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    "For You", 
-                    style: TextStyle(
-                      color: Colors.white, 
-                      fontSize: 17, 
-                      fontWeight: FontWeight.bold
-                    )
-                  ),
-                ],
-              )
-            ),
-            
+                top: MediaQuery.of(context).padding.top + 10,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("Following",
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500)),
+                    const SizedBox(width: 12),
+                    Container(
+                        height: 12,
+                        width: 1,
+                        color: Colors.white.withOpacity(0.7)),
+                    const SizedBox(width: 12),
+                    const Text("For You",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold)),
+                  ],
+                )),
             Positioned(
               top: MediaQuery.of(context).padding.top + 10,
               right: 16,
@@ -484,7 +600,8 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(12),
@@ -492,7 +609,8 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.visibility, color: Colors.white, size: 14),
+                        const Icon(Icons.visibility,
+                            color: Colors.white, size: 14),
                         const SizedBox(width: 4),
                         Text(
                           widget.videoPost.formattedViewsCount,
@@ -505,12 +623,16 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                       ],
                     ),
                   ),
-                  if (widget.videoPost.hasViralPotential || widget.videoPost.isTrending) ...[
+                  if (widget.videoPost.hasViralPotential ||
+                      widget.videoPost.isTrending) ...[
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: widget.videoPost.isTrending ? Colors.red.withOpacity(0.9) : Colors.orange.withOpacity(0.9),
+                        color: widget.videoPost.isTrending
+                            ? Colors.red.withOpacity(0.9)
+                            : Colors.orange.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -526,229 +648,177 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
                 ],
               ),
             ),
-            
             Positioned(
-              bottom: 0, left: 0, right: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
               child: Container(
                 padding: EdgeInsets.only(
-                  left: 16.0, 
-                  right: 10.0, 
-                  bottom: kBottomNavigationBarHeight + bottomPadding + 10.0, 
-                  top: 10
-                ),
+                    left: 16.0,
+                    right: 10.0,
+                    bottom: kBottomNavigationBarHeight + bottomPadding + 10.0,
+                    top: 10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.black.withOpacity(0.0), 
-                      Colors.black.withOpacity(0.3), 
-                      Colors.black.withOpacity(0.7)
-                    ], 
-                    begin: Alignment.topCenter, 
-                    end: Alignment.bottomCenter
-                  )
-                ),
+                    gradient: LinearGradient(colors: [
+                  Colors.black.withOpacity(0.0),
+                  Colors.black.withOpacity(0.3),
+                  Colors.black.withOpacity(0.7)
+                ], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: Column(
-                        mainAxisSize: MainAxisSize.min, 
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              // Thay thế FutureBuilder bằng cách xử lý avatar URL trực tiếp
-                              Builder(
-                                builder: (context) {
-                                  final authService = Provider.of<AuthService>(context);
-                                  final isCurrentUser = authService.currentUser?.id == widget.videoPost.user.id;
-                                  final avatarUrl = isCurrentUser
-                                      ? _getAvatarUrl(authService.currentUser?.avatarUrl)
-                                      : _getAvatarUrl(widget.videoPost.user.avatarUrl);
-                                  return CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: Theme.of(context).primaryColor,
-                                    backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                                    child: avatarUrl.isEmpty
-                                        ? Text(
-                                            (widget.videoPost.user.username.isNotEmpty 
-                                                ? widget.videoPost.user.username[0] 
-                                                : '?').toUpperCase(),
-                                            style: const TextStyle(
+                          Row(children: [
+                            // Sử dụng widget avatar được cải thiện
+                            _buildUserAvatar(),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '@${widget.videoPost.user.username}',
+                                          style: const TextStyle(
                                               color: Colors.white,
+                                              fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          )
-                                        : null,
-                                  );
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            '@${widget.videoPost.user.username}', 
-                                            style: const TextStyle(
-                                              color: Colors.white, 
-                                              fontSize: 16, 
-                                              fontWeight: FontWeight.bold, 
                                               shadows: <Shadow>[
                                                 Shadow(
-                                                  offset: Offset(0.0, 1.0), 
-                                                  blurRadius: 2.0, 
-                                                  color: Colors.black54
-                                                )
-                                              ]
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                                    offset: Offset(0.0, 1.0),
+                                                    blurRadius: 2.0,
+                                                    color: Colors.black54)
+                                              ]),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        if (_shouldShowFollowButton()) ...[
-                                          const SizedBox(width: 8),
-                                          FollowButtonWidget(
-                                            targetUserId: widget.videoPost.user.id,
-                                            targetUsername: widget.videoPost.user.username,
-                                            initialIsFollowing: false,
-                                            initialFollowerCount: 0,
-                                            style: FollowButtonStyle.compact,
-                                            onFollowChanged: () {
-                                              print('[FullScreenVideoItem] Follow state changed for ${widget.videoPost.user.username}');
-                                            },
-                                          ),
-                                        ],
+                                      ),
+                                      if (_shouldShowFollowButton()) ...[
+                                        const SizedBox(width: 8),
+                                        FollowButtonWidget(
+                                          targetUserId:
+                                              widget.videoPost.user.id,
+                                          targetUsername:
+                                              widget.videoPost.user.username,
+                                          initialIsFollowing: false,
+                                          initialFollowerCount: 0,
+                                          style: FollowButtonStyle.compact,
+                                          onFollowChanged: () {},
+                                        ),
                                       ],
-                                    ),
-                                  ],
-                                ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ]
-                          ),
-                          const SizedBox(height: 8),
-                          
-                          Text(
-                            widget.videoPost.description, 
-                            maxLines: 2, 
-                            overflow: TextOverflow.ellipsis, 
-                            style: const TextStyle(
-                              color: Colors.white, 
-                              fontSize: 14, 
-                              shadows: <Shadow>[
-                                Shadow(
-                                  offset: Offset(0.0, 1.0), 
-                                  blurRadius: 2.0, 
-                                  color: Colors.black54
-                                )
-                              ]
-                            )
-                          ),
-                          
-                          if (widget.videoPost.hashtags.isNotEmpty) 
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0), 
-                              child: Text(
-                                widget.videoPost.hashtags.map((h) => '#$h').join(' '), 
-                                maxLines: 1, 
-                                overflow: TextOverflow.ellipsis, 
-                                style: const TextStyle(
-                                  color: Colors.white, 
-                                  fontSize: 13, 
-                                  fontWeight: FontWeight.w500
-                                )
-                              )
                             ),
+                          ]),
                           const SizedBox(height: 8),
-                          
-                          Row(
-                            children: [
-                              const Icon(Icons.music_note, color: Colors.white, size: 16), 
-                              const SizedBox(width: 4),
-                              Expanded(
+                          Text(widget.videoPost.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  shadows: <Shadow>[
+                                    Shadow(
+                                        offset: Offset(0.0, 1.0),
+                                        blurRadius: 2.0,
+                                        color: Colors.black54)
+                                  ])),
+                          if (widget.videoPost.hashtags.isNotEmpty)
+                            Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
                                 child: Text(
-                                  widget.videoPost.audioName ?? "Original Sound", 
-                                  maxLines: 1, 
-                                  overflow: TextOverflow.ellipsis, 
-                                  style: const TextStyle(
-                                    color: Colors.white, 
-                                    fontSize: 13, 
-                                    shadows: <Shadow>[
-                                      Shadow(
-                                        offset: Offset(0.0, 1.0), 
-                                        blurRadius: 2.0, 
-                                        color: Colors.black54
-                                      )
-                                    ]
-                                  )
-                                )
-                              ),
-                            ]
-                          ),
+                                    widget.videoPost.hashtags
+                                        .map((h) => '#$h')
+                                        .join(' '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500))),
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            const Icon(Icons.music_note,
+                                color: Colors.white, size: 16),
+                            const SizedBox(width: 4),
+                            Expanded(
+                                child: Text(
+                                    widget.videoPost.audioName ??
+                                        "Original Sound",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        shadows: <Shadow>[
+                                          Shadow(
+                                              offset: Offset(0.0, 1.0),
+                                              blurRadius: 2.0,
+                                              color: Colors.black54)
+                                        ]))),
+                          ]),
                         ],
                       ),
                     ),
-                    
                     SizedBox(
                       width: 60,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(height: 25), 
-                          
+                          const SizedBox(height: 25),
+
                           _buildInteractionButton(
-                            icon: widget.videoPost.isLikedByCurrentUser ? Icons.favorite_rounded : Icons.favorite_border_outlined, 
-                            label: widget.videoPost.formattedLikesCount, 
-                            onPressed: widget.onLikeButtonPressed, 
-                            iconColor: widget.videoPost.isLikedByCurrentUser ? Colors.redAccent[400] : Colors.white
-                          ),
+                              icon: widget.videoPost.isLikedByCurrentUser
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_outlined,
+                              label: widget.videoPost.formattedLikesCount,
+                              onPressed: widget.onLikeButtonPressed,
+                              iconColor: widget.videoPost.isLikedByCurrentUser
+                                  ? Colors.redAccent[400]
+                                  : Colors.white),
                           const SizedBox(height: 20),
-                          
+
                           _buildInteractionButton(
-                            icon: Icons.chat_bubble_outline_rounded, 
-                            label: _localCommentsCount.toString(), 
-                            onPressed: _showComments
-                          ),
+                              icon: Icons.chat_bubble_outline_rounded,
+                              label: _localCommentsCount.toString(),
+                              onPressed: _showComments),
                           const SizedBox(height: 20),
-                          
+
                           _buildInteractionButton(
-                            icon: widget.videoPost.isSavedByCurrentUser ? Icons.bookmark_rounded : Icons.bookmark_border_outlined, 
-                            label: "Save", 
-                            onPressed: widget.onSaveButtonPressed, 
-                            iconColor: widget.videoPost.isSavedByCurrentUser ? Colors.amberAccent[400] : Colors.white
-                          ),
+                              icon: widget.videoPost.isSavedByCurrentUser
+                                  ? Icons.bookmark_rounded
+                                  : Icons.bookmark_border_outlined,
+                              label: "Save",
+                              onPressed: widget.onSaveButtonPressed,
+                              iconColor: widget.videoPost.isSavedByCurrentUser
+                                  ? Colors.amberAccent[400]
+                                  : Colors.white),
                           const SizedBox(height: 20),
-                          
+
                           _buildInteractionButton(
-                            icon: Icons.share_rounded, 
-                            label: _formatCount(_localSharesCount), 
-                            onPressed: _showShareBottomSheet,
-                            iconColor: _localSharesCount > 0 ? Colors.greenAccent[400] : Colors.white
-                          ),
-                          const SizedBox(height: 20), 
+                              icon: Icons.share_rounded,
+                              label: _formatCount(_localSharesCount),
+                              onPressed: _showShareBottomSheet,
+                              iconColor: _localSharesCount > 0
+                                  ? Colors.greenAccent[400]
+                                  : Colors.white),
+                          const SizedBox(height: 20),
+
+                          // Nút Donate được đặt trong cột tương tác
+                          _buildDonateButton(),
+                          const SizedBox(height: 25),
                         ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            Positioned(
-              right: 16,
-              bottom: 120,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.volunteer_activism),
-                label: const Text('Donate'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pinkAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                ),
-                onPressed: () => _showDonateDialog(context),
               ),
             ),
           ],
@@ -757,39 +827,66 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem> with WidgetsB
     );
   }
 
-  Widget _buildInteractionButton({
-    required IconData icon, 
-    String? label, 
-    required VoidCallback onPressed, 
-    Color? iconColor
-  }) {
+  Widget _buildInteractionButton(
+      {required IconData icon,
+      String? label,
+      required VoidCallback onPressed,
+      Color? iconColor}) {
     return InkWell(
       onTap: onPressed,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon, 
-            color: iconColor ?? Colors.white, 
-            size: 30
-          ),
+          Icon(icon, color: iconColor ?? Colors.white, size: 30),
           const SizedBox(height: 4),
           Text(
             label ?? "0",
             style: const TextStyle(
-              color: Colors.white, 
-              fontSize: 12, 
-              fontWeight: FontWeight.w600, 
-              shadows: <Shadow>[
-                Shadow(
-                  offset: Offset(0.0, 1.0), 
-                  blurRadius: 2.0, 
-                  color: Colors.black45
-                )
-              ]
-            ),
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                shadows: <Shadow>[
+                  Shadow(
+                      offset: Offset(0.0, 1.0),
+                      blurRadius: 2.0,
+                      color: Colors.black45)
+                ]),
           ),
         ],
+      ),
+    );
+  }
+
+  // Widget riêng cho nút Donate với thiết kế phù hợp
+  Widget _buildDonateButton() {
+    return InkWell(
+      onTap: () => _showDonateDialog(context),
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.pinkAccent.shade200,
+              Colors.pinkAccent.shade400,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.pinkAccent.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.volunteer_activism_rounded,
+          color: Colors.white,
+          size: 24,
+        ),
       ),
     );
   }

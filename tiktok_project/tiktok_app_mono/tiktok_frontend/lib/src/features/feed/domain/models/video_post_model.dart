@@ -78,10 +78,19 @@ class VideoPost {
     }
 
     // Create VideoUser with all required fields
+    final rawAvatarUrl = userData['avatarUrl'] as String?;
+    String? avatarUrl;
+    if (rawAvatarUrl != null && rawAvatarUrl.isNotEmpty) {
+      if (rawAvatarUrl.startsWith('http')) {
+        avatarUrl = rawAvatarUrl;
+      } else {
+        avatarUrl = _buildCleanUrl(fileBaseUrl, rawAvatarUrl);
+      }
+    }
     final videoUser = VideoUser(
       id: userId,
       username: username,
-      avatarUrl: userData['avatarUrl'] as String?,
+      avatarUrl: avatarUrl,
       bio: userData['bio'] as String?,
       isVerified: userData['isVerified'] as bool? ?? false,
       followersCount: userData['followersCount'] as int? ?? 0,

@@ -8,8 +8,6 @@ class FollowController {
   
   // Follow a user
   static Future<Response> followUserHandler(Request request, String currentUserId, String targetUserId) async {
-    print('[FollowController] User $currentUserId attempting to follow $targetUserId');
-    
     try {
       // Validate user IDs
       if (currentUserId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(currentUserId) ||
@@ -82,7 +80,6 @@ class FollowController {
       }
 
     } catch (e, stackTrace) {
-      print('[FollowController.followUser] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
         body: jsonEncode({'error': 'An unexpected error occurred: $e'})
       );
@@ -91,8 +88,6 @@ class FollowController {
 
   // Unfollow a user
   static Future<Response> unfollowUserHandler(Request request, String currentUserId, String targetUserId) async {
-    print('[FollowController] User $currentUserId attempting to unfollow $targetUserId');
-    
     try {
       // Validate user IDs
       if (currentUserId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(currentUserId) ||
@@ -165,7 +160,6 @@ class FollowController {
       }
 
     } catch (e, stackTrace) {
-      print('[FollowController.unfollowUser] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
         body: jsonEncode({'error': 'An unexpected error occurred: $e'})
       );
@@ -174,8 +168,6 @@ class FollowController {
 
   // Get followers list
   static Future<Response> getFollowersHandler(Request request, String userId) async {
-    print('[FollowController] Getting followers for user: $userId');
-    
     try {
       if (userId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
         return Response(400, body: jsonEncode({'error': 'Invalid user ID format'}));
@@ -252,7 +244,6 @@ class FollowController {
       );
 
     } catch (e, stackTrace) {
-      print('[FollowController.getFollowers] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
         body: jsonEncode({'error': 'An unexpected error occurred: $e'})
       );
@@ -261,8 +252,6 @@ class FollowController {
 
   // Get following list
   static Future<Response> getFollowingHandler(Request request, String userId) async {
-    print('[FollowController] Getting following for user: $userId');
-    
     try {
       if (userId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
         return Response(400, body: jsonEncode({'error': 'Invalid user ID format'}));
@@ -339,7 +328,6 @@ class FollowController {
       );
 
     } catch (e, stackTrace) {
-      print('[FollowController.getFollowing] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
         body: jsonEncode({'error': 'An unexpected error occurred: $e'})
       );
@@ -348,8 +336,6 @@ class FollowController {
 
   // Check follow status between two users
   static Future<Response> checkFollowStatusHandler(Request request, String currentUserId, String targetUserId) async {
-    print('[FollowController] Checking follow status between $currentUserId and $targetUserId');
-    
     try {
       if (currentUserId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(currentUserId) ||
           targetUserId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(targetUserId)) {
@@ -386,7 +372,6 @@ class FollowController {
       );
 
     } catch (e, stackTrace) {
-      print('[FollowController.checkFollowStatus] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
         body: jsonEncode({'error': 'An unexpected error occurred: $e'})
       );

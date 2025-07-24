@@ -8,7 +8,6 @@ class ProfileController {
   // Get user profile by ID
   static Future<Response> getUserProfileHandler(
       Request request, String userId) async {
-    print('[ProfileController] Attempting to get profile for userId: $userId');
     try {
       if (userId.length != 24 ||
           !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
@@ -41,15 +40,9 @@ class ProfileController {
             .toList();
       }
 
-      // Log bank image info for debugging
-      print(
-          '[ProfileController] User bank image URL: ${userDoc['bankImageUrl']}');
-
       return Response.ok(jsonEncode(userDoc),
           headers: {'Content-Type': 'application/json'});
     } catch (e, stackTrace) {
-      print(
-          '[ProfileController.getUserProfile] Error: $e \nStack: $stackTrace');
       if (e is FormatException && e.message.contains("ObjectId")) {
         return Response(400,
             body: jsonEncode({
@@ -64,7 +57,6 @@ class ProfileController {
   // Update user profile
   static Future<Response> updateUserProfileHandler(
       Request request, String userId) async {
-    print('[ProfileController] Updating profile for userId: $userId');
     try {
       if (userId.length != 24 ||
           !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
@@ -155,8 +147,6 @@ class ProfileController {
         modifyBuilder =
             modifyBuilder.set('bankImageUrl', updateData['bankImageUrl']);
         hasUpdates = true;
-        print(
-            '[ProfileController] Updating bankImageUrl: ${updateData['bankImageUrl']}');
       }
 
       // Avatar URL update
@@ -174,13 +164,9 @@ class ProfileController {
       modifyBuilder =
           modifyBuilder.set('updatedAt', DateTime.now().toIso8601String());
 
-      print('[ProfileController] Updating user with data: ${updateData.keys}');
-
       // Update user using the correct modify builder
       final updateResult = await usersCollection.updateOne(
           where.id(userObjectId), modifyBuilder);
-
-      print('[ProfileController] Update result: ${updateResult.isSuccess}');
 
       if (updateResult.isSuccess) {
         // Get updated user data
@@ -192,11 +178,6 @@ class ProfileController {
             updatedUser['_id'] = (updatedUser['_id'] as ObjectId).toHexString();
           }
 
-          print(
-              '[ProfileController] Profile updated successfully for user: $userId');
-          print(
-              '[ProfileController] Updated bank image URL: ${updatedUser['bankImageUrl']}');
-
           return Response.ok(
               jsonEncode({
                 'message': 'Profile updated successfully',
@@ -206,16 +187,12 @@ class ProfileController {
         }
       }
 
-      print(
-          '[ProfileController] Update failed. WriteResult: ${updateResult.writeError?.errmsg ?? "Unknown error"}');
       return Response.internalServerError(
           body: jsonEncode({
         'error':
             'Failed to update profile: ${updateResult.writeError?.errmsg ?? "Unknown error"}'
       }));
     } catch (e, stackTrace) {
-      print(
-          '[ProfileController.updateUserProfile] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
           body: jsonEncode({'error': 'An unexpected error occurred: $e'}));
     }
@@ -224,7 +201,6 @@ class ProfileController {
   // Get liked videos for user
   static Future<Response> getLikedVideosHandler(
       Request request, String userId) async {
-    print('[ProfileController] Getting liked videos for userId: $userId');
     try {
       if (userId.length != 24 ||
           !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
@@ -286,8 +262,6 @@ class ProfileController {
       return Response.ok(jsonEncode(responseData),
           headers: {'Content-Type': 'application/json'});
     } catch (e, stackTrace) {
-      print(
-          '[ProfileController.getLikedVideos] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
           body: jsonEncode({'error': 'An unexpected error occurred: $e'}));
     }
@@ -296,7 +270,6 @@ class ProfileController {
   // Get saved videos for user
   static Future<Response> getSavedVideosHandler(
       Request request, String userId) async {
-    print('[ProfileController] Getting saved videos for userId: $userId');
     try {
       if (userId.length != 24 ||
           !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
@@ -376,8 +349,6 @@ class ProfileController {
       return Response.ok(jsonEncode(responseData),
           headers: {'Content-Type': 'application/json'});
     } catch (e, stackTrace) {
-      print(
-          '[ProfileController.getSavedVideos] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
           body: jsonEncode({'error': 'An unexpected error occurred: $e'}));
     }
@@ -386,7 +357,6 @@ class ProfileController {
   // Get user's own videos
   static Future<Response> getUserVideosHandler(
       Request request, String userId) async {
-    print('[ProfileController] Getting user videos for userId: $userId');
     try {
       if (userId.length != 24 ||
           !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
@@ -448,7 +418,6 @@ class ProfileController {
       return Response.ok(jsonEncode(responseData),
           headers: {'Content-Type': 'application/json'});
     } catch (e, stackTrace) {
-      print('[ProfileController.getUserVideos] Error: $e \nStack: $stackTrace');
       return Response.internalServerError(
           body: jsonEncode({'error': 'An unexpected error occurred: $e'}));
     }

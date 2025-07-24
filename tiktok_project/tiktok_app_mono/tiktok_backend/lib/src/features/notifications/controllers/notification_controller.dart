@@ -8,8 +8,6 @@ class NotificationController {
   
   // Get notifications for a user
   static Future<Response> getUserNotificationsHandler(Request request, String userId, int page, int limit) async {
-    print('[NotificationController] Getting notifications for userId: $userId (page: $page, limit: $limit)');
-    
     try {
       // Validate userId
       ObjectId userObjectId;
@@ -96,9 +94,8 @@ class NotificationController {
       );
       
     } catch (e, s) {
-      print('[NotificationController.getUserNotificationsHandler] Error: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({'error': 'Failed to fetch notifications: $e'}),
+        body: jsonEncode({'error': 'Failed to fetch notifications'}),
         headers: {'Content-Type': 'application/json'}
       );
     }
@@ -106,8 +103,6 @@ class NotificationController {
 
   // Mark notification as read
   static Future<Response> markNotificationAsReadHandler(Request request, String notificationId, String userId) async {
-    print('[NotificationController] Marking notification as read: $notificationId by user: $userId');
-    
     try {
       // Convert IDs
       ObjectId notificationObjectId; 
@@ -165,9 +160,8 @@ class NotificationController {
         );
       }
     } catch (e, s) {
-      print('[NotificationController.markNotificationAsReadHandler] Error: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+        body: jsonEncode({'error': 'An unexpected error occurred'}),
         headers: {'Content-Type': 'application/json'}
       );
     }
@@ -175,8 +169,6 @@ class NotificationController {
 
   // Mark all notifications as read
   static Future<Response> markAllNotificationsAsReadHandler(Request request, String userId) async {
-    print('[NotificationController] Marking all notifications as read for user: $userId');
-    
     try {
       // Convert ID
       ObjectId userObjectId;
@@ -197,8 +189,6 @@ class NotificationController {
         modify.set('isRead', true)
       );
       
-      print('[NotificationController] Marked ${updateResult.nModified} notifications as read');
-      
       return Response.ok(
         jsonEncode({
           'message': 'All notifications marked as read',
@@ -208,9 +198,8 @@ class NotificationController {
         headers: {'Content-Type': 'application/json'}
       );
     } catch (e, s) {
-      print('[NotificationController.markAllNotificationsAsReadHandler] Error: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+        body: jsonEncode({'error': 'An unexpected error occurred'}),
         headers: {'Content-Type': 'application/json'}
       );
     }
@@ -218,8 +207,6 @@ class NotificationController {
 
   // Get unread count for a user
   static Future<Response> getUnreadCountHandler(Request request, String userId) async {
-    print('[NotificationController] Getting unread count for user: $userId');
-    
     try {
       // Convert ID
       ObjectId userObjectId;
@@ -242,9 +229,8 @@ class NotificationController {
         headers: {'Content-Type': 'application/json'}
       );
     } catch (e, s) {
-      print('[NotificationController.getUnreadCountHandler] Error: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+        body: jsonEncode({'error': 'An unexpected error occurred'}),
         headers: {'Content-Type': 'application/json'}
       );
     }
@@ -252,8 +238,6 @@ class NotificationController {
 
   // Delete notification
   static Future<Response> deleteNotificationHandler(Request request, String notificationId, String userId) async {
-    print('[NotificationController] Deleting notification: $notificationId by user: $userId');
-    
     try {
       // Convert IDs
       ObjectId notificationObjectId; 
@@ -308,9 +292,8 @@ class NotificationController {
         );
       }
     } catch (e, s) {
-      print('[NotificationController.deleteNotificationHandler] Error: $e\n$s');
       return Response.internalServerError(
-        body: jsonEncode({'error': 'An unexpected error occurred: $e'}),
+        body: jsonEncode({'error': 'An unexpected error occurred'}),
         headers: {'Content-Type': 'application/json'}
       );
     }
@@ -324,7 +307,6 @@ class NotificationController {
         where.eq('receiverId', userId).eq('isRead', false)
       );
     } catch (e) {
-      print('[NotificationController] Error getting unread count: $e');
       return 0;
     }
   }

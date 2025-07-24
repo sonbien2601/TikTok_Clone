@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/notifications/presentation/widgets/notification_item_widget.dart
 import 'package:flutter/material.dart';
 import 'package:tiktok_frontend/src/features/notifications/domain/models/notification_model.dart';
 import 'package:tiktok_frontend/src/features/video_detail/presentation/pages/video_detail_page.dart';
@@ -16,21 +15,13 @@ class NotificationItemWidget extends StatelessWidget {
   });
 
   void _handleNotificationTap(BuildContext context) {
-    print('[NotificationItemWidget] Notification tapped!');
-    print('[NotificationItemWidget] Related Video ID: ${notification.relatedVideoId}');
-    print('[NotificationItemWidget] Related Comment ID: ${notification.relatedCommentId}');
-    
     // Call the original onTap if provided (for marking as read)
     if (onTap != null) {
-      print('[NotificationItemWidget] Calling onTap callback for marking as read');
       onTap!();
     }
     
     // Navigate to video if relatedVideoId exists
     if (notification.relatedVideoId != null && notification.relatedVideoId!.isNotEmpty) {
-      print('[NotificationItemWidget] Navigating to video: ${notification.relatedVideoId}');
-      print('[NotificationItemWidget] With highlight comment: ${notification.relatedCommentId}');
-      
       try {
         Navigator.push(
           context,
@@ -41,9 +32,7 @@ class NotificationItemWidget extends StatelessWidget {
             ),
           ),
         );
-        print('[NotificationItemWidget] Navigation initiated successfully');
       } catch (e) {
-        print('[NotificationItemWidget] Navigation error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Lỗi điều hướng: $e'),
@@ -52,7 +41,6 @@ class NotificationItemWidget extends StatelessWidget {
         );
       }
     } else {
-      print('[NotificationItemWidget] No relatedVideoId found');
       // Show message if no video is associated
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -66,10 +54,7 @@ class NotificationItemWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {
-        print('[NotificationItemWidget] InkWell tapped, calling _handleNotificationTap');
-        _handleNotificationTap(context);
-      },
+      onTap: () => _handleNotificationTap(context),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -214,19 +199,6 @@ class NotificationItemWidget extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                  
-                  // Debug info (remove in production)
-                  if (notification.relatedVideoId != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Video ID: ${notification.relatedVideoId}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade500,
-                        fontFamily: 'monospace',
-                      ),
                     ),
                   ],
                 ],

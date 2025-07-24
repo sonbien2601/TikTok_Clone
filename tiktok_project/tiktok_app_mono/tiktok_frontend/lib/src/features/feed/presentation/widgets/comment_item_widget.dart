@@ -98,8 +98,6 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
         });
       }
     } catch (e) {
-      print('[CommentItemWidget] Error toggling like: $e');
-      
       // Revert optimistic update
       if (mounted) {
         setState(() {
@@ -148,7 +146,6 @@ class _CommentItemWidgetState extends State<CommentItemWidget> {
         });
       }
     } catch (e) {
-      print('[CommentItemWidget] Error loading replies: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -1,10 +1,9 @@
-// tiktok_frontend/lib/src/core/navigation/main_tab_page.dart - UPDATED WITH NOTIFICATION POPUP
+// tiktok_frontend/lib/src/core/navigation/main_tab_page.dart - UPDATED WITH TIKTOK THEME
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/feed/presentation/views/video_feed_view.dart';
-import 'package:tiktok_frontend/src/features/friends/presentation/pages/friends_page.dart';
 import 'package:tiktok_frontend/src/features/search/presentation/pages/search_page.dart';
 import 'package:tiktok_frontend/src/features/inbox/presentation/pages/inbox_page.dart';
 import 'package:tiktok_frontend/src/features/profile/presentation/pages/profile_page.dart';
@@ -22,13 +21,12 @@ class MainTabPage extends StatefulWidget {
 class _MainTabPageState extends State<MainTabPage> {
   int _bottomNavIndex = 0;
 
-  // ĐÚNG 5 TRANG CHO 5 TAB
+  // 4 TRANG CHính + NÚT CREATE Ở GIỮA
   static final List<Widget> _pages = <Widget>[
     const VideoFeedView(), // 0 - Home
-    const FriendsPage(), // 1 - Friends
-    const SearchPage(), // 2 - Search ← QUAN TRỌNG!
-    const InboxPage(), // 3 - Inbox
-    const ProfilePage(), // 4 - Profile
+    const SearchPage(), // 1 - Search (Discover)
+    const InboxPage(), // 2 - Inbox
+    const ProfilePage(), // 3 - Profile
   ];
 
   @override
@@ -39,7 +37,6 @@ class _MainTabPageState extends State<MainTabPage> {
       final authService = Provider.of<AuthService>(context, listen: false);
       
       if (!authService.isAuthenticated || authService.currentUser == null) {
-        print("[MainTabPage] User not authenticated");
         return;
       }
 
@@ -53,22 +50,15 @@ class _MainTabPageState extends State<MainTabPage> {
     final authService = Provider.of<AuthService>(context, listen: false);
     
     if (authService.isAuthenticated && authService.currentUser != null) {
-      print('[MainTabPage] 🔔 Initializing notification popup service');
       authService.initializeNotificationPopup(context);
       
       // Enable notification popups by default
       authService.setNotificationPopupsEnabled(true);
       
-      print('[MainTabPage] ✅ Notification popup service initialized for user: ${authService.currentUser!.username}');
     }
   }
 
   void _onItemTapped(int index) {
-    // IN RA ĐỂ DEBUG
-    print('🔍 DEBUG: Tapped tab index $index');
-    print('🔍 DEBUG: Current pages length: ${_pages.length}');
-    print('🔍 DEBUG: Page at index $index: ${_pages[index].runtimeType}');
-
     // Khi chuyển tab, dừng tất cả video đang phát
     VideoFeedView.pauseAllVideos();
 
@@ -76,7 +66,6 @@ class _MainTabPageState extends State<MainTabPage> {
     if (_bottomNavIndex != index && index < _pages.length) {
       setState(() {
         _bottomNavIndex = index;
-        print('🔍 DEBUG: Changed to tab $index');
       });
     }
   }
@@ -88,124 +77,244 @@ class _MainTabPageState extends State<MainTabPage> {
         ? _bottomNavIndex
         : 0;
 
-    print('🔍 DEBUG: Building with safeIndex: $safeIndex');
-    print('🔍 DEBUG: Showing page: ${_pages[safeIndex].runtimeType}');
-
     final authService = Provider.of<AuthService>(context);
     final user = authService.currentUser;
 
     return Scaffold(
+      backgroundColor: Colors.black, // TikTok background màu đen
       appBar: kDebugMode
           ? AppBar(
-              title: Text('TikTok Clone - ${_getPageName(safeIndex)}'),
-              backgroundColor: Colors.transparent,
+              title: Text(
+                'TikTok Clone - ${_getPageName(safeIndex)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+              centerTitle: true, // Căn giữa title
+              backgroundColor: Colors.black,
               elevation: 0,
-              actions: [
-                // NEW: Notification popup toggle button for debug
-                Consumer<AuthService>(
-                  builder: (context, authService, child) {
-                    if (!authService.isAuthenticated) return const SizedBox.shrink();
-                    
-                    return PopupMenuButton<String>(
-                      icon: const Icon(Icons.notifications_outlined),
-                      tooltip: 'Notification Settings',
-                      onSelected: (value) {
-                        switch (value) {
-                          case 'toggle':
-                            // Toggle notification popups
-                            final currentState = authService.notificationPopupService;
-                            // You might want to add a getter for enabled state
-                            print('[MainTabPage] 🔔 Toggling notification popups');
-                            break;
-                          case 'test':
-                            // Test notification popup
-                            _testNotificationPopup();
-                            break;
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'toggle',
-                          child: Row(
-                            children: [
-                              Icon(Icons.notifications_active),
-                              SizedBox(width: 8),
-                              Text('Toggle Popups'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'test',
-                          child: Row(
-                            children: [
-                              Icon(Icons.bug_report),
-                              SizedBox(width: 8),
-                              Text('Test Popup'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.network_check),
-                  onPressed: () => NetworkDebugHelper.showDebugDialog(context),
-                  tooltip: 'Network Debug',
-                ),
-              ],
+              iconTheme: const IconThemeData(color: Colors.white),
             )
           : null,
       body: IndexedStack(
         index: safeIndex,
         children: _pages,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: Colors.grey[700],
-        selectedFontSize: 10.0,
-        unselectedFontSize: 10.0,
-        iconSize: 24,
-
-        // ĐÚNG 5 TAB
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          const BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Friends'),
-          const BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-          const BottomNavigationBarItem(icon: Icon(Icons.mail), label: 'Inbox'),
-          BottomNavigationBarItem(
-            icon: user != null && user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-                ? FutureBuilder<String>(
-                    future: NetworkConfig.getFileBaseUrl(),
-                    builder: (context, snapshot) {
-                      final fileBaseUrl = snapshot.data ?? '';
-                      return CircleAvatar(
-                        radius: 12,
-                        backgroundImage: NetworkImage(fileBaseUrl + user.avatarUrl!),
-                        backgroundColor: Colors.transparent,
-                      );
-                    },
-                  )
-                : const Icon(Icons.person),
-            label: 'Profile',
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.black,
+          border: Border(
+            top: BorderSide(
+              color: Color(0xFF2A2A2A), // Subtle border
+              width: 0.5,
+            ),
           ),
-        ],
-        currentIndex: safeIndex,
-        onTap: _onItemTapped,
+        ),
+        child: SafeArea(
+          child: Container(
+            height: 65, // TikTok bottom nav height
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildNavItem(
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home,
+                  label: 'Home',
+                  isSelected: safeIndex == 0,
+                  onTap: () => _onItemTapped(0),
+                ),
+                _buildNavItem(
+                  icon: Icons.search_outlined,
+                  selectedIcon: Icons.search,
+                  label: 'Discover',
+                  isSelected: safeIndex == 1,
+                  onTap: () => _onItemTapped(1),
+                ),
+                _buildUploadButton(),
+                _buildNavItem(
+                  icon: Icons.chat_bubble_outline,
+                  selectedIcon: Icons.chat_bubble,
+                  label: 'Inbox',
+                  isSelected: safeIndex == 2,
+                  onTap: () => _onItemTapped(2),
+                ),
+                _buildProfileNavItem(
+                  user: user,
+                  isSelected: safeIndex == 3,
+                  onTap: () => _onItemTapped(3),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
+    );
+  }
 
-      // NÚT UPLOAD RIÊNG
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          print('🔍 DEBUG: Opening Upload page');
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const UploadVideoPage()),
-          );
-        },
-        backgroundColor: Theme.of(context).primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
+  Widget _buildNavItem({
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 50,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? selectedIcon : icon,
+              color: isSelected ? Colors.white : const Color(0xFF8A8A8E),
+              size: 26,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : const Color(0xFF8A8A8E),
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadButton() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UploadVideoPage()),
+        );
+      },
+      child: Container(
+        width: 50,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 32,
+              height: 24,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFFF0050), // TikTok pink
+                    Color(0xFF00F2EA), // TikTok cyan
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(
+                Icons.add,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Create',
+              style: TextStyle(
+                color: Color(0xFF8A8A8E),
+                fontSize: 10,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileNavItem({
+    required dynamic user,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 50,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? Colors.white : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: user != null && user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                  ? FutureBuilder<String>(
+                      future: NetworkConfig.getFileBaseUrl(),
+                      builder: (context, snapshot) {
+                        final fileBaseUrl = snapshot.data ?? '';
+                        return ClipOval(
+                          child: Image.network(
+                            fileBaseUrl + user.avatarUrl!,
+                            width: 22,
+                            height: 22,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 22,
+                                height: 22,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF8A8A8E),
+                                ),
+                                child: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF8A8A8E),
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Profile',
+              style: TextStyle(
+                color: isSelected ? Colors.white : const Color(0xFF8A8A8E),
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -215,20 +324,19 @@ class _MainTabPageState extends State<MainTabPage> {
     final authService = Provider.of<AuthService>(context, listen: false);
     
     if (authService.isAuthenticated && authService.currentUser != null) {
-      print('[MainTabPage] 🧪 Testing notification popup');
-      
-      // Trigger a test notification check
       authService.notificationPopupService.checkNotificationsOnLogin(
         authService.currentUser!.id
       ).then((_) {
-        print('[MainTabPage] ✅ Test notification popup completed');
       }).catchError((e) {
-        print('[MainTabPage] ❌ Test notification popup failed: $e');
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Test notification failed: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: const Color(0xFFFF0050), // TikTok pink for error
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       });
@@ -240,12 +348,10 @@ class _MainTabPageState extends State<MainTabPage> {
       case 0:
         return 'Home';
       case 1:
-        return 'Friends';
+        return 'Discover';
       case 2:
-        return 'Search';
-      case 3:
         return 'Inbox';
-      case 4:
+      case 3:
         return 'Profile';
       default:
         return 'Unknown';

@@ -63,9 +63,6 @@ class _ProfilePageState extends State<ProfilePage> {
       final currentFollowerCount = authService.currentUser!.followersCount;
 
       if (newFollowerCount != currentFollowerCount) {
-        print(
-            '[ProfilePage] Detected follower count change: $currentFollowerCount -> $newFollowerCount');
-
         authService.refreshUserData().then((_) {
           if (mounted) {
             setState(() {});
@@ -95,7 +92,6 @@ class _ProfilePageState extends State<ProfilePage> {
         });
       }
     } catch (e) {
-      print('[ProfilePage] Error loading unread count: $e');
       if (mounted) {
         setState(() {
           _isLoadingNotifications = false;
@@ -111,15 +107,12 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     try {
-      print('[ProfilePage] Refreshing follow counts...');
       await authService.refreshUserData();
 
       if (mounted) {
         setState(() {});
-        print('[ProfilePage] Follow counts refreshed successfully');
       }
     } catch (e) {
-      print('[ProfilePage] Error refreshing follow counts: $e');
     }
   }
 
@@ -262,7 +255,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (shouldLogout == true) {
-      print('[ProfilePage] Logout confirmed by user.');
       try {
         await context.read<AuthService>().logout();
         if (mounted) {
@@ -275,7 +267,6 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
       } catch (e) {
-        print('[ProfilePage] Error during logout: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -292,11 +283,6 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final user = authService.currentUser;
-
-    print(
-        '[ProfilePage] Building. User: ${user?.username}, isAdmin: ${authService.isAdmin}');
-    print(
-        '[ProfilePage] Current follow counts - Followers: ${user?.followersCount}, Following: ${user?.followingCount}');
 
     return Scaffold(
       appBar: AppBar(
@@ -687,6 +673,22 @@ class _ProfilePageState extends State<ProfilePage> {
                     onTap: _navigateToMyVideos,
                     iconColor: Colors.blue.shade600,
                   ),
+                  // Thêm nút Lịch sử Donate ngay sau Video của tôi
+                  _buildMenuTile(
+                    context,
+                    icon: Icons.history,
+                    title: 'Lịch sử Donate',
+                    subtitle: 'Xem lịch sử ủng hộ của bạn',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const DonateHistoryPage(),
+                        ),
+                      );
+                    },
+                    iconColor: Colors.purple.shade600,
+                  ),
                   if (authService.isAdmin) ...[
                     const SizedBox(height: 24),
                     _buildSectionHeader('Quản trị'),
@@ -725,66 +727,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  // Donate Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        final authService =
-                            Provider.of<AuthService>(context, listen: false);
-                        if (authService.currentUser != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DonatePage(
-                                toUserId: authService.currentUser!.id,
-                                toUsername: authService.currentUser!.username,
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.volunteer_activism),
-                      label: const Text('Donate'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.pinkAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Donate History Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DonateHistoryPage(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.history),
-                      label: const Text('Lịch sử Donate'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.pinkAccent,
-                        side: const BorderSide(color: Colors.pinkAccent),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                 ],
               ),
             ],

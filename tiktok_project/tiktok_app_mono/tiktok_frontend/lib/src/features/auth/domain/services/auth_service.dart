@@ -40,10 +40,6 @@ class UserFrontend {
   });
 
   factory UserFrontend.fromJson(Map<String, dynamic> json) {
-    print('[UserFrontend] Parsing user data: ${json.keys}');
-    print('[UserFrontend] followersCount: ${json['followersCount']}');
-    print('[UserFrontend] followingCount: ${json['followingCount']}');
-
     return UserFrontend(
       id: json['_id'] as String,
       username: json['username'] as String,
@@ -151,9 +147,6 @@ class AuthService extends ChangeNotifier {
       final newFollowerCount = followInfo['followerCount'] as int;
 
       if (newFollowerCount != _currentUser!.followersCount) {
-        print(
-            '[AuthService] Updating current user follower count: ${_currentUser!.followersCount} -> $newFollowerCount');
-
         _currentUser = _currentUser!.copyWith(
           followersCount: newFollowerCount,
         );
@@ -164,11 +157,8 @@ class AuthService extends ChangeNotifier {
   }
 
   void notifyFollowCountsChanged() {
-    print('[AuthService] Follow counts changed - triggering refresh');
     refreshUserData().then((_) {
-      print('[AuthService] Follow counts refreshed successfully');
     }).catchError((e) {
-      print('[AuthService] Error refreshing follow counts: $e');
     });
   }
 
@@ -176,13 +166,10 @@ class AuthService extends ChangeNotifier {
 
   void _updateAuthState(
       bool isAuthenticated, Map<String, dynamic>? userDataFromApi) {
-    print(
-        '[AuthService] _updateAuthState called. Target isAuthenticated: $isAuthenticated');
     this._isAuthenticated = isAuthenticated;
     if (isAuthenticated && userDataFromApi != null) {
       try {
         this._currentUser = UserFrontend.fromJson(userDataFromApi);
-        print('[AuthService] User data parsed. User: ${this._currentUser}');
 
         // Sync with FollowStateManager
         if (_currentUser != null) {
@@ -193,14 +180,12 @@ class AuthService extends ChangeNotifier {
           );
         }
       } catch (e) {
-        print('[AuthService] Error parsing user data: $e');
         this._currentUser = null;
         this._isAuthenticated = false;
       }
     } else {
       this._currentUser = null;
       if (isAuthenticated && userDataFromApi == null) {
-        print('[AuthService] Auth reported success but no user data.');
         this._isAuthenticated = false;
       }
     }
@@ -210,9 +195,6 @@ class AuthService extends ChangeNotifier {
   Future<void> login(String identifierValue, String password) async {
     final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
     final targetUrl = Uri.parse('$baseUrl/login');
-
-    print('[AuthService] Auto-detected backend URL: $baseUrl');
-    print('[AuthService] Attempting login to: $targetUrl');
 
     try {
       final response = await http
@@ -229,8 +211,6 @@ class AuthService extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 10));
 
-      print('[AuthService] Login Response status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         if (responseData is Map<String, dynamic> &&
@@ -240,8 +220,6 @@ class AuthService extends ChangeNotifier {
 
           // Check for notifications after successful login
           if (_currentUser != null) {
-            print(
-                '[AuthService] ✅ Login successful, checking for notifications...');
             await _checkNotificationsAfterLogin();
           }
         } else {
@@ -258,12 +236,9 @@ class AuthService extends ChangeNotifier {
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[AuthService] Login error: $e');
       if (e.toString().contains('Connection refused') ||
           e.toString().contains('Failed host lookup')) {
         NetworkConfig.clearCache();
-        print('[AuthService] ❌ Connection failed, cleared IP cache');
-        print('[AuthService] 💡 Next login attempt will try to find new IP');
       }
       _updateAuthState(false, null);
       rethrow;
@@ -275,9 +250,6 @@ class AuthService extends ChangeNotifier {
     if (_currentUser == null) return;
 
     try {
-      print(
-          '[AuthService] 🔔 Checking for new notifications for user: ${_currentUser!.id}');
-
       // Delay to allow UI to settle after login
       await Future.delayed(const Duration(seconds: 1));
 
@@ -285,9 +257,7 @@ class AuthService extends ChangeNotifier {
       await _notificationPopupService
           .checkNotificationsOnLogin(_currentUser!.id);
 
-      print('[AuthService] ✅ Notification check completed');
     } catch (e) {
-      print('[AuthService] ❌ Error checking notifications after login: $e');
       // Don't throw error - notifications are not critical for login flow
     }
   }
@@ -296,31 +266,22 @@ class AuthService extends ChangeNotifier {
   void initializeNotificationPopup(context) {
     if (_currentUser != null) {
       _notificationPopupService.initialize(context);
-      print('[AuthService] 🔔 Notification popup service initialized');
     }
   }
 
   // NEW: Enable/disable notification popups
   void setNotificationPopupsEnabled(bool enabled) {
     _notificationPopupService.setEnabled(enabled);
-    print(
-        '[AuthService] 🔔 Notification popups ${enabled ? 'enabled' : 'disabled'}');
   }
 
   Future<void> refreshUserData() async {
     if (!_isAuthenticated || _currentUser == null) {
-      print(
-          '[AuthService] Cannot refresh - not authenticated or no current user');
       return;
     }
 
     try {
-      print('[AuthService] Refreshing user data for user: ${_currentUser!.id}');
-
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final url = Uri.parse('$baseUrl/${_currentUser!.id}');
-
-      print('[AuthService] Making request to: $url');
 
       final response = await http.get(
         url,
@@ -330,22 +291,11 @@ class AuthService extends ChangeNotifier {
         },
       ).timeout(const Duration(seconds: 10));
 
-      print('[AuthService] Response status: ${response.statusCode}');
-      print('[AuthService] Response body: ${response.body}');
-
       if (response.statusCode == 200) {
         final userData = jsonDecode(response.body);
 
-        print('[AuthService] Parsed user data keys: ${userData.keys}');
-        print(
-            '[AuthService] followersCount in response: ${userData['followersCount']}');
-        print(
-            '[AuthService] followingCount in response: ${userData['followingCount']}');
-
         // Create new user object
         final newUser = UserFrontend.fromJson(userData);
-
-        print('[AuthService] New user object: $newUser');
 
         // Update current user
         _currentUser = newUser;
@@ -361,17 +311,10 @@ class AuthService extends ChangeNotifier {
         // Notify listeners to rebuild UI
         notifyListeners();
 
-        print('[AuthService] ✅ User data refreshed successfully');
-        print(
-            '[AuthService] Current follow counts - Followers: ${_currentUser!.followersCount}, Following: ${_currentUser!.followingCount}');
       } else {
-        print(
-            '[AuthService] ❌ Failed to refresh user data: ${response.statusCode}');
-        print('[AuthService] Error response: ${response.body}');
         throw Exception('Failed to refresh user data: ${response.statusCode}');
       }
     } catch (e) {
-      print('[AuthService] ❌ Error refreshing user data: $e');
       throw Exception('Không thể tải lại thông tin người dùng: $e');
     }
   }
@@ -399,7 +342,6 @@ class AuthService extends ChangeNotifier {
       }
       return null;
     } catch (e) {
-      print('[AuthService] Error getting fresh user data: $e');
       return null;
     }
   }
@@ -414,8 +356,6 @@ class AuthService extends ChangeNotifier {
   ) async {
     final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
     final targetUrl = Uri.parse('$baseUrl/register');
-
-    print('[AuthService] Auto-detected backend URL for register: $baseUrl');
 
     try {
       final response = await http
@@ -436,10 +376,7 @@ class AuthService extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 10));
 
-      print('[AuthService] Register Response status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
-        print('[AuthService] Registration successful.');
         return true;
       } else {
         String errorMessage =
@@ -451,12 +388,9 @@ class AuthService extends ChangeNotifier {
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[AuthService] Register error: $e');
       if (e.toString().contains('Connection refused') ||
           e.toString().contains('Failed host lookup')) {
         NetworkConfig.clearCache();
-        print(
-            '[AuthService] ❌ Connection failed during register, cleared IP cache');
       }
       rethrow;
     }
@@ -513,12 +447,6 @@ class AuthService extends ChangeNotifier {
     }
     */
 
-      print(
-          '[AuthService] Registration request body keys: ${requestBody.keys}');
-      print(
-          '[AuthService] Bank info - Account: $bankAccountNumber, Bank: $bankName');
-      print('[AuthService] Bank QR: $bankQrImageUrl');
-
       final response = await http
           .post(
             url,
@@ -530,10 +458,6 @@ class AuthService extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 10));
 
-      print(
-          '[AuthService] Registration response status: ${response.statusCode}');
-      print('[AuthService] Registration response body: ${response.body}');
-
       if (response.statusCode == 201) {
         return true;
       } else {
@@ -543,11 +467,9 @@ class AuthService extends ChangeNotifier {
           errorMessage = errorData['error'] ?? errorMessage;
         } catch (_) {}
 
-        print('[AuthService] Registration failed: $errorMessage');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('[AuthService] Error during registration: $e');
       if (e.toString().contains('Connection refused') ||
           e.toString().contains('Failed host lookup')) {
         throw Exception(
@@ -558,23 +480,18 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    print('[AuthService] Logging out...');
     await Future.delayed(const Duration(milliseconds: 100));
     // KHÔNG force dispose hoặc clear state ở đây!
     _followStateManager.clearAll();
     _notificationPopupService.reset();
     _updateAuthState(false, null);
-    print('[AuthService] User logged out.');
   }
 
   // Force clear all state and dispose all controllers
   Future<void> _forceClearAllState() async {
-    print('[AuthService] Force clearing all state...');
-
     try {
       // Force dispose all video controllers
       VideoFeedView.forceDisposeAllVideos();
-      print('[AuthService] All video controllers force disposed');
 
       // Clear any cached data
       await Future.delayed(const Duration(milliseconds: 200));
@@ -585,18 +502,14 @@ class AuthService extends ChangeNotifier {
         // ignore: deprecated_member_use
         // ignore: unused_result
         // ignore: avoid_print
-        print('[AuthService] Requesting garbage collection...');
       } catch (e) {
-        print('[AuthService] Garbage collection not available: $e');
       }
     } catch (e) {
-      print('[AuthService] Error during force clear: $e');
     }
   }
 
   // Method to restart app completely (nuclear option)
   void restartApp() {
-    print('[AuthService] Restarting app completely...');
     // This will force a complete app restart
     // Note: This is a nuclear option and should be used carefully
     try {
@@ -608,9 +521,7 @@ class AuthService extends ChangeNotifier {
       _notificationPopupService.reset();
       _updateAuthState(false, null);
 
-      print('[AuthService] App restart completed');
     } catch (e) {
-      print('[AuthService] Error during app restart: $e');
     }
   }
 
@@ -619,14 +530,11 @@ class AuthService extends ChangeNotifier {
     try {
       final fileBaseUrl = await NetworkConfig.getFileBaseUrl();
       final healthUrl = Uri.parse('$fileBaseUrl/health');
-      print('[AuthService] Testing connection to $healthUrl');
 
       final response =
           await http.get(healthUrl).timeout(const Duration(seconds: 5));
-      print('[AuthService] Health check response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
-      print('[AuthService] Connection test failed: $e');
       return false;
     }
   }
@@ -634,7 +542,6 @@ class AuthService extends ChangeNotifier {
   // Force refresh IP cache
   void refreshNetworkConfig() {
     NetworkConfig.clearCache();
-    print('[AuthService] Network configuration refreshed');
   }
 
   // Dispose method to clean up notification service

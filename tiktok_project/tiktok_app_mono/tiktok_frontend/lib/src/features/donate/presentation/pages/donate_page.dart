@@ -82,7 +82,6 @@ class _DonatePageState extends State<DonatePage> {
         });
       }
 
-      print('[DonatePage] Initialized upload URL: $_uploadUrl');
     } catch (e) {
       print('[DonatePage] Error initializing upload URL: $e');
       if (mounted) {
@@ -193,19 +192,14 @@ class _DonatePageState extends State<DonatePage> {
             _imageFileName = file.name;
             _proofImageUrl = null;
             _error = null;
-            print('[DonatePage] Image selected: $_imageFileName');
             if (!kIsWeb && file.path != null) {
-              print('[DonatePage] Image path (mobile/desktop): ${file.path}');
             } else if (kIsWeb && file.bytes != null) {
-              print(
-                  '[DonatePage] Image bytes selected (web): ${file.bytes!.length}');
             }
           });
         }
 
         await _uploadProofImage();
       } else {
-        print('[DonatePage] No image selected.');
         if (mounted) {
           setState(() {
             _selectedImageFile = null;
@@ -249,10 +243,6 @@ class _DonatePageState extends State<DonatePage> {
       request.fields['userId'] = currentUserId;
     }
 
-    print('[DonatePage] Upload URL: $_uploadUrl');
-    print('[DonatePage] Platform: ${_getPlatformName()}');
-    print('[DonatePage] Fields: ${request.fields}');
-
     if (kIsWeb && _selectedImageFile!.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
         'imageFile',
@@ -261,7 +251,6 @@ class _DonatePageState extends State<DonatePage> {
         contentType:
             MediaType('image', _imageFileName?.split('.').last ?? 'png'),
       ));
-      print('[DonatePage] Added file from bytes (web)');
     } else if (!kIsWeb && _selectedImageFile!.path != null) {
       request.files.add(
         await http.MultipartFile.fromPath(
@@ -273,7 +262,6 @@ class _DonatePageState extends State<DonatePage> {
               MediaType('image', _selectedImageFile!.path!.split('.').last),
         ),
       );
-      print('[DonatePage] Added file from path (mobile/desktop)');
     } else {
       _showSnackBar('Không tìm thấy file ảnh hợp lệ để upload.');
       if (mounted) {
@@ -283,26 +271,17 @@ class _DonatePageState extends State<DonatePage> {
     }
 
     try {
-      print('[DonatePage] Sending upload request to $_uploadUrl');
       final streamedResponse =
           await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
-
-      print('[DonatePage] Upload Response status: ${response.statusCode}');
-      print('[DonatePage] Upload Response body: ${response.body}');
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('[DonatePage] Full server response: $data');
 
         if (data['imageUrl'] != null) {
           final imageUrl = data['imageUrl'].toString().trim();
-          print('[DonatePage] Received image URL: "$imageUrl"');
-          print('[DonatePage] URL length: ${imageUrl.length}');
-          print(
-              '[DonatePage] URL starts with http: ${imageUrl.startsWith('http')}');
 
           if (imageUrl.isNotEmpty) {
             setState(() {
@@ -312,15 +291,11 @@ class _DonatePageState extends State<DonatePage> {
             });
             _showSnackBar('Ảnh đã upload thành công!',
                 backgroundColor: Colors.green);
-            print(
-                '[DonatePage] Upload successful, image URL set to: $_proofImageUrl');
           } else {
-            print('[DonatePage] Empty image URL received');
             _showSnackBar('Server trả về URL rỗng',
                 backgroundColor: Colors.red);
           }
         } else {
-          print('[DonatePage] No imageUrl field in response: ${response.body}');
           _showSnackBar('Server không trả về link ảnh',
               backgroundColor: Colors.red);
         }
@@ -378,8 +353,6 @@ class _DonatePageState extends State<DonatePage> {
             );
           },
           errorBuilder: (context, error, stackTrace) {
-            print(
-                '[DonatePage] Error loading image: $error for URL: $fullImageUrl');
             return Container(
               width: 80,
               height: 80,
@@ -694,6 +667,22 @@ class _DonatePageState extends State<DonatePage> {
     );
   }
 
+  String fixImageUrl(String url) {
+    if (url.isEmpty) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    // Nếu là đường dẫn tương đối, nối domain phù hợp
+    String base;
+    if (kIsWeb) {
+      base = 'http://localhost:8080';
+    } else {
+      base = 'http://10.0.2.2:8080';
+    }
+    if (url.startsWith('/')) {
+      return base + url;
+    }
+    return base + '/' + url;
+  }
+
   @override
   Widget build(BuildContext context) {
     String qrUrl = '';
@@ -870,7 +859,7 @@ class _DonatePageState extends State<DonatePage> {
                                           child: ClipRRect(
                                             borderRadius: BorderRadius.circular(12),
                                             child: Image.network(
-                                              qrUrl,
+                                              fixImageUrl(_recipientBankInfo!['bankQrImageUrl']),
                                               height: 200,
                                               width: 200,
                                               fit: BoxFit.contain,
@@ -886,7 +875,6 @@ class _DonatePageState extends State<DonatePage> {
                                                 );
                                               },
                                               errorBuilder: (context, error, stackTrace) {
-                                                print('[DonatePage] Error loading QR image: $error');
                                                 return Container(
                                                   height: 200,
                                                   width: 200,

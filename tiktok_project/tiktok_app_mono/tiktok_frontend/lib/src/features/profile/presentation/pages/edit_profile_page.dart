@@ -244,11 +244,11 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: const Color(0xFFFF0050),
-              surface: const Color(0xFF1A1A1A),
+              primary: const Color(0xFFFF0000),
+              surface: const Color(0xFF1F1F1F),
               onSurface: Colors.white,
             ),
-            dialogBackgroundColor: const Color(0xFF1A1A1A),
+            dialogBackgroundColor: const Color(0xFF1F1F1F),
           ),
           child: child!,
         );
@@ -403,8 +403,8 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
             return Container(
               width: 80,
               height: 80,
-              color: const Color(0xFF2A2A2A),
-              child: const Center(child: CircularProgressIndicator(color: Color(0xFFFF0050))),
+              color: const Color(0xFF1F1F1F),
+              child: const Center(child: CircularProgressIndicator(color: Color(0xFFFF0000))),
             );
           },
           errorBuilder: (context, error, stackTrace) {
@@ -456,7 +456,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: const Color(0xFF1F1F1F),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[600]!),
       ),
@@ -584,19 +584,19 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const LinearGradient(
-          colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+          colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF0050).withOpacity(0.3),
+            color: const Color(0xFFFF0000).withValues(alpha: 0.3),
             blurRadius: 20,
             spreadRadius: 2,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: const Color(0xFF25F4EE).withOpacity(0.2),
+            color: const Color(0xFFCC0000).withValues(alpha: 0.2),
             blurRadius: 15,
             spreadRadius: 1,
             offset: const Offset(0, -4),
@@ -609,7 +609,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
         height: 120,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: Color(0xFF2A2A2A),
+          color: Color(0xFF1F1F1F),
         ),
         child: ClipOval(
           child: _getAvatarWidget(),
@@ -655,7 +655,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [const Color(0xFF404040), const Color(0xFF2A2A2A)],
+          colors: [Colors.grey[700]!, Colors.grey[600]!],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -724,7 +724,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
-        backgroundColor: isError ? Colors.red[600] : Colors.green[600],
+        backgroundColor: isError ? const Color(0xFFFF0000) : const Color(0xFF00C851),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -752,23 +752,23 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
         margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: enabled ? const Color(0xFF2A2A2A) : const Color(0xFF1A1A1A),
+          color: enabled ? const Color(0xFF1F1F1F) : const Color(0xFF151515),
           border: Border.all(
             color: _focusNodes[index].hasFocus 
-                ? const Color(0xFFFF0050) 
+                ? const Color(0xFFFF0000) 
                 : Colors.grey[700]!,
             width: _focusNodes[index].hasFocus ? 2 : 1,
           ),
           boxShadow: [
             if (_focusNodes[index].hasFocus)
               BoxShadow(
-                color: const Color(0xFFFF0050).withOpacity(0.2),
+                color: const Color(0xFFFF0000).withValues(alpha: 0.2),
                 blurRadius: 10,
                 spreadRadius: 1,
                 offset: const Offset(0, 4),
               ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -799,7 +799,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
               child: Icon(
                 icon, 
                 color: _focusNodes[index].hasFocus 
-                    ? const Color(0xFFFF0050) 
+                    ? const Color(0xFFFF0000) 
                     : Colors.grey[500],
               ),
             ),
@@ -828,7 +828,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
         borderRadius: BorderRadius.circular(29),
         gradient: onPressed != null 
             ? const LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFFFF4081), Color(0xFF25F4EE)],
+                colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               )
@@ -837,15 +837,10 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
               ),
         boxShadow: onPressed != null ? [
           BoxShadow(
-            color: const Color(0xFFFF0050).withOpacity(0.4),
+            color: const Color(0xFFFF0000).withValues(alpha: 0.4),
             blurRadius: 20,
             spreadRadius: 1,
             offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: const Color(0xFF25F4EE).withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
           ),
         ] : null,
       ),
@@ -887,14 +882,14 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: const Color(0xFF2A2A2A).withOpacity(0.8),
+        color: const Color(0xFF1F1F1F).withValues(alpha: 0.8),
         border: Border.all(
-          color: Colors.grey[700]!.withOpacity(0.3),
+          color: Colors.grey[700]!.withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -907,9 +902,9 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0F0F0F),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -917,7 +912,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
         ),
         title: ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+            colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
           ).createShader(bounds),
           child: const Text(
             'Chỉnh Sửa Hồ Sơ',
@@ -938,7 +933,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
             child: _isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFFFF0050),
+                      color: Color(0xFFFF0000),
                     ),
                   )
                 : SingleChildScrollView(
@@ -961,7 +956,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                   child: Container(
                                     decoration: const BoxDecoration(
                                       gradient: LinearGradient(
-                                        colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                                        colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                       ),
                                       shape: BoxShape.circle,
                                       boxShadow: [
@@ -1006,7 +1001,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                     left: 0,
                                     child: Container(
                                       decoration: const BoxDecoration(
-                                        color: Colors.red,
+                                        color: Color(0xFFFF0000),
                                         shape: BoxShape.circle,
                                         boxShadow: [
                                           BoxShadow(
@@ -1103,17 +1098,17 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                         decoration: BoxDecoration(
                                           borderRadius: BorderRadius.circular(16),
                                           color: _selectedGender == gender 
-                                              ? const Color(0xFFFF0050) 
-                                              : const Color(0xFF1A1A1A),
+                                              ? const Color(0xFFFF0000) 
+                                              : const Color(0xFF151515),
                                           border: Border.all(
                                             color: _selectedGender == gender 
-                                                ? const Color(0xFFFF0050) 
+                                                ? const Color(0xFFFF0000) 
                                                 : Colors.grey[600]!,
                                             width: _selectedGender == gender ? 2 : 1,
                                           ),
                                           boxShadow: _selectedGender == gender ? [
                                             BoxShadow(
-                                              color: const Color(0xFFFF0050).withOpacity(0.3),
+                                              color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                                               blurRadius: 10,
                                               offset: const Offset(0, 4),
                                             ),
@@ -1192,11 +1187,11 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                         decoration: BoxDecoration(
                                           borderRadius: BorderRadius.circular(25),
                                           gradient: isSelected ? const LinearGradient(
-                                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                                            colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                             begin: Alignment.centerLeft,
                                             end: Alignment.centerRight,
                                           ) : null,
-                                          color: isSelected ? null : const Color(0xFF1A1A1A),
+                                          color: isSelected ? null : const Color(0xFF151515),
                                           border: Border.all(
                                             color: isSelected 
                                                 ? Colors.transparent 
@@ -1205,14 +1200,14 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                           ),
                                           boxShadow: isSelected ? [
                                             BoxShadow(
-                                              color: const Color(0xFFFF0050).withOpacity(0.3),
+                                              color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                                               blurRadius: 10,
                                               spreadRadius: 1,
                                               offset: const Offset(0, 4),
                                             ),
                                           ] : [
                                             BoxShadow(
-                                              color: Colors.black.withOpacity(0.2),
+                                              color: Colors.black.withValues(alpha: 0.2),
                                               blurRadius: 5,
                                               offset: const Offset(0, 2),
                                             ),
@@ -1258,11 +1253,11 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                   margin: const EdgeInsets.only(bottom: 16),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(16),
-                                    color: const Color(0xFF1A1A1A),
+                                    color: const Color(0xFF151515),
                                     border: Border.all(color: Colors.grey[700]!),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.3),
+                                        color: Colors.black.withValues(alpha: 0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -1274,7 +1269,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                     decoration: InputDecoration(
                                       hintText: 'Tên ngân hàng',
                                       hintStyle: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w400),
-                                      prefixIcon: const Icon(Icons.account_balance, color: Color(0xFFFF0050)),
+                                      prefixIcon: const Icon(Icons.account_balance, color: Color(0xFFFF0000)),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(16),
                                         borderSide: BorderSide.none,
@@ -1291,11 +1286,11 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                   margin: const EdgeInsets.only(bottom: 16),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(16),
-                                    color: const Color(0xFF1A1A1A),
+                                    color: const Color(0xFF151515),
                                     border: Border.all(color: Colors.grey[700]!),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.3),
+                                        color: Colors.black.withValues(alpha: 0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -1307,7 +1302,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                     decoration: InputDecoration(
                                       hintText: 'Số tài khoản ngân hàng',
                                       hintStyle: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w400),
-                                      prefixIcon: const Icon(Icons.credit_card, color: Color(0xFFFF0050)),
+                                      prefixIcon: const Icon(Icons.credit_card, color: Color(0xFFFF0000)),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(16),
                                         borderSide: BorderSide.none,
@@ -1323,12 +1318,12 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF1A1A1A),
+                                    color: const Color(0xFF151515),
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: const Color(0xFF25F4EE).withOpacity(0.3)),
+                                    border: Border.all(color: const Color(0xFFFF0000).withValues(alpha: 0.3)),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF25F4EE).withOpacity(0.1),
+                                        color: const Color(0xFFFF0000).withValues(alpha: 0.1),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       ),
@@ -1343,7 +1338,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
                                               gradient: const LinearGradient(
-                                                colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
+                                                colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                               ),
                                               borderRadius: BorderRadius.circular(8),
                                             ),
@@ -1368,11 +1363,11 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                         decoration: BoxDecoration(
                                           borderRadius: BorderRadius.circular(12),
                                           gradient: const LinearGradient(
-                                            colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
+                                            colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(0xFF25F4EE).withOpacity(0.3),
+                                              color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                                               blurRadius: 10,
                                               offset: const Offset(0, 4),
                                             ),
@@ -1398,7 +1393,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                         Container(
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF2A2A2A),
+                                            color: const Color(0xFF1F1F1F),
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(color: Colors.grey[700]!),
                                           ),
@@ -1425,7 +1420,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                                         if (_qrImageFileName != null) ...[
                                                           Row(
                                                             children: [
-                                                              const Icon(Icons.image, color: Color(0xFF25F4EE), size: 16),
+                                                              const Icon(Icons.image, color: Color(0xFFFF0000), size: 16),
                                                               const SizedBox(width: 8),
                                                               Expanded(
                                                                 child: Text(
@@ -1449,7 +1444,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                                                 decoration: BoxDecoration(
                                                                   borderRadius: BorderRadius.circular(8),
                                                                   gradient: const LinearGradient(
-                                                                    colors: [Color(0xFFFF0050), Color(0xFFFF4081)],
+                                                                    colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                                                   ),
                                                                 ),
                                                                 child: ElevatedButton.icon(
@@ -1468,7 +1463,7 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                                             const SizedBox(width: 8),
                                                             Container(
                                                               decoration: BoxDecoration(
-                                                                color: Colors.red.withOpacity(0.8),
+                                                                color: const Color(0xFFFF0000).withValues(alpha: 0.8),
                                                                 borderRadius: BorderRadius.circular(8),
                                                               ),
                                                               child: IconButton(
@@ -1484,11 +1479,11 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                                           Container(
                                                             decoration: BoxDecoration(
                                                               borderRadius: BorderRadius.circular(4),
-                                                              color: const Color(0xFF1A1A1A),
+                                                              color: const Color(0xFF151515),
                                                             ),
                                                             child: const LinearProgressIndicator(
-                                                              backgroundColor: Color(0xFF1A1A1A),
-                                                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF0050)),
+                                                              backgroundColor: Color(0xFF151515),
+                                                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF0000)),
                                                             ),
                                                           ),
                                                           const SizedBox(height: 4),

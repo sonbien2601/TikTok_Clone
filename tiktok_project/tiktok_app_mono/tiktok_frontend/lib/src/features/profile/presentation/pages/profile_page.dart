@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/profile/presentation/pages/profile_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/admin/presentation/pages/admin_dashboard_page.dart';
@@ -19,6 +18,8 @@ import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_pa
 import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_history_page.dart';
 import 'package:tiktok_frontend/src/features/feed/presentation/views/video_feed_view.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:tiktok_frontend/src/features/profile/presentation/pages/my_videos_page.dart';
+import 'package:tiktok_frontend/src/core/providers/app_providers.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -245,18 +246,16 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
   }
 
   void _navigateToMyVideos() {
-    _showSnackBar(
-      'Chức năng "Video của tôi" sẽ được thêm trong phiên bản tiếp theo',
-      icon: Icons.info_outline,
-      backgroundColor: const Color(0xFF25F4EE),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MyVideosPage()),
     );
   }
 
   void _navigateToSettings() {
-    _showSnackBar(
-      'Trang cài đặt sẽ được phát triển trong tương lai',
-      icon: Icons.settings,
-      backgroundColor: Colors.grey[600]!,
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsPage()),
     );
   }
 
@@ -292,11 +291,11 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF2A2A2A),
+          backgroundColor: const Color(0xFF1F1F1F),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: ShaderMask(
             shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+              colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
             ).createShader(bounds),
             child: const Text(
               'Đăng xuất',
@@ -321,7 +320,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             Container(
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                  colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -356,7 +355,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           _showSnackBar(
             'Lỗi khi đăng xuất: $e',
             icon: Icons.error,
-            backgroundColor: Colors.red[600]!,
+            backgroundColor: const Color(0xFFFF0000),
           );
         }
       }
@@ -369,7 +368,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A).withOpacity(0.95),
+        color: const Color(0xFF1F1F1F).withValues(alpha: 0.95),
         border: Border(
           bottom: BorderSide(
             color: Colors.grey[800]!.withOpacity(0.3),
@@ -388,7 +387,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                        colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -401,7 +400,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                   const SizedBox(width: 12),
                   ShaderMask(
                     shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                      colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                     ).createShader(bounds),
                     child: Text(
                       user?.username ?? 'Profile',
@@ -473,7 +472,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
+            color: const Color(0xFF1F1F1F),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey[700]!.withOpacity(0.5)),
           ),
@@ -495,7 +494,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               padding: const EdgeInsets.all(4),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFFFF0050), Color(0xFFFF4081)],
+                  colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                 ),
                 shape: BoxShape.circle,
               ),
@@ -545,8 +544,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF2A2A2A).withOpacity(0.8),
-              const Color(0xFF1A1A1A).withOpacity(0.9),
+              const Color(0xFF1F1F1F).withValues(alpha: 0.8),
+              const Color(0xFF151515).withValues(alpha: 0.9),
             ],
           ),
           border: Border.all(
@@ -555,7 +554,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -571,13 +570,13 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                      colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFF0050).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 2,
                         offset: const Offset(0, 8),
@@ -589,7 +588,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                     height: 120,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF2A2A2A),
+                      color: Color(0xFF1F1F1F),
                     ),
                     child: ClipOval(
                       child: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
@@ -616,10 +615,10 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                        colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                       ),
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF2A2A2A), width: 2),
+                      border: Border.all(color: const Color(0xFF1F1F1F), width: 2),
                     ),
                     child: IconButton(
                       onPressed: _navigateToEditProfile,
@@ -645,7 +644,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             // Username
             ShaderMask(
               shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
               ).createShader(bounds),
               child: Text(
                 user?.username ?? 'Tên người dùng',
@@ -664,7 +663,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
+                color: const Color(0xFF151515),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.grey[700]!.withOpacity(0.5)),
               ),
@@ -719,12 +718,12 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                        colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFFF0050).withOpacity(0.2),
+                          color: const Color(0xFFFF0000).withValues(alpha: 0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -779,7 +778,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFF151515),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[700]!.withOpacity(0.5)),
       ),
@@ -812,8 +811,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1A1A1A).withOpacity(0.8),
-            const Color(0xFF2A2A2A).withOpacity(0.6),
+            const Color(0xFF151515).withValues(alpha: 0.8),
+            const Color(0xFF1F1F1F).withValues(alpha: 0.6),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -822,7 +821,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -842,7 +841,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                     duration: const Duration(milliseconds: 300),
                     child: ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(
-                        colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                        colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                       ).createShader(bounds),
                       child: Text(
                         _formatCount(followersCount),
@@ -890,7 +889,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  Colors.grey[600]!.withOpacity(0.5),
+                  Colors.grey[600]!.withValues(alpha: 0.5),
                   Colors.transparent,
                 ],
               ),
@@ -905,7 +904,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                 children: [
                   ShaderMask(
                     shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
+                      colors: [Color(0xFFCC0000), Color(0xFFFF0000)],
                     ).createShader(bounds),
                     child: Text(
                       _formatCount(followingCount),
@@ -944,7 +943,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             height: 20,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
               ),
               borderRadius: BorderRadius.all(Radius.circular(2)),
             ),
@@ -985,14 +984,14 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                color: const Color(0xFF1F1F1F).withValues(alpha: 0.8),
                 border: Border.all(
                   color: Colors.grey[700]!.withOpacity(0.3),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -1005,18 +1004,18 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        (iconColor ?? const Color(0xFFFF0050)).withOpacity(0.2),
-                        (iconColor ?? const Color(0xFF25F4EE)).withOpacity(0.1),
+                        (iconColor ?? const Color(0xFFFF0000)).withValues(alpha: 0.2),
+                        (iconColor ?? const Color(0xFFCC0000)).withValues(alpha: 0.1),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: (iconColor ?? const Color(0xFFFF0050)).withOpacity(0.3),
+                      color: (iconColor ?? const Color(0xFFFF0000)).withValues(alpha: 0.3),
                     ),
                   ),
                   child: Icon(
                     icon,
-                    color: iconColor ?? const Color(0xFFFF0050),
+                    color: iconColor ?? const Color(0xFFFF0000),
                     size: 24,
                   ),
                 ),
@@ -1058,13 +1057,13 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.red[600]!, Colors.red[700]!],
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.red.withOpacity(0.3),
+              color: const Color(0xFFFF0000).withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -1110,7 +1109,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     final user = authService.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Column(
@@ -1127,8 +1126,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                     await _loadUnreadCount();
                     await _refreshFollowCounts();
                   },
-                  backgroundColor: const Color(0xFF2A2A2A),
-                  color: const Color(0xFFFF0050),
+                  backgroundColor: const Color(0xFF1F1F1F),
+                  color: const Color(0xFFFF0000),
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),
@@ -1148,7 +1147,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                               title: 'Chỉnh sửa hồ sơ',
                               subtitle: 'Cập nhật thông tin cá nhân',
                               onTap: _navigateToEditProfile,
-                              iconColor: const Color(0xFF25F4EE),
+                              iconColor: const Color(0xFFCC0000),
                               index: 0,
                             ),
                             _buildMenuTile(
@@ -1164,7 +1163,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                                           horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         gradient: const LinearGradient(
-                                          colors: [Color(0xFFFF0050), Color(0xFFFF4081)],
+                                          colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -1191,7 +1190,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                               title: 'Người theo dõi',
                               subtitle: 'Xem ai đang theo dõi bạn',
                               onTap: _navigateToFollowers,
-                              iconColor: const Color(0xFF25F4EE),
+                              iconColor: const Color(0xFFCC0000),
                               index: 2,
                             ),
                             _buildMenuTile(
@@ -1226,7 +1225,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                               title: 'Video của tôi',
                               subtitle: 'Quản lý video đã đăng',
                               onTap: _navigateToMyVideos,
-                              iconColor: const Color(0xFF25F4EE),
+                              iconColor: const Color(0xFFCC0000),
                               index: 6,
                             ),
                             _buildMenuTile(
@@ -1259,8 +1258,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                                         builder: (context) => const AdminDashboardPage()),
                                   );
                                 },
-                                iconColor: const Color(0xFF25F4EE),
-                                textColor: const Color(0xFF25F4EE),
+                                iconColor: const Color(0xFFCC0000),
+                                textColor: const Color(0xFFCC0000),
                                 index: 8,
                               ),
                             ],
@@ -1279,6 +1278,74 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Cài đặt'),
+        backgroundColor: const Color(0xFF0F0F0F),
+      ),
+      backgroundColor: const Color(0xFF0F0F0F),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.dark_mode, color: Colors.white),
+            title: const Text('Chế độ tối', style: TextStyle(color: Colors.white)),
+            trailing: Switch(
+              value: themeProvider.themeMode == ThemeMode.dark,
+              onChanged: (val) {
+                themeProvider.toggleTheme();
+              },
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Đăng xuất', style: TextStyle(color: Colors.red)),
+            onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Đăng xuất'),
+                  content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huỷ')),
+                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Đăng xuất', style: TextStyle(color: Colors.red))),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await authService.logout();
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                }
+              }
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.info_outline, color: Colors.white),
+            title: const Text('Thông tin ứng dụng', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              showAboutDialog(
+                context: context,
+                applicationName: 'TikTok Clone',
+                applicationVersion: '1.0.0',
+                applicationLegalese: '© 2024',
+              );
+            },
+          ),
+        ],
       ),
     );
   }

@@ -191,6 +191,30 @@ Router createVideoRoutes() {
     }
   });
 
+  // Update video description/hashtags
+  router.put('/<videoId>/hashtags', (Request request, String videoId) async {
+    return await VideoController.updateVideoHashtagsHandler(request, videoId);
+  });
+
+  // Delete video route
+  router.delete('/<videoId>', (Request request, String videoId) async {
+    final userIdString = request.url.queryParameters['userId'] ?? '';
+    if (userIdString.isEmpty) {
+      // Thử lấy từ body nếu không có trên query
+      try {
+        final body = await request.readAsString();
+        if (body.isNotEmpty) {
+          final data = jsonDecode(body);
+          if (data is Map && data['userId'] is String) {
+            return await VideoController.deleteVideoHandler(request, videoId, data['userId']);
+          }
+        }
+      } catch (_) {}
+      return Response(400, body: jsonEncode({'error': 'userId is required to delete video'}), headers: {'Content-Type': 'application/json'});
+    }
+    return await VideoController.deleteVideoHandler(request, videoId, userIdString);
+  });
+
   // CORS handlers for share routes
   router.options('/<videoId>/share', (Request request, String videoId) async {
     return Response.ok('', headers: {

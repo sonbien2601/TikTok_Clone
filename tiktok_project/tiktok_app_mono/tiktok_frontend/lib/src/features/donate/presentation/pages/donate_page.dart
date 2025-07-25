@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class DonatePage extends StatefulWidget {
   final String toUserId;
@@ -65,10 +66,10 @@ class _DonatePageState extends State<DonatePage> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            backgroundColor: backgroundColor ?? const Color(0xFF2A2A2A),
+            backgroundColor: backgroundColor ?? const Color(0xFF1F1F1F),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+            margin: EdgeInsets.all(16.w),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -338,36 +339,40 @@ class _DonatePageState extends State<DonatePage> {
     if (_proofImageUrl != null) {
       String fullImageUrl = _proofImageUrl!;
       if (!fullImageUrl.startsWith('http')) {
-        fullImageUrl = 'http://localhost:8080$_proofImageUrl';
+        fullImageUrl = '${NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080'}$_proofImageUrl';
       }
 
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.r),
         child: Image.network(
           fullImageUrl,
-          width: 80,
-          height: 80,
+          width: 80.w,
+          height: 80.h,
           fit: BoxFit.cover,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Center(child: CircularProgressIndicator()),
+              width: 80.w,
+              height: 80.h,
+              color: const Color(0xFF404040),
+              child: Center(
+                  child: CircularProgressIndicator(
+                color: const Color(0xFFFF0000),
+                strokeWidth: 2.w,
+              )),
             );
           },
           errorBuilder: (context, error, stackTrace) {
             return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
-              child: const Column(
+              width: 80.w,
+              height: 80.h,
+              color: const Color(0xFF404040),
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
                   Text('Uploaded',
-                      style: TextStyle(fontSize: 8, color: Colors.green)),
+                      style: TextStyle(fontSize: 8.sp, color: Colors.green)),
                 ],
               ),
             );
@@ -376,17 +381,17 @@ class _DonatePageState extends State<DonatePage> {
       );
     } else if (kIsWeb && _selectedImageFile?.bytes != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.r),
         child: Image.memory(
           _selectedImageFile!.bytes!,
-          width: 80,
-          height: 80,
+          width: 80.w,
+          height: 80.h,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
+              width: 80.w,
+              height: 80.h,
+              color: const Color(0xFF404040),
               child: const Icon(Icons.error, color: Colors.red),
             );
           },
@@ -394,17 +399,17 @@ class _DonatePageState extends State<DonatePage> {
       );
     } else if (!kIsWeb && _selectedImageFile?.path != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.r),
         child: Image.file(
           File(_selectedImageFile!.path!),
-          width: 80,
-          height: 80,
+          width: 80.w,
+          height: 80.h,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return Container(
-              width: 80,
-              height: 80,
-              color: Colors.grey[200],
+              width: 80.w,
+              height: 80.h,
+              color: const Color(0xFF404040),
               child: const Icon(Icons.error, color: Colors.red),
             );
           },
@@ -412,16 +417,16 @@ class _DonatePageState extends State<DonatePage> {
       );
     } else {
       return Container(
-        width: 80,
-        height: 80,
+        width: 80.w,
+        height: 80.h,
         decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
+          color: const Color(0xFF404040),
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(color: const Color(0xFF333333)),
         ),
         child: const Icon(
           Icons.image_outlined,
-          color: Colors.grey,
+          color: Color(0xFF888888),
           size: 40,
         ),
       );
@@ -539,37 +544,43 @@ class _DonatePageState extends State<DonatePage> {
     required String value,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFF1F1F1F),
+        borderRadius: BorderRadius.circular(8.r),
         border: Border.all(
-          color: Colors.grey[700]!.withOpacity(0.3),
+          color: const Color(0xFF333333),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: EdgeInsets.all(6.w),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-              ),
-              borderRadius: BorderRadius.circular(6),
+              color: const Color(0xFFFF0000),
+              borderRadius: BorderRadius.circular(6.r),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF0000).withOpacity(0.4),
+                  blurRadius: 8.r,
+                  offset: Offset(0, 3.h),
+                ),
+              ],
             ),
             child: Icon(
               icon,
-              size: 16,
+              size: 16.sp,
               color: Colors.white,
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
           Text(
             '$label: ',
             style: TextStyle(
               fontWeight: FontWeight.w500,
-              color: Colors.grey[400],
+              color: const Color(0xFF888888),
+              fontSize: 14.sp,
             ),
           ),
           Expanded(
@@ -578,6 +589,7 @@ class _DonatePageState extends State<DonatePage> {
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: Colors.grey[200],
+                fontSize: 14.sp,
               ),
             ),
           ),
@@ -592,7 +604,7 @@ class _DonatePageState extends State<DonatePage> {
       builder: (BuildContext context) {
         String qrUrl = imageUrl;
         if (!qrUrl.startsWith('http')) {
-          qrUrl = 'http://localhost:8080$qrUrl';
+          qrUrl = '${NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080'}$qrUrl';
         }
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -605,13 +617,13 @@ class _DonatePageState extends State<DonatePage> {
                     maxHeight: MediaQuery.of(context).size.height * 0.8,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFF1F1F1F),
+                    borderRadius: BorderRadius.circular(12.r),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8.r,
+                        offset: Offset(0, 2.h),
                       ),
                     ],
                   ),
@@ -619,38 +631,36 @@ class _DonatePageState extends State<DonatePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16.w),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            topRight: Radius.circular(12),
+                          color: const Color(0xFFFF0000),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(12.r),
+                            topRight: Radius.circular(12.r),
                           ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.qr_code, color: Colors.white),
-                            const SizedBox(width: 8),
+                            const Icon(Icons.qr_code, color: Colors.white, size: 20),
+                            SizedBox(width: 8.w),
                             Text(
                               'Mã QR thanh toán',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.grey[200],
+                                fontSize: 16.sp,
+                                color: Colors.white,
                               ),
                             ),
                             const Spacer(),
                             IconButton(
                               onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.close, color: Colors.white),
+                              icon: const Icon(Icons.close, color: Colors.white, size: 20),
                             ),
                           ],
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16.w),
                         child: InteractiveViewer(
                           child: Image.network(
                             qrUrl,
@@ -658,31 +668,32 @@ class _DonatePageState extends State<DonatePage> {
                             loadingBuilder: (context, child, loadingProgress) {
                               if (loadingProgress == null) return child;
                               return Container(
-                                height: 300,
-                                child: const Center(
+                                height: 300.h,
+                                child: Center(
                                   child: CircularProgressIndicator(
-                                    color: Color(0xFFFF0050),
+                                    color: const Color(0xFFFF0000),
+                                    strokeWidth: 2.w,
                                   ),
                                 ),
                               );
                             },
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
-                                height: 300,
+                                height: 300.h,
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
                                       Icons.error_outline,
-                                      size: 64,
-                                      color: Colors.grey[400],
+                                      size: 64.sp,
+                                      color: const Color(0xFF888888),
                                     ),
-                                    const SizedBox(height: 16),
+                                    SizedBox(height: 16.h),
                                     Text(
                                       'Không thể tải ảnh QR',
                                       style: TextStyle(
-                                        color: Colors.grey[400],
-                                        fontSize: 16,
+                                        color: const Color(0xFF888888),
+                                        fontSize: 16.sp,
                                       ),
                                     ),
                                   ],
@@ -706,16 +717,11 @@ class _DonatePageState extends State<DonatePage> {
   String fixImageUrl(String url) {
     if (url.isEmpty) return url;
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    String base;
-    if (kIsWeb) {
-      base = 'http://localhost:8080';
-    } else {
-      base = 'http://10.0.2.2:8080';
-    }
+    String base = NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080';
     if (url.startsWith('/')) {
       return base + url;
     }
-    return base + '/' + url;
+    return '$base/$url';
   }
 
   @override
@@ -723,15 +729,12 @@ class _DonatePageState extends State<DonatePage> {
     String qrUrl = '';
     if (_recipientBankInfo != null &&
         _recipientBankInfo!['bankQrImageUrl'] != null) {
-      qrUrl = _recipientBankInfo!['bankQrImageUrl'];
-      if (!qrUrl.startsWith('http')) {
-        qrUrl = 'http://localhost:8080$qrUrl';
-      }
+      qrUrl = fixImageUrl(_recipientBankInfo!['bankQrImageUrl']);
     }
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0F0F0F),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -740,34 +743,27 @@ class _DonatePageState extends State<DonatePage> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(8.w),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                ),
-                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xFFFF0000),
+                borderRadius: BorderRadius.circular(8.r),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF0050).withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: const Color(0xFFFF0000).withOpacity(0.4),
+                    blurRadius: 10.r,
+                    offset: Offset(0, 4.h),
                   ),
                 ],
               ),
               child: const Icon(Icons.favorite, color: Colors.white, size: 20),
             ),
-            const SizedBox(width: 12),
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-              ).createShader(bounds),
-              child: Text(
-                'Donate cho ${widget.toUsername}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+            SizedBox(width: 12.w),
+            Text(
+              'Donate cho ${widget.toUsername}',
+              style: TextStyle(
+                fontSize: 20.sp,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ],
@@ -775,91 +771,90 @@ class _DonatePageState extends State<DonatePage> {
       ),
       body: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 700),
+          constraints: BoxConstraints(maxWidth: 500.w, maxHeight: 700.h),
           child: Column(
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.w),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        margin: const EdgeInsets.only(bottom: 16),
+                        margin: EdgeInsets.only(bottom: 16.h),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(12.r),
+                          color: const Color(0xFF1F1F1F),
                           border: Border.all(
-                            color: _uploadUrl != null
-                                ? const Color(0xFF25F4EE).withOpacity(0.3)
-                                : Colors.orange.withOpacity(0.3),
+                            color: const Color(0xFF333333),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: _uploadUrl != null
-                                  ? const Color(0xFF25F4EE).withOpacity(0.2)
-                                  : Colors.orange.withOpacity(0.2),
-                              blurRadius: 15,
-                              offset: const Offset(0, 5),
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 8.r,
+                              offset: Offset(0, 2.h),
                             ),
                           ],
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16.w),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.all(8),
+                                    padding: EdgeInsets.all(8.w),
                                     decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: _uploadUrl != null
-                                            ? [
-                                                const Color(0xFF25F4EE),
-                                                const Color(0xFF00D4FF)
-                                              ]
-                                            : [
-                                                Colors.orange,
-                                                Colors.orangeAccent
-                                              ],
-                                      ),
+                                      color: _uploadUrl != null
+                                          ? const Color(0xFFFF0000)
+                                          : Colors.orange,
                                       shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: (_uploadUrl != null
+                                                  ? const Color(0xFFFF0000)
+                                                  : Colors.orange)
+                                              .withOpacity(0.4),
+                                          blurRadius: 10.r,
+                                          offset: Offset(0, 4.h),
+                                        ),
+                                      ],
                                     ),
                                     child: Icon(
                                       _uploadUrl != null
                                           ? Icons.check_circle
                                           : Icons.warning,
                                       color: Colors.white,
-                                      size: 20,
+                                      size: 20.sp,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12.w),
                                   Text(
                                     'Connection Status',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: Colors.grey[300],
-                                      fontSize: 16,
+                                      fontSize: 16.sp,
                                     ),
                                   ),
                                   const Spacer(),
                                   Container(
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFF25F4EE),
-                                          Color(0xFFFF0050)
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
+                                      color: const Color(0xFFFF0000),
+                                      borderRadius: BorderRadius.circular(8.r),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFFF0000)
+                                              .withOpacity(0.4),
+                                          blurRadius: 10.r,
+                                          offset: Offset(0, 4.h),
+                                        ),
+                                      ],
                                     ),
                                     child: IconButton(
-                                      icon: const Icon(
-                                          Icons.refresh,
-                                          size: 20,
-                                          color: Colors.white),
+                                      icon: const Icon(Icons.refresh,
+                                          size: 20, color: Colors.white),
                                       onPressed: _refreshConnection,
                                       tooltip: 'Refresh Connection',
                                     ),
@@ -867,12 +862,12 @@ class _DonatePageState extends State<DonatePage> {
                                 ],
                               ),
                               if (_debugInfo != null) ...[
-                                const SizedBox(height: 12),
+                                SizedBox(height: 12.h),
                                 Text(
                                   _debugInfo!,
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[500],
+                                    fontSize: 12.sp,
+                                    color: const Color(0xFF888888),
                                     fontFamily: 'monospace',
                                   ),
                                 ),
@@ -881,28 +876,28 @@ class _DonatePageState extends State<DonatePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16.h),
                       if (_isLoadingBankInfo) ...[
-                        const Center(
+                        Center(
                             child: CircularProgressIndicator(
-                          color: Color(0xFFFF0050),
+                          color: const Color(0xFFFF0000),
+                          strokeWidth: 3.w,
                         )),
                       ] else if (_recipientBankInfo != null) ...[
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(20),
+                          padding: EdgeInsets.all(20.w),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(12.r),
+                            color: const Color(0xFF1F1F1F),
                             border: Border.all(
-                              color: const Color(0xFF25F4EE).withOpacity(0.3),
+                              color: const Color(0xFF333333),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF25F4EE)
-                                    .withOpacity(0.2),
-                                blurRadius: 15,
-                                offset: const Offset(0, 5),
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 8.r,
+                                offset: Offset(0, 2.h),
                               ),
                             ],
                           ),
@@ -912,46 +907,41 @@ class _DonatePageState extends State<DonatePage> {
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.all(12),
+                                    padding: EdgeInsets.all(12.w),
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFF25F4EE),
-                                          Color(0xFF00D4FF)
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: const Color(0xFFFF0000),
+                                      borderRadius: BorderRadius.circular(12.r),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF25F4EE)
-                                              .withOpacity(0.3),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 4),
+                                          color: const Color(0xFFFF0000)
+                                              .withOpacity(0.4),
+                                          blurRadius: 10.r,
+                                          offset: Offset(0, 4.h),
                                         ),
                                       ],
                                     ),
                                     child: const Icon(Icons.account_balance,
                                         color: Colors.white, size: 20),
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12.w),
                                   Text(
                                     'Thông tin ngân hàng',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      color: Colors.grey[300],
+                                      fontSize: 18.sp,
+                                      color: Colors.white,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
+                              SizedBox(height: 12.h),
                               if (_recipientBankInfo!['bankName'] != null) ...[
                                 _buildInfoRow(
                                   icon: Icons.account_balance_wallet,
                                   label: 'Ngân hàng',
                                   value: _recipientBankInfo!['bankName'],
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8.h),
                               ],
                               if (_recipientBankInfo!['bankAccountNumber'] !=
                                   null) ...[
@@ -961,30 +951,28 @@ class _DonatePageState extends State<DonatePage> {
                                   value:
                                       _recipientBankInfo!['bankAccountNumber'],
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8.h),
                               ],
                               _buildInfoRow(
                                 icon: Icons.person,
                                 label: 'Tên tài khoản',
                                 value: widget.toUsername,
                               ),
-                              const SizedBox(height: 20),
+                              SizedBox(height: 20.h),
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.all(16),
+                                padding: EdgeInsets.all(16.w),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  color: const Color(0xFF1A1A1A),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  color: const Color(0xFF1F1F1F),
                                   border: Border.all(
-                                    color:
-                                        const Color(0xFF25F4EE).withOpacity(0.3),
+                                    color: const Color(0xFF333333),
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF25F4EE)
-                                          .withOpacity(0.1),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 8.r,
+                                      offset: Offset(0, 2.h),
                                     ),
                                   ],
                                 ),
@@ -993,32 +981,35 @@ class _DonatePageState extends State<DonatePage> {
                                     Row(
                                       children: [
                                         Container(
-                                          padding: const EdgeInsets.all(8),
+                                          padding: EdgeInsets.all(8.w),
                                           decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Color(0xFFFFB300),
-                                                Color(0xFFFFA000)
-                                              ],
-                                            ),
+                                            color: const Color(0xFFFF0000),
                                             borderRadius:
-                                                BorderRadius.circular(8),
+                                                BorderRadius.circular(8.r),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFFFF0000)
+                                                    .withOpacity(0.4),
+                                                blurRadius: 8.r,
+                                                offset: Offset(0, 3.h),
+                                              ),
+                                            ],
                                           ),
                                           child: const Icon(Icons.qr_code,
                                               color: Colors.white, size: 20),
                                         ),
-                                        const SizedBox(width: 12),
+                                        SizedBox(width: 12.w),
                                         Text(
                                           'Mã QR thanh toán',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            color: Colors.grey[300],
-                                            fontSize: 16,
+                                            color: Colors.white,
+                                            fontSize: 16.sp,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
+                                    SizedBox(height: 12.h),
                                     if (_recipientBankInfo![
                                                 'bankQrImageUrl'] !=
                                             null &&
@@ -1031,38 +1022,39 @@ class _DonatePageState extends State<DonatePage> {
                                         child: Container(
                                           decoration: BoxDecoration(
                                             borderRadius:
-                                                BorderRadius.circular(12),
+                                                BorderRadius.circular(12.r),
                                             boxShadow: [
                                               BoxShadow(
                                                 color: Colors.black
-                                                    .withOpacity(0.1),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 4),
+                                                    .withOpacity(0.2),
+                                                blurRadius: 8.r,
+                                                offset: Offset(0, 2.h),
                                               ),
                                             ],
                                           ),
                                           child: ClipRRect(
                                             borderRadius:
-                                                BorderRadius.circular(12),
+                                                BorderRadius.circular(12.r),
                                             child: Image.network(
                                               fixImageUrl(_recipientBankInfo![
                                                   'bankQrImageUrl']),
-                                              height: 200,
-                                              width: 200,
+                                              height: 200.h,
+                                              width: 200.w,
                                               fit: BoxFit.contain,
                                               loadingBuilder: (context, child,
                                                   loadingProgress) {
                                                 if (loadingProgress == null)
                                                   return child;
                                                 return Container(
-                                                  height: 200,
-                                                  width: 200,
-                                                  color: const Color(0xFF1A1A1A),
-                                                  child: const Center(
+                                                  height: 200.h,
+                                                  width: 200.w,
+                                                  color: const Color(0xFF1F1F1F),
+                                                  child: Center(
                                                     child:
                                                         CircularProgressIndicator(
-                                                      color:
-                                                          Color(0xFFFF0050),
+                                                      color: const Color(
+                                                          0xFFFF0000),
+                                                      strokeWidth: 2.w,
                                                     ),
                                                   ),
                                                 );
@@ -1070,16 +1062,17 @@ class _DonatePageState extends State<DonatePage> {
                                               errorBuilder:
                                                   (context, error, stackTrace) {
                                                 return Container(
-                                                  height: 200,
-                                                  width: 200,
+                                                  height: 200.h,
+                                                  width: 200.w,
                                                   decoration: BoxDecoration(
                                                     color:
-                                                        const Color(0xFF1A1A1A),
+                                                        const Color(0xFF1F1F1F),
                                                     borderRadius:
-                                                        BorderRadius.circular(12),
+                                                        BorderRadius.circular(
+                                                            12.r),
                                                     border: Border.all(
-                                                        color: Colors.grey[700]!
-                                                            .withOpacity(0.3)),
+                                                        color: const Color(
+                                                            0xFF333333)),
                                                   ),
                                                   child: Column(
                                                     mainAxisAlignment:
@@ -1087,16 +1080,17 @@ class _DonatePageState extends State<DonatePage> {
                                                     children: [
                                                       Icon(
                                                         Icons.broken_image,
-                                                        size: 48,
-                                                        color: Colors.grey[400],
+                                                        size: 48.sp,
+                                                        color: const Color(
+                                                            0xFF888888),
                                                       ),
-                                                      const SizedBox(height: 8),
+                                                      SizedBox(height: 8.h),
                                                       Text(
                                                         'Không thể tải ảnh QR',
                                                         style: TextStyle(
-                                                          color:
-                                                              Colors.grey[400],
-                                                          fontSize: 12,
+                                                          color: const Color(
+                                                              0xFF888888),
+                                                          fontSize: 12.sp,
                                                         ),
                                                         textAlign:
                                                             TextAlign.center,
@@ -1109,26 +1103,25 @@ class _DonatePageState extends State<DonatePage> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      SizedBox(height: 8.h),
                                       Text(
                                         'Nhấn để xem ảnh QR phóng to',
                                         style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[400],
+                                          fontSize: 12.sp,
+                                          color: const Color(0xFF888888),
                                           fontStyle: FontStyle.italic,
                                         ),
                                       ),
                                     ] else ...[
                                       Container(
-                                        height: 150,
+                                        height: 150.h,
                                         width: double.infinity,
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF1A1A1A),
+                                          color: const Color(0xFF1F1F1F),
                                           borderRadius:
-                                              BorderRadius.circular(12),
+                                              BorderRadius.circular(12.r),
                                           border: Border.all(
-                                            color: Colors.grey[700]!
-                                                .withOpacity(0.3),
+                                            color: const Color(0xFF333333),
                                           ),
                                         ),
                                         child: Column(
@@ -1137,25 +1130,25 @@ class _DonatePageState extends State<DonatePage> {
                                           children: [
                                             Icon(
                                               Icons.qr_code_scanner,
-                                              size: 48,
-                                              color: Colors.grey[400],
+                                              size: 48.sp,
+                                              color: const Color(0xFF888888),
                                             ),
-                                            const SizedBox(height: 8),
+                                            SizedBox(height: 8.h),
                                             Text(
                                               'Chưa có ảnh QR ngân hàng',
                                               style: TextStyle(
-                                                color: Colors.grey[400],
-                                                fontSize: 14,
+                                                color: const Color(0xFF888888),
+                                                fontSize: 14.sp,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
-                                            const SizedBox(height: 4),
+                                            SizedBox(height: 4.h),
                                             Text(
                                               'Vui lòng chuyển khoản theo thông tin trên',
                                               style: TextStyle(
-                                                color: Colors.grey[400],
-                                                fontSize: 12,
+                                                color: const Color(0xFF888888),
+                                                fontSize: 12.sp,
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
@@ -1169,22 +1162,21 @@ class _DonatePageState extends State<DonatePage> {
                               if (_recipientBankInfo!['bankName'] != null ||
                                   _recipientBankInfo!['bankAccountNumber'] !=
                                       null) ...[
-                                const SizedBox(height: 16),
+                                SizedBox(height: 16.h),
                                 Container(
-                                  padding: const EdgeInsets.all(12),
+                                  padding: EdgeInsets.all(12.w),
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: const Color(0xFF2A2A2A)
-                                        .withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(8.r),
+                                    color: const Color(0xFF1F1F1F),
                                     border: Border.all(
-                                      color: Colors.amber.withOpacity(0.3),
+                                      color: Colors.orange.withOpacity(0.3),
                                     ),
                                     boxShadow: [
                                       BoxShadow(
                                         color:
-                                            Colors.amber.withOpacity(0.2),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
+                                            Colors.orange.withOpacity(0.2),
+                                        blurRadius: 8.r,
+                                        offset: Offset(0, 2.h),
                                       ),
                                     ],
                                   ),
@@ -1193,23 +1185,22 @@ class _DonatePageState extends State<DonatePage> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.all(8),
+                                        padding: EdgeInsets.all(8.w),
                                         decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Colors.amber.withOpacity(0.3),
-                                              Colors.amber.withOpacity(0.1)
-                                            ],
-                                          ),
+                                          color: Colors.orange.withOpacity(0.2),
                                           shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color:
+                                                Colors.orange.withOpacity(0.3),
+                                          ),
                                         ),
                                         child: Icon(
                                           Icons.info_outline,
-                                          color: Colors.amber,
-                                          size: 20,
+                                          color: Colors.orange,
+                                          size: 20.sp,
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8.w),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
@@ -1219,19 +1210,19 @@ class _DonatePageState extends State<DonatePage> {
                                               'Lưu ý quan trọng:',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
-                                                color: Colors.grey[300],
-                                                fontSize: 13,
+                                                color: Colors.white,
+                                                fontSize: 13.sp,
                                               ),
                                             ),
-                                            const SizedBox(height: 4),
+                                            SizedBox(height: 4.h),
                                             Text(
                                               '• Vui lòng chuyển khoản chính xác theo thông tin trên\n'
                                               '• Quét QR hoặc chuyển khoản thủ công\n'
                                               '• Sau khi chuyển, hãy chụp ảnh màn hình xác nhận\n'
                                               '• Upload ảnh xác nhận để hoàn tất donate',
                                               style: TextStyle(
-                                                color: Colors.grey[400],
-                                                fontSize: 12,
+                                                color: const Color(0xFF888888),
+                                                fontSize: 12.sp,
                                               ),
                                             ),
                                           ],
@@ -1244,22 +1235,22 @@ class _DonatePageState extends State<DonatePage> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16.h),
                       ] else ...[
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16.w),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(12.r),
+                            color: const Color(0xFF1F1F1F),
                             border: Border.all(
-                              color: Colors.orange.withOpacity(0.3),
+                              color: const Color(0xFF333333),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.orange.withOpacity(0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 8.r,
+                                offset: Offset(0, 2.h),
                               ),
                             ],
                           ),
@@ -1267,88 +1258,83 @@ class _DonatePageState extends State<DonatePage> {
                             children: [
                               Icon(
                                 Icons.warning_amber,
-                                size: 48,
+                                size: 48.sp,
                                 color: Colors.orange,
                               ),
-                              const SizedBox(height: 12),
+                              SizedBox(height: 12.h),
                               Text(
                                 'Chưa có thông tin ngân hàng',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.grey[300],
+                                  fontSize: 16.sp,
+                                  color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8.h),
                               Text(
                                 'Người dùng này chưa cập nhật thông tin ngân hàng.\n'
                                 'Vui lòng liên hệ trực tiếp để donate.',
                                 style: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 14,
+                                  color: const Color(0xFF888888),
+                                  fontSize: 14.sp,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16.h),
                       ],
                       Container(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(12.r),
+                          color: const Color(0xFF1F1F1F),
                           border: Border.all(
-                            color: Colors.grey[700]!.withOpacity(0.3),
+                            color: const Color(0xFF333333),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 15,
-                              offset: const Offset(0, 5),
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 8.r,
+                              offset: Offset(0, 2.h),
                             ),
                           ],
                         ),
                         child: TextField(
                           controller: _amountController,
                           keyboardType: TextInputType.number,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 16),
+                          style: TextStyle(color: Colors.white, fontSize: 16.sp),
                           decoration: InputDecoration(
                             labelText: 'Số tiền (VND)',
-                            labelStyle: TextStyle(color: Colors.grey[400]),
+                            labelStyle: TextStyle(color: const Color(0xFF888888)),
                             prefixIcon: const Icon(Icons.monetization_on,
-                                color: Color(0xFFFFB300)),
+                                color: Color(0xFFFF0000)),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(12.r),
                               borderSide: BorderSide.none,
                             ),
                             fillColor: Colors.transparent,
                             filled: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 18),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 20.w, vertical: 18.h),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16.h),
                       const Text('Ảnh xác nhận chuyển khoản:',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white)),
-                      const SizedBox(height: 8),
+                              fontWeight: FontWeight.bold, color: Colors.white)),
+                      SizedBox(height: 8.h),
                       Container(
-                        width: double.infinity,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                          ),
+                          borderRadius: BorderRadius.circular(28.r),
+                          color: const Color(0xFFFF0000),
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  const Color(0xFF25F4EE).withOpacity(0.3),
-                              blurRadius: 15,
-                              offset: const Offset(0, 6),
+                              color: const Color(0xFFFF0000).withOpacity(0.4),
+                              blurRadius: 16.r,
+                              spreadRadius: 1.r,
+                              offset: Offset(0, 6.h),
                             ),
                           ],
                         ),
@@ -1368,26 +1354,26 @@ class _DonatePageState extends State<DonatePage> {
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                                borderRadius: BorderRadius.circular(28.r)),
+                            padding: EdgeInsets.symmetric(vertical: 16.h),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16.h),
                       if (_selectedImageFile != null || _proofImageUrl != null)
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.all(12.w),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(12.r),
+                            color: const Color(0xFF1F1F1F),
                             border: Border.all(
-                              color: Colors.grey[700]!.withOpacity(0.3),
+                              color: const Color(0xFF333333),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 15,
-                                offset: const Offset(0, 5),
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 8.r,
+                                offset: Offset(0, 2.h),
                               ),
                             ],
                           ),
@@ -1398,15 +1384,16 @@ class _DonatePageState extends State<DonatePage> {
                                 'Selected QR Image:',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.grey[300],
+                                  color: Colors.white,
+                                  fontSize: 14.sp,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8.h),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _buildImagePreview(),
-                                  const SizedBox(width: 16),
+                                  SizedBox(width: 16.w),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -1417,15 +1404,16 @@ class _DonatePageState extends State<DonatePage> {
                                             children: [
                                               Icon(
                                                 Icons.image,
-                                                color: Colors.grey[400],
+                                                color: const Color(0xFF888888),
+                                                size: 20.sp,
                                               ),
-                                              const SizedBox(width: 8),
+                                              SizedBox(width: 8.w),
                                               Expanded(
                                                 child: Text(
                                                   _imageFileName!,
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w500,
-                                                    fontSize: 15,
+                                                    fontSize: 15.sp,
                                                     color: Colors.grey[200],
                                                   ),
                                                   overflow:
@@ -1434,7 +1422,7 @@ class _DonatePageState extends State<DonatePage> {
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8.h),
                                         ],
                                         Row(
                                           children: [
@@ -1442,14 +1430,18 @@ class _DonatePageState extends State<DonatePage> {
                                               child: Container(
                                                 decoration: BoxDecoration(
                                                   borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  gradient:
-                                                      const LinearGradient(
-                                                    colors: [
-                                                      Color(0xFF25F4EE),
-                                                      Color(0xFFFF0050)
-                                                    ],
-                                                  ),
+                                                      BorderRadius.circular(12.r),
+                                                  color:
+                                                      const Color(0xFFFF0000),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: const Color(
+                                                              0xFFFF0000)
+                                                          .withOpacity(0.4),
+                                                      blurRadius: 10.r,
+                                                      offset: Offset(0, 4.h),
+                                                    ),
+                                                  ],
                                                 ),
                                                 child: ElevatedButton.icon(
                                                   icon: const Icon(
@@ -1479,20 +1471,21 @@ class _DonatePageState extends State<DonatePage> {
                                                             borderRadius:
                                                                 BorderRadius
                                                                     .circular(
-                                                                        12)),
-                                                    padding: const EdgeInsets
-                                                        .symmetric(vertical: 8),
+                                                                        12.r)),
+                                                    padding: EdgeInsets.symmetric(
+                                                        vertical: 8.h),
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(width: 8),
+                                            SizedBox(width: 8.w),
                                             Container(
                                               decoration: BoxDecoration(
                                                 borderRadius:
-                                                    BorderRadius.circular(8),
+                                                    BorderRadius.circular(8.r),
                                                 border: Border.all(
-                                                    color: Colors.grey[600]!),
+                                                    color:
+                                                        const Color(0xFF333333)),
                                               ),
                                               child: IconButton(
                                                 icon: const Icon(Icons.close,
@@ -1505,16 +1498,17 @@ class _DonatePageState extends State<DonatePage> {
                                           ],
                                         ),
                                         if (_isUploading) ...[
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8.h),
                                           const LinearProgressIndicator(
-                                            color: Color(0xFFFF0050),
+                                            color: Color(0xFFFF0000),
+                                            backgroundColor: Color(0xFF333333),
                                           ),
-                                          const SizedBox(height: 4),
+                                          SizedBox(height: 4.h),
                                           Text(
                                             'Uploading image...',
                                             style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[400]),
+                                                fontSize: 12.sp,
+                                                color: const Color(0xFF888888)),
                                           ),
                                         ],
                                       ],
@@ -1525,28 +1519,27 @@ class _DonatePageState extends State<DonatePage> {
                             ],
                           ),
                         ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       Text(
                         'Supported formats: JPG, JPEG, PNG, GIF, WEBP\nMax size: 5MB',
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey[400]),
+                            fontSize: 12.sp, color: const Color(0xFF888888)),
                       ),
                       if (_error != null) ...[
-                        const SizedBox(height: 8),
-                        Text(_error!,
-                            style: const TextStyle(color: Colors.red)),
+                        SizedBox(height: 8.h),
+                        Text(_error!, style: const TextStyle(color: Colors.red)),
                       ],
                     ],
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16.w),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
+                  color: const Color(0xFF1F1F1F),
                   border: Border(
                     top: BorderSide(
-                      color: Colors.grey[700]!.withOpacity(0.3),
+                      color: const Color(0xFF333333),
                     ),
                   ),
                 ),
@@ -1555,37 +1548,36 @@ class _DonatePageState extends State<DonatePage> {
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[600]!),
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: const Color(0xFF333333)),
+                          color: const Color(0xFF1F1F1F),
                         ),
                         child: TextButton(
                           onPressed: () => Navigator.pop(context),
                           child: Text(
                             'Hủy',
                             style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 16,
+                              color: const Color(0xFF888888),
+                              fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16.w),
                     Expanded(
                       flex: 2,
                       child: Container(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                          ),
+                          borderRadius: BorderRadius.circular(28.r),
+                          color: const Color(0xFFFF0000),
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  const Color(0xFFFF0050).withOpacity(0.3),
-                              blurRadius: 15,
-                              offset: const Offset(0, 6),
+                              color: const Color(0xFFFF0000).withOpacity(0.4),
+                              blurRadius: 16.r,
+                              spreadRadius: 1.r,
+                              offset: Offset(0, 6.h),
                             ),
                           ],
                         ),
@@ -1595,20 +1587,19 @@ class _DonatePageState extends State<DonatePage> {
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                                borderRadius: BorderRadius.circular(28.r)),
+                            padding: EdgeInsets.symmetric(vertical: 16.h),
                           ),
                           child: _isUploading
-                              ? const CircularProgressIndicator(
-                                  strokeWidth: 2,
+                              ? CircularProgressIndicator(
+                                  strokeWidth: 2.w,
                                   color: Colors.white,
                                 )
-                              : const Text(
+                              : Text(
                                   'Xác nhận Donate',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 16,
+                                    fontSize: 16.sp,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

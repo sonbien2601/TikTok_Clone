@@ -5,19 +5,22 @@ import 'package:tiktok_frontend/src/features/feed/domain/models/video_post_model
 import 'package:tiktok_frontend/src/features/profile/domain/services/profile_service.dart';
 import 'package:tiktok_frontend/src/features/profile/presentation/widgets/video_grid_item.dart';
 import 'package:tiktok_frontend/src/features/video_detail/presentation/pages/video_detail_page.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:tiktok_frontend/src/core/config/network_config.dart';
 
-class LikedVideosPage extends StatefulWidget {
-  const LikedVideosPage({super.key});
+class MyVideosPage extends StatefulWidget {
+  const MyVideosPage({super.key});
 
   @override
-  State<LikedVideosPage> createState() => _LikedVideosPageState();
+  State<MyVideosPage> createState() => _MyVideosPageState();
 }
 
-class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderStateMixin {
+class _MyVideosPageState extends State<MyVideosPage> with TickerProviderStateMixin {
   final ProfileService _profileService = ProfileService();
   final ScrollController _scrollController = ScrollController();
   
-  List<VideoPost> _likedVideos = [];
+  List<VideoPost> _myVideos = [];
   bool _isLoading = false;
   bool _hasError = false;
   String? _errorMessage;
@@ -61,7 +64,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
 
-    _loadLikedVideos();
+    _loadMyVideos();
     
     // Listen for scroll to load more videos
     _scrollController.addListener(_onScroll);
@@ -88,7 +91,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
     }
   }
 
-  Future<void> _loadLikedVideos() async {
+  Future<void> _loadMyVideos() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     if (!authService.isAuthenticated || authService.currentUser == null) {
       return;
@@ -103,7 +106,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
     });
 
     try {
-      final response = await _profileService.getLikedVideos(
+      final response = await _profileService.getUserVideos(
         authService.currentUser!.id,
         page: 1,
         limit: 20,
@@ -111,17 +114,15 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
       
       if (mounted) {
         setState(() {
-          _likedVideos = response['videos'] as List<VideoPost>;
+          _myVideos = response['videos'] as List<VideoPost>;
           _currentPage = response['currentPage'] as int;
           _hasNextPage = response['hasNextPage'] as bool;
           _isLoading = false;
         });
-        
-        // Start grid animation after data loads
         _gridController.forward();
       }
     } catch (e) {
-      print('[LikedVideosPage] Error loading liked videos: $e');
+      print('[MyVideosPage] Error loading my videos: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -145,7 +146,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
     });
 
     try {
-      final response = await _profileService.getLikedVideos(
+      final response = await _profileService.getUserVideos(
         authService.currentUser!.id,
         page: _currentPage + 1,
         limit: 20,
@@ -153,19 +154,18 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
       
       if (mounted) {
         setState(() {
-          _likedVideos.addAll(response['videos'] as List<VideoPost>);
+          _myVideos.addAll(response['videos'] as List<VideoPost>);
           _currentPage = response['currentPage'] as int;
           _hasNextPage = response['hasNextPage'] as bool;
           _isLoadingMore = false;
         });
       }
     } catch (e) {
-      print('[LikedVideosPage] Error loading more videos: $e');
+      print('[MyVideosPage] Error loading more videos: $e');
       if (mounted) {
         setState(() {
           _isLoadingMore = false;
         });
-        
         _showSnackBar('Lỗi khi tải thêm video: ${e.toString()}', isError: true);
       }
     }
@@ -174,12 +174,10 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
   Future<void> _refreshVideos() async {
     setState(() {
       _currentPage = 1;
-      _likedVideos.clear();
+      _myVideos.clear();
     });
-    
-    // Reset animations
     _gridController.reset();
-    await _loadLikedVideos();
+    await _loadMyVideos();
   }
 
   void _navigateToVideo(VideoPost video) {
@@ -237,6 +235,84 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
     );
   }
 
+  Future<void> _deleteVideo(VideoPost video) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.id;
+    if (userId == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xoá video'),
+        content: const Text('Bạn có chắc chắn muốn xoá video này?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huỷ')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xoá', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+      final url = Uri.parse('$baseUrl/${video.id}?userId=$userId');
+      final response = await http.delete(url, headers: {'Content-Type': 'application/json'});
+      if (response.statusCode == 200) {
+        setState(() {
+          _myVideos.removeWhere((v) => v.id == video.id);
+        });
+        _showSnackBar('Đã xoá video thành công', isError: false);
+      } else {
+        final msg = jsonDecode(response.body)['error'] ?? 'Lỗi không xác định';
+        _showSnackBar('Xoá video thất bại: $msg', isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Lỗi khi xoá video: $e', isError: true);
+    }
+  }
+
+  Future<void> _editVideo(VideoPost video) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.id;
+    if (userId == null) return;
+    final TextEditingController controller = TextEditingController(text: video.description);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sửa mô tả video'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          decoration: const InputDecoration(hintText: 'Nhập mô tả mới...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Huỷ')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Lưu')),
+        ],
+      ),
+    );
+    if (result == null || result == video.description) return;
+    try {
+      final baseUrl = await NetworkConfig.getBaseUrl('/api/videos');
+      final url = Uri.parse('$baseUrl/${video.id}/hashtags');
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'description': result, 'userId': userId}),
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          final idx = _myVideos.indexWhere((v) => v.id == video.id);
+          if (idx != -1) _myVideos[idx] = _myVideos[idx].copyWith(description: result);
+        });
+        _showSnackBar('Đã cập nhật mô tả video', isError: false);
+      } else {
+        final msg = jsonDecode(response.body)['error'] ?? 'Lỗi không xác định';
+        _showSnackBar('Sửa video thất bại: $msg', isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Lỗi khi sửa video: $e', isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -263,18 +339,18 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                   ),
                 ],
               ),
-              child: const Icon(Icons.favorite, color: Colors.white, size: 20),
+              child: const Icon(Icons.video_library, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
             const Text(
-              'Video đã thích',
+              'Video của tôi',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
-            if (_likedVideos.isNotEmpty) ...[
+            if (_myVideos.isNotEmpty) ...[
               const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -290,7 +366,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                   ],
                 ),
                 child: Text(
-                  _likedVideos.length.toString(),
+                  _myVideos.length.toString(),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -335,7 +411,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
   }
 
   Widget _buildBody() {
-    if (_isLoading && _likedVideos.isEmpty) {
+    if (_isLoading && _myVideos.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
           color: Color(0xFFFF0000),
@@ -344,7 +420,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
       );
     }
     
-    if (_hasError && _likedVideos.isEmpty) {
+    if (_hasError && _myVideos.isEmpty) {
       return Center(
         child: _buildGlassMorphicContainer(
           margin: const EdgeInsets.all(24),
@@ -365,7 +441,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
               ),
               const SizedBox(height: 24),
               Text(
-                'Lỗi khi tải video đã thích',
+                'Lỗi khi tải video của bạn',
                 style: TextStyle(
                   color: Colors.grey[300],
                   fontSize: 18,
@@ -399,7 +475,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: _loadLikedVideos,
+                  onPressed: _loadMyVideos,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
@@ -422,7 +498,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
       );
     }
     
-    if (_likedVideos.isEmpty) {
+    if (_myVideos.isEmpty) {
       return Center(
         child: _buildGlassMorphicContainer(
           margin: const EdgeInsets.all(24),
@@ -440,14 +516,14 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                   ),
                 ),
                 child: const Icon(
-                  Icons.favorite_border, 
+                  Icons.video_library_outlined, 
                   size: 64, 
                   color: Color(0xFFFF0000),
                 ),
               ),
               const SizedBox(height: 24),
               const Text(
-                'Chưa có video nào được thích',
+                'Bạn chưa đăng video nào',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -456,7 +532,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
               ),
               const SizedBox(height: 12),
               Text(
-                'Hãy thích những video bạn yêu thích\nđể xem lại sau!',
+                'Hãy đăng video đầu tiên để chia sẻ với mọi người!',
                 style: TextStyle(
                   color: Color(0xFF888888), 
                   fontSize: 16,
@@ -479,9 +555,9 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                 ),
                 child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.explore, color: Colors.white),
+                  icon: const Icon(Icons.add, color: Colors.white),
                   label: const Text(
-                    'Khám phá video',
+                    'Đăng video',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -525,7 +601,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.favorite, color: Colors.white, size: 24),
+                  child: const Icon(Icons.video_library, color: Colors.white, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -533,7 +609,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${_likedVideos.length} video đã thích',
+                        '${_myVideos.length} video đã đăng',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -541,7 +617,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                         ),
                       ),
                       Text(
-                        'Những video bạn yêu thích',
+                        'Những video bạn đã đăng tải',
                         style: TextStyle(
                           fontSize: 14,
                           color: Color(0xFF888888),
@@ -564,7 +640,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                       'Cuộn để xem thêm',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[400],
+                        color: Color(0xFF888888),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -580,7 +656,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
           sliver: SliverGrid(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                if (index == _likedVideos.length) {
+                if (index == _myVideos.length) {
                   // Loading more indicator
                   return Center(
                     child: Container(
@@ -600,7 +676,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                   );
                 }
                 
-                final video = _likedVideos[index];
+                final video = _myVideos[index];
                 return AnimatedBuilder(
                   animation: _gridController,
                   builder: (context, child) {
@@ -643,7 +719,7 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                   },
                 );
               },
-              childCount: _likedVideos.length + (_isLoadingMore ? 1 : 0),
+              childCount: _myVideos.length + (_isLoadingMore ? 1 : 0),
             ),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -692,10 +768,9 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                 child: VideoGridItem(
                   video: video,
                   onTap: () => _navigateToVideo(video),
-                  showLikeIndicator: true,
+                  showSaveIndicator: false,
                 ),
               ),
-              
               // Gradient overlay for better text visibility
               Positioned(
                 bottom: 0,
@@ -719,32 +794,26 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
                   ),
                 ),
               ),
-              
-              // Love indicator
+              // Nút xoá và sửa
               Positioned(
                 top: 8,
                 right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF0000),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFF0000).withOpacity(0.4),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.favorite,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.white, size: 20),
+                      tooltip: 'Sửa mô tả',
+                      onPressed: () => _editVideo(video),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                      tooltip: 'Xoá video',
+                      onPressed: () => _deleteVideo(video),
+                    ),
+                  ],
                 ),
               ),
-              
               // Play button overlay
               const Positioned.fill(
                 child: Center(
@@ -761,4 +830,4 @@ class _LikedVideosPageState extends State<LikedVideosPage> with TickerProviderSt
       ),
     );
   }
-}
+} 

@@ -471,7 +471,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF0000)),
                 ),
               ),
             ),
@@ -489,7 +489,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
 
         return CircleAvatar(
           radius: 16,
-          backgroundColor: Theme.of(context).primaryColor,
+          backgroundColor: const Color(0xFFFF0000),
           child: ClipOval(
             child: Image.network(
               fullAvatarUrl,
@@ -511,7 +511,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                       height: 12,
                       child: CircularProgressIndicator(
                         strokeWidth: 1.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF0000)),
                       ),
                     ),
                   ),
@@ -536,8 +536,8 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
         shape: BoxShape.circle,
         gradient: LinearGradient(
           colors: [
-            Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.8),
+            const Color(0xFFFF0000),
+            const Color(0xFFFF0000).withValues(alpha: 0.8),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -603,18 +603,18 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                   ]))
             else
               const Center(
-                  child: CircularProgressIndicator(color: Colors.white)),
+                  child: CircularProgressIndicator(color: Color(0xFFFF0000))),
             if (_isBuffering && !_isPlaying)
               const Center(
                   child: CircularProgressIndicator(
-                      color: Colors.white70, strokeWidth: 2)),
+                      color: Color(0xFFFF0000), strokeWidth: 2)),
             if (_isInitialized && _showControlsOverlay)
               Center(
                   child: Icon(
                       _isPlaying
                           ? Icons.pause_circle_outline
                           : Icons.play_circle_outline,
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                       size: 70)),
             Positioned(
                 top: MediaQuery.of(context).padding.top + 10,
@@ -625,14 +625,14 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                   children: [
                     Text("Following",
                         style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 16,
                             fontWeight: FontWeight.w500)),
                     const SizedBox(width: 12),
                     Container(
                         height: 12,
                         width: 1,
-                        color: Colors.white.withOpacity(0.7)),
+                        color: Colors.white.withValues(alpha: 0.7)),
                     const SizedBox(width: 12),
                     const Text("For You",
                         style: TextStyle(
@@ -651,7 +651,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -679,8 +679,8 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: widget.videoPost.isTrending
-                            ? Colors.red.withOpacity(0.9)
-                            : Colors.orange.withOpacity(0.9),
+                            ? const Color(0xFFFF0000).withValues(alpha: 0.9)
+                            : Colors.orange.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -708,9 +708,9 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                     top: 10),
                 decoration: BoxDecoration(
                     gradient: LinearGradient(colors: [
-                  Colors.black.withOpacity(0.0),
-                  Colors.black.withOpacity(0.3),
-                  Colors.black.withOpacity(0.7)
+                  Colors.black.withValues(alpha: 0.0),
+                  Colors.black.withValues(alpha: 0.3),
+                  Colors.black.withValues(alpha: 0.7)
                 ], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -821,7 +821,6 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(height: 25),
-
                           _buildInteractionButton(
                               icon: widget.videoPost.isLikedByCurrentUser
                                   ? Icons.favorite_rounded
@@ -829,16 +828,14 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                               label: widget.videoPost.formattedLikesCount,
                               onPressed: widget.onLikeButtonPressed,
                               iconColor: widget.videoPost.isLikedByCurrentUser
-                                  ? Colors.redAccent[400]
+                                  ? const Color(0xFFFF0000)
                                   : Colors.white),
                           const SizedBox(height: 20),
-
                           _buildInteractionButton(
                               icon: Icons.chat_bubble_outline_rounded,
                               label: _localCommentsCount.toString(),
                               onPressed: _showComments),
                           const SizedBox(height: 20),
-
                           _buildInteractionButton(
                               icon: widget.videoPost.isSavedByCurrentUser
                                   ? Icons.bookmark_rounded
@@ -846,19 +843,17 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
                               label: "Save",
                               onPressed: widget.onSaveButtonPressed,
                               iconColor: widget.videoPost.isSavedByCurrentUser
-                                  ? Colors.amberAccent[400]
+                                  ? Colors.amber[400]
                                   : Colors.white),
                           const SizedBox(height: 20),
-
                           _buildInteractionButton(
                               icon: Icons.share_rounded,
                               label: _formatCount(_localSharesCount),
                               onPressed: _showShareBottomSheet,
                               iconColor: _localSharesCount > 0
-                                  ? Colors.greenAccent[400]
+                                  ? Colors.green[400]
                                   : Colors.white),
                           const SizedBox(height: 20),
-
                           // Nút Donate được đặt trong cột tương tác
                           _buildDonateButton(),
                           const SizedBox(height: 25),
@@ -915,8 +910,8 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Colors.pinkAccent.shade200,
-              Colors.pinkAccent.shade400,
+              const Color(0xFFFF0000),
+              const Color(0xFFCC0000),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -924,7 +919,7 @@ class _FullScreenVideoItemState extends State<FullScreenVideoItem>
           borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
-              color: Colors.pinkAccent.withOpacity(0.3),
+              color: const Color(0xFFFF0000).withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

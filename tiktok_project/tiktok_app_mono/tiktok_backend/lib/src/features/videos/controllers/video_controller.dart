@@ -1632,8 +1632,47 @@ class VideoController {
     throw UnimplementedError();
   }
 
-  static Future<Router> deleteVideoHandler(Request request, String videoId, String userIdString) async {
-    throw UnimplementedError();
+  static Future<Response> deleteVideoHandler(Request request, String videoId, String userIdString) async {
+    try {
+      if (videoId.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(videoId)) {
+        return Response(400, body: jsonEncode({'error': 'Invalid video ID format'}), headers: {'Content-Type': 'application/json'});
+      }
+      if (userIdString.length != 24 || !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userIdString)) {
+        return Response(400, body: jsonEncode({'error': 'Invalid user ID format'}), headers: {'Content-Type': 'application/json'});
+      }
+      final videoObjectId = ObjectId.fromHexString(videoId);
+      final userObjectId = ObjectId.fromHexString(userIdString);
+      final videosCollection = DatabaseService.db.collection('videos');
+      final videoDoc = await videosCollection.findOne(where.id(videoObjectId));
+      if (videoDoc == null) {
+        return Response(404, body: jsonEncode({'error': 'Video not found'}), headers: {'Content-Type': 'application/json'});
+      }
+      if (videoDoc['userId'] != userObjectId) {
+        return Response(403, body: jsonEncode({'error': 'You can only delete your own videos'}), headers: {'Content-Type': 'application/json'});
+      }
+      // Xoá file vật lý nếu có
+      final videoUrl = videoDoc['videoUrl'] as String?;
+      if (videoUrl != null && videoUrl.isNotEmpty) {
+        try {
+          final file = File(videoUrl);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (e) {
+          print('[VideoController] Warning: Failed to delete video file: $e');
+        }
+      }
+      // Xoá document trong MongoDB
+      final deleteResult = await videosCollection.deleteOne(where.id(videoObjectId));
+      if (deleteResult.isSuccess) {
+        return Response.ok(jsonEncode({'message': 'Video deleted successfully'}), headers: {'Content-Type': 'application/json'});
+      } else {
+        return Response.internalServerError(body: jsonEncode({'error': 'Failed to delete video'}), headers: {'Content-Type': 'application/json'});
+      }
+    } catch (e, s) {
+      print('[VideoController.deleteVideoHandler] Error: $e\n$s');
+      return Response.internalServerError(body: jsonEncode({'error': 'Failed to delete video: $e'}), headers: {'Content-Type': 'application/json'});
+    }
   }
 }
 

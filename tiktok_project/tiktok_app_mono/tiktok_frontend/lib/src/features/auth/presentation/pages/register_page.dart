@@ -160,7 +160,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: const Color(0xFFFF0050),
+              primary: const Color(0xFFFF0000),
               surface: const Color(0xFF1A1A1A),
               onSurface: Colors.white,
             ),
@@ -283,19 +283,19 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const LinearGradient(
-          colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+          colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF0050).withOpacity(0.3),
+            color: const Color(0xFFFF0000).withValues(alpha: 0.3),
             blurRadius: 20,
             spreadRadius: 2,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: const Color(0xFF25F4EE).withOpacity(0.2),
+            color: const Color(0xFFFF0000).withValues(alpha: 0.2),
             blurRadius: 15,
             spreadRadius: 1,
             offset: const Offset(0, -4),
@@ -308,7 +308,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
         height: 120,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: Color(0xFF2A2A2A),
+          color: Color(0xFF1F1F1F),
         ),
         child: ClipOval(
           child: _getAvatarWidget(),
@@ -320,26 +320,26 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
   Widget _getAvatarWidget() {
     if (_avatarUrl != null) {
       return Image.network(
-          _avatarUrl!,
+        _avatarUrl!,
         width: 120,
         height: 120,
-          fit: BoxFit.cover,
+        fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
       );
     } else if (kIsWeb && _selectedAvatarFile?.bytes != null) {
       return Image.memory(
-          _selectedAvatarFile!.bytes!,
+        _selectedAvatarFile!.bytes!,
         width: 120,
         height: 120,
-          fit: BoxFit.cover,
+        fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
       );
     } else if (!kIsWeb && _selectedAvatarFile?.path != null) {
       return Image.file(
-          File(_selectedAvatarFile!.path!),
+        File(_selectedAvatarFile!.path!),
         width: 120,
         height: 120,
-          fit: BoxFit.cover,
+        fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
       );
     } else {
@@ -479,20 +479,20 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
   }
 
   void _showSnackBar(String message, {required bool isError}) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
         content: Text(
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
-        backgroundColor: isError ? Colors.red[600] : Colors.green[600],
+        backgroundColor: isError ? const Color(0xFFFF0000) : const Color(0xFF00C851),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      ),
+    );
+  }
 
   Widget _buildCustomTextField({
     required TextEditingController controller,
@@ -512,17 +512,17 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
         margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: const Color(0xFF2A2A2A),
+          color: const Color(0xFF1F1F1F),
           border: Border.all(
             color: _focusNodes[index].hasFocus 
-                ? const Color(0xFFFF0050) 
+                ? const Color(0xFFFF0000) 
                 : Colors.grey[700]!,
             width: _focusNodes[index].hasFocus ? 2 : 1,
           ),
           boxShadow: [
             if (_focusNodes[index].hasFocus)
               BoxShadow(
-                color: const Color(0xFFFF0050).withOpacity(0.2),
+                color: const Color(0xFFFF0000).withValues(alpha: 0.2),
                 blurRadius: 10,
                 spreadRadius: 1,
                 offset: const Offset(0, 4),
@@ -558,7 +558,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
               child: Icon(
                 icon, 
                 color: _focusNodes[index].hasFocus 
-                    ? const Color(0xFFFF0050) 
+                    ? const Color(0xFFFF0000) 
                     : Colors.grey[500],
               ),
             ),
@@ -587,7 +587,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
         borderRadius: BorderRadius.circular(29),
         gradient: onPressed != null 
             ? const LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFFFF4081), Color(0xFF25F4EE)],
+                colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               )
@@ -596,13 +596,13 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
               ),
         boxShadow: onPressed != null ? [
           BoxShadow(
-            color: const Color(0xFFFF0050).withOpacity(0.4),
+            color: const Color(0xFFFF0000).withValues(alpha: 0.4),
             blurRadius: 20,
             spreadRadius: 1,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: const Color(0xFF25F4EE).withOpacity(0.2),
+            color: const Color(0xFFFF0000).withValues(alpha: 0.2),
             blurRadius: 15,
             offset: const Offset(0, 4),
           ),
@@ -646,7 +646,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: const Color(0xFF2A2A2A).withOpacity(0.8),
+        color: const Color(0xFF1F1F1F).withValues(alpha: 0.8),
         border: Border.all(
           color: Colors.grey[700]!.withOpacity(0.3),
           width: 1,
@@ -666,18 +666,18 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
           child: SlideTransition(
             position: _slideAnimation,
-        child: SingleChildScrollView(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 20),
                     
@@ -686,7 +686,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                       children: [
                         ShaderMask(
                           shaderCallback: (bounds) => const LinearGradient(
-                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                            colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                           ).createShader(bounds),
                           child: const Text(
                             'Tạo Tài Khoản',
@@ -697,7 +697,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                             ),
                           ),
                         ),
-                const SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Tham gia cộng đồng của chúng tôi!',
                           style: TextStyle(
@@ -712,17 +712,17 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                     const SizedBox(height: 32),
                     
                     // Avatar Section
-                Center(
-                  child: Stack(
-                    children: [
-                      _buildAvatarPreview(),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
+                    Center(
+                      child: Stack(
+                        children: [
+                          _buildAvatarPreview(),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
                             child: Container(
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                                  colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                 ),
                                 shape: BoxShape.circle,
                                 boxShadow: [
@@ -735,11 +735,11 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                               ),
                               child: IconButton(
                                 icon: const Icon(Icons.camera_alt, color: Colors.white, size: 22),
-                              onPressed: _pickAvatarImage,
+                                onPressed: _pickAvatarImage,
                               ),
                             ),
-                            ),
-                            if (_selectedAvatarFile != null)
+                          ),
+                          if (_selectedAvatarFile != null)
                             Positioned(
                               top: 0,
                               right: 0,
@@ -757,11 +757,11 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                 ),
                                 child: IconButton(
                                   icon: const Icon(Icons.cloud_upload, color: Colors.white, size: 20),
-                                onPressed: _isUploadingAvatar ? null : _uploadAvatarImage,
+                                  onPressed: _isUploadingAvatar ? null : _uploadAvatarImage,
                                 ),
                               ),
-                              ),
-                            if (_avatarUrl != null)
+                            ),
+                          if (_avatarUrl != null)
                             Positioned(
                               top: 0,
                               left: 0,
@@ -781,11 +781,11 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                   icon: const Icon(Icons.close, color: Colors.white, size: 20),
                                   onPressed: () => setState(() { _avatarUrl = null; }),
                                 ),
-                        ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
                     
                     const SizedBox(height: 32),
                     
@@ -797,7 +797,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                       index: 0,
                       validator: (value) {
                         if (value == null || value.isEmpty) return 'Vui lòng nhập tên người dùng';
-                  return null;
+                        return null;
                       },
                     ),
                     
@@ -810,22 +810,22 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                       validator: (value) {
                         if (value == null || value.isEmpty) return 'Vui lòng nhập email';
                         if (!value.contains('@') || !value.contains('.')) return 'Vui lòng nhập email hợp lệ';
-                  return null;
+                        return null;
                       },
                     ),
                     
                     _buildCustomTextField(
-                  controller: _phoneController,
-                  hintText: 'Số điện thoại',
+                      controller: _phoneController,
+                      hintText: 'Số điện thoại',
                       icon: Icons.phone,
                       index: 2,
-                  keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Vui lòng nhập số điện thoại';
-                    if (!RegExp(r'^\+?\d{9,15}$').hasMatch(value)) return 'Số điện thoại không hợp lệ';
-                    return null;
-                  },
-                ),
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Vui lòng nhập số điện thoại';
+                        if (!RegExp(r'^\+?\d{9,15}$').hasMatch(value)) return 'Số điện thoại không hợp lệ';
+                        return null;
+                      },
+                    ),
                     
                     // OTP Section
                     _buildGlassMorphicContainer(
@@ -841,21 +841,21 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                             ),
                           ),
                           const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
+                          Row(
+                            children: [
+                              Expanded(
                                 child: Container(
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(12),
                                     color: const Color(0xFF1A1A1A),
                                     border: Border.all(color: Colors.grey[600]!),
                                   ),
-                      child: TextFormField(
-                        controller: _otpController,
+                                  child: TextFormField(
+                                    controller: _otpController,
                                     decoration: InputDecoration(
-                          hintText: 'Nhập mã OTP',
+                                      hintText: 'Nhập mã OTP',
                                       hintStyle: TextStyle(color: Colors.grey[500]),
-                                      prefixIcon: const Icon(Icons.sms, color: Color(0xFFFF0050)),
+                                      prefixIcon: const Icon(Icons.sms, color: Color(0xFFFF0000)),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                         borderSide: BorderSide.none,
@@ -865,28 +865,28 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                     ),
                                     style: const TextStyle(color: Colors.white),
-                        keyboardType: TextInputType.number,
-                        enabled: _otpSent,
-                      ),
-                    ),
+                                    keyboardType: TextInputType.number,
+                                    enabled: _otpSent,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
+                                    colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF25F4EE).withOpacity(0.3),
+                                      color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
                                 child: ElevatedButton(
-                      onPressed: _isSendingOtp ? null : _sendOtp,
+                                  onPressed: _isSendingOtp ? null : _sendOtp,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,
@@ -901,24 +901,24 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                         )
                                       : const Text('Gửi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 ),
-                    ),
-                    const SizedBox(width: 8),
+                              ),
+                              const SizedBox(width: 8),
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFFFF0050), Color(0xFFFF4081)],
+                                    colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFFFF0050).withOpacity(0.3),
+                                      color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
                                 child: ElevatedButton(
-                      onPressed: (_otpSent && !_isVerifyingOtp) ? _verifyOtp : null,
+                                  onPressed: (_otpSent && !_isVerifyingOtp) ? _verifyOtp : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,
@@ -933,11 +933,11 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                         )
                                       : const Text('Xác thực', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 ),
-                    ),
-                  ],
-                ),
-                if (_otpVerified)
-                Padding(
+                              ),
+                            ],
+                          ),
+                          if (_otpVerified)
+                            Padding(
                               padding: const EdgeInsets.only(top: 12),
                               child: Row(
                                 children: [
@@ -958,17 +958,17 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                     ),
                     
                     _buildCustomTextField(
-                    controller: _dobController,
-                        hintText: 'Ngày sinh (dd/mm/yyyy)',
+                      controller: _dobController,
+                      hintText: 'Ngày sinh (dd/mm/yyyy)',
                       icon: Icons.calendar_today_outlined,
                       index: 3,
                       readOnly: true,
-                    onTap: () => _selectDate(context),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Vui lòng chọn ngày sinh';
-                      return null;
-                    },
-                  ),
+                      onTap: () => _selectDate(context),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Vui lòng chọn ngày sinh';
+                        return null;
+                      },
+                    ),
                     
                     // Age Confirmation
                     _buildGlassMorphicContainer(
@@ -981,10 +981,10 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: _isOver18 ? const Color(0xFFFF0050) : Colors.grey[600]!,
+                                color: _isOver18 ? const Color(0xFFFF0000) : Colors.grey[600]!,
                                 width: 2,
                               ),
-                              color: _isOver18 ? const Color(0xFFFF0050) : Colors.transparent,
+                              color: _isOver18 ? const Color(0xFFFF0000) : Colors.transparent,
                             ),
                             child: _isOver18
                                 ? const Icon(Icons.check, color: Colors.white, size: 16)
@@ -994,10 +994,10 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
-                          setState(() {
+                                setState(() {
                                   _isOver18 = !_isOver18;
-                          });
-                        },
+                                });
+                              },
                               child: Text(
                                 "Tôi xác nhận mình trên 18 tuổi",
                                 style: TextStyle(
@@ -1027,23 +1027,23 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                           ),
                           const SizedBox(height: 16),
                           Row(
-                  children: Gender.values.map((gender) {
-                    String genderText = '';
+                            children: Gender.values.map((gender) {
+                              String genderText = '';
                               IconData genderIcon = Icons.person;
-                    switch (gender) {
-                      case Gender.male:
-                        genderText = 'Nam';
+                              switch (gender) {
+                                case Gender.male:
+                                  genderText = 'Nam';
                                   genderIcon = Icons.male;
-                        break;
-                      case Gender.female:
-                        genderText = 'Nữ';
+                                  break;
+                                case Gender.female:
+                                  genderText = 'Nữ';
                                   genderIcon = Icons.female;
-                        break;
-                      case Gender.other:
-                        genderText = 'Khác';
+                                  break;
+                                case Gender.other:
+                                  genderText = 'Khác';
                                   genderIcon = Icons.transgender;
-                        break;
-                    }
+                                  break;
+                              }
                               return Expanded(
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
@@ -1051,17 +1051,17 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(16),
                                     color: _selectedGender == gender 
-                                        ? const Color(0xFFFF0050) 
+                                        ? const Color(0xFFFF0000) 
                                         : const Color(0xFF1A1A1A),
                                     border: Border.all(
                                       color: _selectedGender == gender 
-                                          ? const Color(0xFFFF0050) 
+                                          ? const Color(0xFFFF0000) 
                                           : Colors.grey[600]!,
                                       width: _selectedGender == gender ? 2 : 1,
                                     ),
                                     boxShadow: _selectedGender == gender ? [
                                       BoxShadow(
-                                        color: const Color(0xFFFF0050).withOpacity(0.3),
+                                        color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       ),
@@ -1097,9 +1097,9 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                     ),
                                   ),
                                 ),
-                    );
-                  }).toList(),
-                ),
+                              );
+                            }).toList(),
+                          ),
                         ],
                       ),
                     ),
@@ -1125,14 +1125,14 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                             childAspectRatio: 2.5,
-                  children: _interests.keys.map((String key) {
+                            children: _interests.keys.map((String key) {
                               bool isSelected = _interests[key]!;
                               return InkWell(
                                 onTap: () {
-                          setState(() {
+                                  setState(() {
                                     _interests[key] = !isSelected;
-                          });
-                        },
+                                  });
+                                },
                                 borderRadius: BorderRadius.circular(25),
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 250),
@@ -1140,7 +1140,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(25),
                                     gradient: isSelected ? const LinearGradient(
-                                      colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                                      colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                                       begin: Alignment.centerLeft,
                                       end: Alignment.centerRight,
                                     ) : null,
@@ -1153,7 +1153,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                     ),
                                     boxShadow: isSelected ? [
                                       BoxShadow(
-                                        color: const Color(0xFFFF0050).withOpacity(0.3),
+                                        color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                                         blurRadius: 10,
                                         spreadRadius: 1,
                                         offset: const Offset(0, 4),
@@ -1178,38 +1178,38 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
                         ],
                       ),
                     ),
                     
                     // Password Fields
                     _buildCustomTextField(
-                    controller: _passwordController,
+                      controller: _passwordController,
                       hintText: 'Mật khẩu',
                       icon: Icons.lock_outline,
                       index: 4,
-                    obscureText: true,
-                    validator: (value) {
+                      obscureText: true,
+                      validator: (value) {
                         if (value == null || value.isEmpty) return 'Vui lòng nhập mật khẩu';
                         if (value.length < 6) return 'Mật khẩu phải có ít nhất 6 ký tự';
-                      return null;
+                        return null;
                       },
                     ),
                     
                     _buildCustomTextField(
-                    controller: _confirmPasswordController,
+                      controller: _confirmPasswordController,
                       hintText: 'Xác nhận mật khẩu',
                       icon: Icons.lock_reset_outlined,
                       index: 5,
-                    obscureText: true,
-                    validator: (value) {
+                      obscureText: true,
+                      validator: (value) {
                         if (value == null || value.isEmpty) return 'Vui lòng xác nhận mật khẩu';
                         if (value != _passwordController.text) return 'Mật khẩu không khớp';
-                      return null;
+                        return null;
                       },
                     ),
                     
@@ -1262,7 +1262,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                           },
                           child: ShaderMask(
                             shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                              colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                             ).createShader(bounds),
                             child: const Text(
                               'Đăng nhập',

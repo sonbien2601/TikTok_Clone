@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/profile/presentation/pages/following_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
@@ -188,7 +187,7 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
-        backgroundColor: isError ? Colors.red[600] : Colors.green[600],
+        backgroundColor: isError ? const Color(0xFFFF0000) : const Color(0xFF00C851),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -207,17 +206,17 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: color ?? const Color(0xFF2A2A2A).withOpacity(0.8),
+        borderRadius: BorderRadius.circular(12),
+        color: color ?? const Color(0xFF1F1F1F),
         border: Border.all(
-          color: Colors.grey[700]!.withOpacity(0.3),
+          color: const Color(0xFF333333),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -228,9 +227,9 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0F0F0F),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -239,24 +238,19 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-              ).createShader(bounds),
-              child: const Text(
-                'Đang theo dõi',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+            const Text(
+              'Đang theo dõi',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
             Text(
               '@${widget.username}',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
-                color: Colors.grey[400],
+                color: Color(0xFF888888),
                 fontWeight: FontWeight.normal,
               ),
             ),
@@ -270,13 +264,11 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
-                    ),
+                    color: const Color(0xFFFF0000),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF25F4EE).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withOpacity(0.4),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -301,8 +293,8 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
           position: _slideAnimation,
           child: RefreshIndicator(
             onRefresh: _refreshFollowing,
-            backgroundColor: const Color(0xFF2A2A2A),
-            color: const Color(0xFF25F4EE),
+            backgroundColor: const Color(0xFF1F1F1F),
+            color: const Color(0xFFFF0000),
             child: _buildBody(),
           ),
         ),
@@ -314,7 +306,7 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
     if (_isLoading && _following.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFF25F4EE),
+          color: Color(0xFFFF0000),
           strokeWidth: 3,
         ),
       );
@@ -331,13 +323,11 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.withOpacity(0.3),
-                      Colors.red.withOpacity(0.1),
-                    ],
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
                   ),
-                  shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.error_outline, size: 48, color: Colors.red),
               ),
@@ -365,14 +355,13 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
               const SizedBox(height: 24),
               Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(25),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  color: const Color(0xFFFF0000),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF25F4EE).withOpacity(0.3),
-                      blurRadius: 15,
+                      color: const Color(0xFFFF0000).withOpacity(0.4),
+                      blurRadius: 16,
+                      spreadRadius: 1,
                       offset: const Offset(0, 6),
                     ),
                   ],
@@ -382,7 +371,7 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   ),
                   child: const Text(
@@ -412,37 +401,25 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF25F4EE).withOpacity(0.3),
-                      const Color(0xFF25F4EE).withOpacity(0.1),
-                    ],
+                  color: const Color(0xFFFF0000).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFFF0000).withOpacity(0.3),
                   ),
-                  shape: BoxShape.circle,
                 ),
-                child: ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                  ).createShader(bounds),
-                  child: const Icon(
-                    Icons.person_search_outlined, 
-                    size: 64, 
-                    color: Colors.white,
-                  ),
+                child: const Icon(
+                  Icons.person_search_outlined, 
+                  size: 64, 
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 24),
-              ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                ).createShader(bounds),
-                child: const Text(
-                  'Chưa theo dõi ai',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+              Text(
+                'Chưa theo dõi ai',
+                style: TextStyle(
+                  color: Colors.grey[300],
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
@@ -473,13 +450,11 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
-                    ),
+                    color: const Color(0xFFFF0000),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF25F4EE).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withOpacity(0.4),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -515,10 +490,10 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF25F4EE).withOpacity(0.2),
+                      color: const Color(0xFFFF0000).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFF25F4EE).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withOpacity(0.3),
                       ),
                     ),
                     child: Text(
@@ -545,7 +520,7 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                   padding: const EdgeInsets.all(24),
                   child: const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF25F4EE),
+                      color: Color(0xFFFF0000),
                       strokeWidth: 3,
                     ),
                   ),
@@ -622,14 +597,10 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: const Color(0xFFFF0000),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF25F4EE).withOpacity(0.3),
+                  color: const Color(0xFFFF0000).withOpacity(0.4),
                   blurRadius: 15,
                   spreadRadius: 1,
                   offset: const Offset(0, 6),
@@ -642,7 +613,7 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
               height: 54,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0xFF2A2A2A),
+                color: Color(0xFF1F1F1F),
               ),
               child: ClipOval(
                 child: followingUser.avatarUrl != null && followingUser.avatarUrl!.isNotEmpty
@@ -682,15 +653,10 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFF25F4EE).withOpacity(0.3),
-                              const Color(0xFF25F4EE).withOpacity(0.1),
-                            ],
-                          ),
+                          color: const Color(0xFFFF0000).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: const Color(0xFF25F4EE).withOpacity(0.5),
+                            color: const Color(0xFFFF0000).withOpacity(0.3),
                           ),
                         ),
                         child: Text(
@@ -710,13 +676,11 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF25F4EE).withOpacity(0.3),
-                            const Color(0xFF25F4EE).withOpacity(0.1),
-                          ],
-                        ),
+                        color: const Color(0xFFFF0000).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFFFF0000).withOpacity(0.3),
+                        ),
                       ),
                       child: Text(
                         '${followingUser.formattedFollowersCount} người theo dõi',
@@ -733,9 +697,7 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                         width: 4,
                         height: 4,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                          ),
+                          color: const Color(0xFFFF0000),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -744,13 +706,11 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFFFF0050).withOpacity(0.3),
-                                const Color(0xFFFF0050).withOpacity(0.1),
-                              ],
-                            ),
+                            color: const Color(0xFFFF0000).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFFFF0000).withOpacity(0.3),
+                            ),
                           ),
                           child: Text(
                             followingUser.interests.take(2).join(', '),
@@ -770,16 +730,11 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                        ).createShader(bounds),
-                        child: Icon(
-                          followingUser.gender == 'male' ? Icons.male : 
-                          followingUser.gender == 'female' ? Icons.female : Icons.person,
-                          size: 14,
-                          color: Colors.white,
-                        ),
+                      Icon(
+                        followingUser.gender == 'male' ? Icons.male : 
+                        followingUser.gender == 'female' ? Icons.female : Icons.person,
+                        size: 14,
+                        color: Colors.grey[400],
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -807,13 +762,11 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                   // Show "Unfollow" button if this is current user's following list
                   Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                      ),
+                      borderRadius: BorderRadius.circular(28),
+                      color: const Color(0xFFFF0000),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF25F4EE).withOpacity(0.3),
+                          color: const Color(0xFFFF0000).withOpacity(0.4),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -822,11 +775,10 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                     child: FollowButtonWidget(
                       targetUserId: followingUser.id,
                       targetUsername: followingUser.username,
-                      initialIsFollowing: true, // Already following since it's in following list
+                      initialIsFollowing: true,
                       initialFollowerCount: followingUser.followersCount,
                       style: FollowButtonStyle.compact,
                       onFollowChanged: () {
-                        // Remove from list when unfollowed
                         setState(() {
                           _following.removeWhere((user) => user.id == followingUser.id);
                           _totalFollowing = (_totalFollowing - 1).clamp(0, double.infinity).toInt();
@@ -838,13 +790,11 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                   // Show regular follow button for other users' following lists
                   Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                      ),
+                      borderRadius: BorderRadius.circular(28),
+                      color: const Color(0xFFFF0000),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF25F4EE).withOpacity(0.3),
+                          color: const Color(0xFFFF0000).withOpacity(0.4),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -853,7 +803,7 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                     child: FollowButtonWidget(
                       targetUserId: followingUser.id,
                       targetUsername: followingUser.username,
-                      initialIsFollowing: false, // We'll need to check this via API
+                      initialIsFollowing: false,
                       initialFollowerCount: followingUser.followersCount,
                       style: FollowButtonStyle.compact,
                       onFollowChanged: () {
@@ -869,9 +819,9 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF25F4EE).withOpacity(0.3),
+                      color: const Color(0xFF333333),
                     ),
-                    color: const Color(0xFF1A1A1A),
+                    color: const Color(0xFF1F1F1F),
                   ),
                   child: InkWell(
                     onTap: () {
@@ -883,15 +833,10 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                            ).createShader(bounds),
-                            child: const Icon(
-                              Icons.message_outlined,
-                              size: 14,
-                              color: Colors.white,
-                            ),
+                          Icon(
+                            Icons.message_outlined,
+                            size: 14,
+                            color: Colors.grey[400],
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -914,15 +859,10 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF25F4EE).withOpacity(0.3),
-                    const Color(0xFFFF0050).withOpacity(0.3),
-                  ],
-                ),
+                color: const Color(0xFFFF0000).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF25F4EE).withOpacity(0.5),
+                  color: const Color(0xFFFF0000).withOpacity(0.3),
                 ),
               ),
               child: Text(
@@ -945,7 +885,7 @@ class _FollowingPageState extends State<FollowingPage> with TickerProviderStateM
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [const Color(0xFF404040), const Color(0xFF2A2A2A)],
+          colors: [const Color(0xFF404040), const Color(0xFF1F1F1F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/profile/presentation/pages/saved_videos_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
@@ -201,7 +200,7 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
-        backgroundColor: isError ? Colors.red[600] : Colors.green[600],
+        backgroundColor: isError ? const Color(0xFFFF0000) : const Color(0xFF00C851),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -220,17 +219,17 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: color ?? const Color(0xFF2A2A2A).withOpacity(0.8),
+        borderRadius: BorderRadius.circular(12),
+        color: color ?? const Color(0xFF1F1F1F),
         border: Border.all(
-          color: Colors.grey[700]!.withOpacity(0.3),
+          color: const Color(0xFF333333),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -241,9 +240,9 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0F0F0F),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -254,13 +253,11 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
-                ),
+                color: const Color(0xFFFF0000),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFFB300).withOpacity(0.3),
+                    color: const Color(0xFFFF0000).withOpacity(0.4),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -269,17 +266,12 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
               child: const Icon(Icons.bookmark, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFFFFB300), Color(0xFF25F4EE)],
-              ).createShader(bounds),
-              child: const Text(
-                'Video đã lưu',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+            const Text(
+              'Video đã lưu',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
             if (_savedVideos.isNotEmpty) ...[
@@ -287,13 +279,11 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
-                  ),
+                  color: const Color(0xFFFF0000),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFFB300).withOpacity(0.3),
+                      color: const Color(0xFFFF0000).withOpacity(0.4),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -315,17 +305,11 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
           Container(
             margin: const EdgeInsets.only(right: 16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
-              ),
+              color: const Color(0xFF1F1F1F),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF25F4EE).withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: Border.all(
+                color: const Color(0xFF333333),
+              ),
             ),
             child: IconButton(
               onPressed: _refreshVideos,
@@ -341,8 +325,8 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
           position: _slideAnimation,
           child: RefreshIndicator(
             onRefresh: _refreshVideos,
-            backgroundColor: const Color(0xFF2A2A2A),
-            color: const Color(0xFFFFB300),
+            backgroundColor: const Color(0xFF1F1F1F),
+            color: const Color(0xFFFF0000),
             child: _buildBody(),
           ),
         ),
@@ -354,7 +338,7 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
     if (_isLoading && _savedVideos.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFFFFB300),
+          color: Color(0xFFFF0000),
           strokeWidth: 3,
         ),
       );
@@ -371,13 +355,11 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.withOpacity(0.3),
-                      Colors.red.withOpacity(0.1),
-                    ],
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
                   ),
-                  shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.error_outline, size: 48, color: Colors.red),
               ),
@@ -405,14 +387,13 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
               const SizedBox(height: 24),
               Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(25),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFB300), Color(0xFF25F4EE)],
-                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  color: const Color(0xFFFF0000),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFFB300).withOpacity(0.3),
-                      blurRadius: 15,
+                      color: const Color(0xFFFF0000).withOpacity(0.4),
+                      blurRadius: 16,
+                      spreadRadius: 1,
                       offset: const Offset(0, 6),
                     ),
                   ],
@@ -422,7 +403,7 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   ),
                   child: const Text(
@@ -452,44 +433,32 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFFFB300).withOpacity(0.3),
-                      const Color(0xFFFFB300).withOpacity(0.1),
-                    ],
-                  ),
+                  color: const Color(0xFFFF0000).withOpacity(0.1),
                   shape: BoxShape.circle,
-                ),
-                child: ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFFFFB300), Color(0xFF25F4EE)],
-                  ).createShader(bounds),
-                  child: const Icon(
-                    Icons.bookmark_border, 
-                    size: 64, 
-                    color: Colors.white,
+                  border: Border.all(
+                    color: const Color(0xFFFF0000).withOpacity(0.3),
                   ),
+                ),
+                child: const Icon(
+                  Icons.bookmark_border, 
+                  size: 64, 
+                  color: Color(0xFFFF0000),
                 ),
               ),
               const SizedBox(height: 24),
-              ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFFFFB300), Color(0xFF25F4EE)],
-                ).createShader(bounds),
-                child: const Text(
-                  'Chưa có video nào được lưu',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+              const Text(
+                'Chưa có video nào được lưu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
                 'Lưu những video hay để xem lại\nkhi bạn muốn!',
                 style: TextStyle(
-                  color: Colors.grey[400], 
+                  color: Color(0xFF888888), 
                   fontSize: 16,
                 ),
                 textAlign: TextAlign.center,
@@ -497,14 +466,13 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
               const SizedBox(height: 32),
               Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(25),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF25F4EE), Color(0xFFFFB300)],
-                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  color: const Color(0xFFFF0000),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF25F4EE).withOpacity(0.3),
-                      blurRadius: 15,
+                      color: const Color(0xFFFF0000).withOpacity(0.4),
+                      blurRadius: 16,
+                      spreadRadius: 1,
                       offset: const Offset(0, 6),
                     ),
                   ],
@@ -523,7 +491,7 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   ),
                 ),
@@ -547,13 +515,11 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
-                    ),
+                    color: const Color(0xFFFF0000),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFFB300).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withOpacity(0.4),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -568,17 +534,17 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
                     children: [
                       Text(
                         '${_savedVideos.length} video đã lưu',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey[300],
+                          color: Colors.white,
                         ),
                       ),
                       Text(
                         'Những video bạn đã bookmark',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[500],
+                          color: Color(0xFF888888),
                         ),
                       ),
                     ],
@@ -588,17 +554,17 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFB300).withOpacity(0.2),
+                      color: const Color(0xFFFF0000).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFFFFB300).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withOpacity(0.3),
                       ),
                     ),
                     child: Text(
                       'Cuộn để xem thêm',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[400],
+                        color: Color(0xFF888888),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -620,14 +586,14 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
                     child: Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2A).withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(16),
+                        color: const Color(0xFF1F1F1F),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.grey[700]!.withOpacity(0.3),
+                          color: const Color(0xFF333333),
                         ),
                       ),
                       child: const CircularProgressIndicator(
-                        color: Color(0xFFFFB300),
+                        color: Color(0xFFFF0000),
                         strokeWidth: 3,
                       ),
                     ),
@@ -699,17 +665,17 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
   Widget _buildVideoGridItem(VideoPost video) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: const Color(0xFF2A2A2A).withOpacity(0.8),
+        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFF1F1F1F),
         border: Border.all(
-          color: Colors.grey[700]!.withOpacity(0.3),
+          color: const Color(0xFF333333),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -717,12 +683,12 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _navigateToVideo(video),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           child: Stack(
             children: [
               // Video thumbnail/content
               ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 child: VideoGridItem(
                   video: video,
                   onTap: () => _navigateToVideo(video),
@@ -739,8 +705,8 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
                   height: 60,
                   decoration: BoxDecoration(
                     borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
                     ),
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -761,13 +727,11 @@ class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderSt
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
-                    ),
+                    color: const Color(0xFFFF0000),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFFB300).withOpacity(0.5),
+                        color: const Color(0xFFFF0000).withOpacity(0.4),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),

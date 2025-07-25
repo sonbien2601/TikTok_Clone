@@ -214,10 +214,10 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                     maxHeight: MediaQuery.of(context).size.height * 0.8,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
-                    borderRadius: BorderRadius.circular(16),
+                    color: const Color(0xFF1F1F1F),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.grey[700]!.withOpacity(0.3),
+                      color: const Color(0xFF333333),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -233,12 +233,10 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                          ),
+                          color: Color(0xFFFF0000),
                           borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
                           ),
                         ),
                         child: Row(
@@ -275,7 +273,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                   height: 300,
                                   child: const Center(
                                     child: CircularProgressIndicator(
-                                      color: Color(0xFFFF0050),
+                                      color: Color(0xFFFF0000),
                                     ),
                                   ),
                                 );
@@ -284,9 +282,9 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                 return Container(
                                   height: 300,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF1A1A1A),
+                                    color: const Color(0xFF2A2A2A),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey[700]!),
+                                    border: Border.all(color: const Color(0xFF333333)),
                                   ),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -294,13 +292,13 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                       Icon(
                                         Icons.broken_image,
                                         size: 48,
-                                        color: Colors.grey[400],
+                                        color: const Color(0xFF888888),
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
                                         'Không thể tải ảnh QR',
                                         style: TextStyle(
-                                          color: Colors.grey[300],
+                                          color: Colors.white,
                                           fontSize: 16,
                                         ),
                                       ),
@@ -308,7 +306,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                       Text(
                                         'URL: $imageUrl',
                                         style: TextStyle(
-                                          color: Colors.grey[500],
+                                          color: Color(0xFF888888),
                                           fontSize: 10,
                                           fontFamily: 'monospace',
                                         ),
@@ -345,10 +343,10 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
               maxHeight: MediaQuery.of(context).size.height * 0.8,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2A),
-              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFF1F1F1F),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.grey[700]!.withOpacity(0.3),
+                color: const Color(0xFF333333),
               ),
               boxShadow: [
                 BoxShadow(
@@ -365,12 +363,10 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                    ),
+                    color: Color(0xFFFF0000),
                     borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
                     ),
                   ),
                   child: Row(
@@ -406,15 +402,15 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            color: const Color(0xFF1A1A1A),
+                            color: const Color(0xFF2A2A2A),
                             border: Border.all(
-                              color: const Color(0xFF25F4EE).withOpacity(0.3),
+                              color: const Color(0xFF333333),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF25F4EE).withOpacity(0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
@@ -426,10 +422,15 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
-                                      ),
+                                      color: const Color(0xFFFF0000),
                                       borderRadius: BorderRadius.circular(8),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFFF0000).withOpacity(0.4),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
                                     child: const Icon(Icons.person, color: Colors.white, size: 20),
                                   ),
@@ -439,7 +440,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
-                                      color: Colors.grey[300],
+                                      color: Colors.white,
                                     ),
                                   ),
                                 ],
@@ -450,12 +451,10 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                   Container(
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                                      ),
+                                      color: const Color(0xFFFF0000),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFFFF0050).withOpacity(0.3),
+                                          color: const Color(0xFFFF0000).withOpacity(0.4),
                                           blurRadius: 10,
                                           offset: const Offset(0, 4),
                                         ),
@@ -482,7 +481,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                           'Người nhận',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.grey[500],
+                                            color: Color(0xFF888888),
                                           ),
                                         ),
                                         Text(
@@ -490,7 +489,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.grey[200],
+                                            color: Colors.white,
                                           ),
                                         ),
                                       ],
@@ -509,15 +508,15 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            color: const Color(0xFF1A1A1A),
+                            color: const Color(0xFF2A2A2A),
                             border: Border.all(
-                              color: Colors.grey[700]!.withOpacity(0.3),
+                              color: const Color(0xFF333333),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
@@ -527,10 +526,15 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
-                                  ),
+                                  color: const Color(0xFFFF0000),
                                   borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFF0000).withOpacity(0.4),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -551,22 +555,22 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                               const SizedBox(height: 16),
                               Row(
                                 children: [
-                                  Icon(Icons.access_time, size: 16, color: Colors.grey[500]),
+                                  Icon(Icons.access_time, size: 16, color: Color(0xFF888888)),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Thời gian: ${_formatDate(item['createdAt'])}',
-                                    style: TextStyle(color: Colors.grey[400]),
+                                    style: TextStyle(color: Color(0xFF888888)),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  Icon(Icons.confirmation_number, size: 16, color: Colors.grey[500]),
+                                  Icon(Icons.confirmation_number, size: 16, color: Color(0xFF888888)),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Mã giao dịch: ${item['id']?.toString() ?? 'N/A'}',
-                                    style: TextStyle(color: Colors.grey[400]),
+                                    style: TextStyle(color: Color(0xFF888888)),
                                   ),
                                 ],
                               ),
@@ -582,15 +586,15 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              color: const Color(0xFF1A1A1A),
+                              color: const Color(0xFF2A2A2A),
                               border: Border.all(
-                                color: const Color(0xFFFFB300).withOpacity(0.3),
+                                color: const Color(0xFF333333),
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFFFB300).withOpacity(0.1),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
@@ -601,10 +605,15 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
-                                        ),
+                                        color: const Color(0xFFFF0000),
                                         borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFFFF0000).withOpacity(0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
                                       ),
                                       child: const Icon(Icons.image, color: Colors.white, size: 20),
                                     ),
@@ -613,7 +622,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                       'Ảnh xác nhận chuyển khoản',
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.grey[300],
+                                        color: Colors.white,
                                       ),
                                     ),
                                   ],
@@ -625,13 +634,13 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: const Color(0xFFFFB300).withOpacity(0.3),
+                                        color: const Color(0xFF333333),
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFFFFB300).withOpacity(0.2),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 4),
+                                          color: Colors.black.withOpacity(0.2),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
@@ -650,7 +659,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                             color: const Color(0xFF404040),
                                             child: const Center(
                                               child: CircularProgressIndicator(
-                                                color: Color(0xFFFFB300),
+                                                color: Color(0xFFFF0000),
                                               ),
                                             ),
                                           );
@@ -662,7 +671,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                             decoration: BoxDecoration(
                                               color: const Color(0xFF404040),
                                               borderRadius: BorderRadius.circular(12),
-                                              border: Border.all(color: Colors.grey[700]!),
+                                              border: Border.all(color: const Color(0xFF333333)),
                                             ),
                                             child: Column(
                                               mainAxisAlignment: MainAxisAlignment.center,
@@ -670,13 +679,13 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                                 Icon(
                                                   Icons.broken_image,
                                                   size: 48,
-                                                  color: Colors.grey[400],
+                                                  color: Color(0xFF888888),
                                                 ),
                                                 const SizedBox(height: 8),
                                                 Text(
                                                   'Không thể tải ảnh',
                                                   style: TextStyle(
-                                                    color: Colors.grey[300],
+                                                    color: Colors.white,
                                                     fontSize: 14,
                                                   ),
                                                 ),
@@ -693,7 +702,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                   'Nhấn để xem ảnh phóng to',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[500],
+                                    color: Color(0xFF888888),
                                     fontStyle: FontStyle.italic,
                                   ),
                                 ),
@@ -706,7 +715,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              color: const Color(0xFF1A1A1A),
+                              color: const Color(0xFF2A2A2A),
                               border: Border.all(
                                 color: Colors.orange.withOpacity(0.3),
                               ),
@@ -716,13 +725,11 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.orange.withOpacity(0.3),
-                                        Colors.orange.withOpacity(0.1),
-                                      ],
-                                    ),
+                                    color: Colors.orange.withOpacity(0.2),
                                     shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.3),
+                                    ),
                                   ),
                                   child: const Icon(
                                     Icons.image_not_supported_outlined,
@@ -734,7 +741,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                 Text(
                                   'Không có ảnh xác nhận',
                                   style: TextStyle(
-                                    color: Colors.grey[300],
+                                    color: Colors.white,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -757,9 +764,9 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0F0F0F),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -770,13 +777,11 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                ),
+                color: const Color(0xFFFF0000),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF0050).withOpacity(0.3),
+                    color: const Color(0xFFFF0000).withOpacity(0.4),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -785,17 +790,12 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
               child: const Icon(Icons.history, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-              ).createShader(bounds),
-              child: const Text(
-                'Lịch sử Donate',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+            const Text(
+              'Lịch sử Donate',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ],
@@ -804,16 +804,16 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
           preferredSize: const Size.fromHeight(50),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2A).withOpacity(0.8),
+              color: const Color(0xFF1F1F1F),
               border: Border.all(
-                color: Colors.grey[700]!.withOpacity(0.3),
+                color: const Color(0xFF333333),
               ),
             ),
             child: TabBar(
               controller: _tabController,
-              indicatorColor: const Color(0xFFFF0050),
-              labelColor: const Color(0xFFFF0050),
-              unselectedLabelColor: Colors.grey[400],
+              indicatorColor: const Color(0xFFFF0000),
+              labelColor: const Color(0xFFFF0000),
+              unselectedLabelColor: const Color(0xFF888888),
               labelStyle: const TextStyle(fontWeight: FontWeight.bold),
               tabs: const [
                 Tab(text: 'Đã donate'),
@@ -843,7 +843,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
     if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFFFF0050),
+          color: Color(0xFFFF0000),
           strokeWidth: 3,
         ),
       );
@@ -855,16 +855,16 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
           margin: const EdgeInsets.all(24),
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xFF1F1F1F),
             border: Border.all(
               color: Colors.red.withOpacity(0.3),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.red.withOpacity(0.2),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -874,9 +874,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.red.withOpacity(0.3), Colors.red.withOpacity(0.1)],
-                  ),
+                  color: Colors.red.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.error_outline, size: 48, color: Colors.red),
@@ -884,23 +882,29 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
               const SizedBox(height: 16),
               Text(
                 error,
-                style: TextStyle(color: Colors.grey[300], fontSize: 16),
+                style: const TextStyle(color: Colors.white, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
               Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(25),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  color: const Color(0xFFFF0000),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF0000).withOpacity(0.4),
+                      blurRadius: 16,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: ElevatedButton(
                   onPressed: isReceived ? _fetchDonateHistoryReceived : _fetchDonateHistorySent,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   ),
                   child: const Text(
@@ -921,16 +925,16 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
           margin: const EdgeInsets.all(24),
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xFF1F1F1F),
             border: Border.all(
-              color: Colors.grey[700]!.withOpacity(0.3),
+              color: const Color(0xFF333333),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -940,37 +944,25 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFFF0050).withOpacity(0.3),
-                      const Color(0xFFFF0050).withOpacity(0.1),
-                    ],
-                  ),
+                  color: const Color(0xFFFF0000).withOpacity(0.1),
                   shape: BoxShape.circle,
-                ),
-                child: ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                  ).createShader(bounds),
-                  child: Icon(
-                    isReceived ? Icons.card_giftcard : Icons.volunteer_activism,
-                    size: 64,
-                    color: Colors.white,
+                  border: Border.all(
+                    color: const Color(0xFFFF0000).withOpacity(0.3),
                   ),
+                ),
+                child: Icon(
+                  isReceived ? Icons.card_giftcard : Icons.volunteer_activism,
+                  size: 64,
+                  color: const Color(0xFFFF0000),
                 ),
               ),
               const SizedBox(height: 24),
-              ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                ).createShader(bounds),
-                child: Text(
-                  isReceived ? 'Chưa ai donate cho bạn' : 'Chưa có lịch sử donate',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              Text(
+                isReceived ? 'Chưa ai donate cho bạn' : 'Chưa có lịch sử donate',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 12),
@@ -978,8 +970,8 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                 isReceived 
                     ? 'Khi ai đó donate cho bạn, lịch sử sẽ hiển thị ở đây!' 
                     : 'Hãy donate cho ai đó để tạo lịch sử đầu tiên!',
-                style: TextStyle(
-                  color: Colors.grey[400],
+                style: const TextStyle(
+                  color: Color(0xFF888888),
                   fontSize: 16,
                 ),
                 textAlign: TextAlign.center,
@@ -992,8 +984,8 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
     
     return RefreshIndicator(
       onRefresh: isReceived ? _fetchDonateHistoryReceived : _fetchDonateHistorySent,
-      backgroundColor: const Color(0xFF2A2A2A),
-      color: const Color(0xFFFF0050),
+      backgroundColor: const Color(0xFF1F1F1F),
+      color: const Color(0xFFFF0000),
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: history.length,
@@ -1041,23 +1033,23 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                     color: Colors.transparent,
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xFF1F1F1F),
                         border: Border.all(
-                          color: Colors.grey[700]!.withOpacity(0.3),
+                          color: const Color(0xFF333333),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(12),
                           onTap: () => _showDonateDetailDialog(item),
                           child: Padding(
                             padding: const EdgeInsets.all(20),
@@ -1069,12 +1061,10 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                     Container(
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                                        ),
+                                        color: const Color(0xFFFF0000),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFFFF0050).withOpacity(0.3),
+                                            color: const Color(0xFFFF0000).withOpacity(0.4),
                                             blurRadius: 15,
                                             offset: const Offset(0, 6),
                                           ),
@@ -1102,20 +1092,25 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                             isReceived
                                                 ? 'Được donate từ: ${item['senderUsername'] ?? 'Unknown'}'
                                                 : 'Đã donate cho: ${item['recipientUsername'] ?? 'Unknown'}',
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16,
-                                              color: Colors.grey[200],
+                                              color: Colors.white,
                                             ),
                                           ),
                                           const SizedBox(height: 6),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
-                                              ),
+                                              color: const Color(0xFFFF0000),
                                               borderRadius: BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: const Color(0xFFFF0000).withOpacity(0.4),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
                                             ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
@@ -1136,12 +1131,12 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                           const SizedBox(height: 6),
                                           Row(
                                             children: [
-                                              Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
+                                              Icon(Icons.access_time, size: 14, color: const Color(0xFF888888)),
                                               const SizedBox(width: 4),
                                               Text(
                                                 _formatDate(item['createdAt']),
-                                                style: TextStyle(
-                                                  color: Colors.grey[500],
+                                                style: const TextStyle(
+                                                  color: Color(0xFF888888),
                                                   fontSize: 13,
                                                 ),
                                               ),
@@ -1157,13 +1152,13 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                         decoration: BoxDecoration(
                                           borderRadius: BorderRadius.circular(8),
                                           border: Border.all(
-                                            color: const Color(0xFF25F4EE).withOpacity(0.3),
+                                            color: const Color(0xFF333333),
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(0xFF25F4EE).withOpacity(0.2),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 4),
+                                              color: Colors.black.withOpacity(0.2),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
                                             ),
                                           ],
                                         ),
@@ -1181,7 +1176,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                                 color: const Color(0xFF404040),
                                                 child: Icon(
                                                   Icons.image,
-                                                  color: Colors.grey[500],
+                                                  color: const Color(0xFF888888),
                                                   size: 20,
                                                 ),
                                               );
@@ -1191,15 +1186,10 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                       ),
                                     ],
                                     const SizedBox(width: 8),
-                                    ShaderMask(
-                                      shaderCallback: (bounds) => const LinearGradient(
-                                        colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                                      ).createShader(bounds),
-                                      child: const Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: 16,
-                                        color: Colors.white,
-                                      ),
+                                    const Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 16,
+                                      color: Color(0xFFFF0000),
                                     ),
                                   ],
                                 ),
@@ -1209,12 +1199,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.green.withOpacity(0.3),
-                                          Colors.green.withOpacity(0.1),
-                                        ],
-                                      ),
+                                      color: Colors.green.withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: Colors.green.withOpacity(0.3),
@@ -1229,7 +1214,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                           'Đã xác nhận',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.grey[300],
+                                            color: Colors.white,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -1240,12 +1225,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.orange.withOpacity(0.3),
-                                          Colors.orange.withOpacity(0.1),
-                                        ],
-                                      ),
+                                      color: Colors.orange.withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: Colors.orange.withOpacity(0.3),
@@ -1260,7 +1240,7 @@ class _DonateHistoryPageState extends State<DonateHistoryPage> with TickerProvid
                                           'Chưa có ảnh xác nhận',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.grey[300],
+                                            color: Colors.white,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),

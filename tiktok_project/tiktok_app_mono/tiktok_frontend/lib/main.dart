@@ -9,6 +9,7 @@ import 'package:tiktok_frontend/src/core/services/http_service.dart';
 import 'package:tiktok_frontend/src/app.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // Đảm bảo dòng này KHÔNG bị comment
+import 'package:tiktok_frontend/src/core/providers/app_providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,7 @@ void main() async {
             return AnalyticsService();
           },
         ),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const App(),
     ),

@@ -1,4 +1,4 @@
-// tiktok_frontend/lib/src/features/profile/presentation/pages/followers_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
@@ -188,7 +188,7 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
-        backgroundColor: isError ? Colors.red[600] : Colors.green[600],
+        backgroundColor: isError ? const Color(0xFFFF0000) : const Color(0xFF00C851),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -208,14 +208,14 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
       padding: padding,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: color ?? const Color(0xFF2A2A2A).withOpacity(0.8),
+        color: color ?? const Color(0xFF1F1F1F).withValues(alpha: 0.8),
         border: Border.all(
-          color: Colors.grey[700]!.withOpacity(0.3),
+          color: Colors.grey[700]!.withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -228,9 +228,9 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0F0F0F),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -241,7 +241,7 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
           children: [
             ShaderMask(
               shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
               ).createShader(bounds),
               child: const Text(
                 'Người theo dõi',
@@ -271,12 +271,12 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                      colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFF0050).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -301,8 +301,8 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
           position: _slideAnimation,
           child: RefreshIndicator(
             onRefresh: _refreshFollowers,
-            backgroundColor: const Color(0xFF2A2A2A),
-            color: const Color(0xFFFF0050),
+            backgroundColor: const Color(0xFF1F1F1F),
+            color: const Color(0xFFFF0000),
             child: _buildBody(),
           ),
         ),
@@ -314,7 +314,7 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
     if (_isLoading && _followers.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFFFF0050),
+          color: const Color(0xFFFF0000),
           strokeWidth: 3,
         ),
       );
@@ -333,8 +333,8 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.red.withOpacity(0.3),
-                      Colors.red.withOpacity(0.1),
+                      Colors.red.withValues(alpha: 0.3),
+                      Colors.red.withValues(alpha: 0.1),
                     ],
                   ),
                   shape: BoxShape.circle,
@@ -367,11 +367,11 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(25),
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                    colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFF0050).withOpacity(0.3),
+                      color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 6),
                     ),
@@ -414,15 +414,15 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF25F4EE).withOpacity(0.3),
-                      const Color(0xFF25F4EE).withOpacity(0.1),
+                      const Color(0xFFFF0000).withValues(alpha: 0.3),
+                      const Color(0xFFFF0000).withValues(alpha: 0.1),
                     ],
                   ),
                   shape: BoxShape.circle,
                 ),
                 child: ShaderMask(
                   shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                    colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                   ).createShader(bounds),
                   child: const Icon(
                     Icons.people_outline, 
@@ -434,7 +434,7 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
               const SizedBox(height: 24),
               ShaderMask(
                 shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                  colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                 ).createShader(bounds),
                 child: const Text(
                   'Chưa có người theo dõi',
@@ -474,12 +474,12 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                      colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFF0050).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -515,10 +515,10 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF25F4EE).withOpacity(0.2),
+                      color: const Color(0xFFFF0000).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFF25F4EE).withOpacity(0.3),
+                        color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                       ),
                     ),
                     child: Text(
@@ -545,7 +545,7 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                   padding: const EdgeInsets.all(24),
                   child: const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFFFF0050),
+                      color: const Color(0xFFFF0000),
                       strokeWidth: 3,
                     ),
                   ),
@@ -622,13 +622,13 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: const LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFF0050).withOpacity(0.3),
+                  color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                   blurRadius: 15,
                   spreadRadius: 1,
                   offset: const Offset(0, 6),
@@ -641,7 +641,7 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
               height: 54,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0xFF2A2A2A),
+                color: Color(0xFF1F1F1F),
               ),
               child: ClipOval(
                 child: follower.avatarUrl != null && follower.avatarUrl!.isNotEmpty
@@ -680,8 +680,8 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            const Color(0xFF25F4EE).withOpacity(0.3),
-                            const Color(0xFF25F4EE).withOpacity(0.1),
+                            const Color(0xFFFF0000).withValues(alpha: 0.3),
+                            const Color(0xFFFF0000).withValues(alpha: 0.1),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(10),
@@ -702,7 +702,7 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                         height: 4,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                            colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                           ),
                           shape: BoxShape.circle,
                         ),
@@ -714,8 +714,8 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                const Color(0xFFFF0050).withOpacity(0.3),
-                                const Color(0xFFFF0050).withOpacity(0.1),
+                                const Color(0xFFFF0000).withValues(alpha: 0.3),
+                                const Color(0xFFFF0000).withValues(alpha: 0.1),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(10),
@@ -755,11 +755,11 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                  colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF0050).withOpacity(0.3),
+                    color: const Color(0xFFFF0000).withValues(alpha: 0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -787,7 +787,7 @@ class _FollowersPageState extends State<FollowersPage> with TickerProviderStateM
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [const Color(0xFF404040), const Color(0xFF2A2A2A)],
+          colors: [const Color(0xFF404040), const Color(0xFF1F1F1F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

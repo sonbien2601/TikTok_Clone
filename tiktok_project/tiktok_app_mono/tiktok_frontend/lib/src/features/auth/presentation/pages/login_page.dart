@@ -23,8 +23,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _textFieldController;
+  late AnimationController _logoController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late Animation<double> _logoRotation;
   List<Animation<Offset>> _textFieldAnimations = [];
 
   // Focus nodes for smooth transitions
@@ -51,6 +53,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
+    _logoController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    );
     
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
@@ -60,6 +66,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       begin: const Offset(0, 0.5),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
+
+    _logoRotation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _logoController, curve: Curves.elasticOut),
+    );
 
     // Create staggered animations for text fields
     for (int i = 0; i < 2; i++) {
@@ -78,6 +88,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
     _fadeController.forward();
     _slideController.forward();
+    _logoController.forward();
     
     // Delay text field animations
     Future.delayed(const Duration(milliseconds: 400), () {
@@ -90,6 +101,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     _fadeController.dispose();
     _slideController.dispose();
     _textFieldController.dispose();
+    _logoController.dispose();
     for (var node in _focusNodes) {
       node.dispose();
     }
@@ -123,7 +135,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
-        backgroundColor: isError ? Colors.red[600] : Colors.green[600],
+        backgroundColor: isError ? const Color(0xFFFF0000) : const Color(0xFF00C851),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -147,24 +159,24 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFF1F1F1F),
           border: Border.all(
             color: _focusNodes[index].hasFocus 
-                ? const Color(0xFFFF0050) 
-                : Colors.grey[700]!,
+                ? const Color(0xFFFF0000) 
+                : const Color(0xFF333333),
             width: _focusNodes[index].hasFocus ? 2 : 1,
           ),
           boxShadow: [
             if (_focusNodes[index].hasFocus)
               BoxShadow(
-                color: const Color(0xFFFF0050).withOpacity(0.2),
-                blurRadius: 10,
+                                                color: const Color(0xFFFF0000).withValues(alpha: 0.3),
+                blurRadius: 12,
                 spreadRadius: 1,
                 offset: const Offset(0, 4),
               ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withOpacity(0.2),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -183,8 +195,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           ),
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(
-              color: Colors.grey[500], 
+            hintStyle: const TextStyle(
+              color: Color(0xFF888888), 
               fontWeight: FontWeight.w400,
             ),
             prefixIcon: AnimatedContainer(
@@ -192,12 +204,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               child: Icon(
                 icon, 
                 color: _focusNodes[index].hasFocus 
-                    ? const Color(0xFFFF0050) 
-                    : Colors.grey[500],
+                    ? const Color(0xFFFF0000) 
+                    : const Color(0xFF888888),
               ),
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
             fillColor: Colors.transparent,
@@ -209,36 +221,25 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildGradientButton({
+  Widget _buildYouTubeButton({
     required String text,
     required VoidCallback? onPressed,
     bool isLoading = false,
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      height: 58,
+      height: 56,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(29),
-        gradient: onPressed != null 
-            ? const LinearGradient(
-                colors: [Color(0xFFFF0050), Color(0xFFFF4081), Color(0xFF25F4EE)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              )
-            : LinearGradient(
-                colors: [Colors.grey[600]!, Colors.grey[500]!],
-              ),
+        borderRadius: BorderRadius.circular(28),
+        color: onPressed != null 
+            ? const Color(0xFFFF0000)
+            : const Color(0xFF555555),
         boxShadow: onPressed != null ? [
           BoxShadow(
-            color: const Color(0xFFFF0050).withOpacity(0.4),
-            blurRadius: 20,
+            color: const Color(0xFFFF0000).withValues(alpha: 0.4),
+            blurRadius: 16,
             spreadRadius: 1,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: const Color(0xFF25F4EE).withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 6),
           ),
         ] : null,
       ),
@@ -247,12 +248,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(29)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          elevation: 0,
         ),
         child: isLoading
             ? const SizedBox(
-                height: 26,
-                width: 26,
+                height: 24,
+                width: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 3,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
@@ -270,10 +272,43 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildSocialButton({
+    required String text,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF333333)),
+        color: const Color(0xFF1F1F1F),
+      ),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+        icon: Icon(icon, color: Colors.white, size: 20),
+        label: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -288,35 +323,36 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   children: [
                     const SizedBox(height: 60),
                     
-                    // TikTok Logo Animation
+                    // YouTube Shorts Logo Animation
                     Center(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 800),
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFF0050).withOpacity(0.3),
-                                blurRadius: 20,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 8),
+                      child: AnimatedBuilder(
+                        animation: _logoRotation,
+                        builder: (context, child) {
+                          return Transform.rotate(
+                            angle: _logoRotation.value * 0.1,
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF0000),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF0000).withOpacity(0.4),
+                                    blurRadius: 20,
+                                    spreadRadius: 2,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.music_note,
-                            color: Colors.white,
-                            size: 40,
-                          ),
-                        ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 48,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     
@@ -325,26 +361,43 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                     // Header
                     Column(
                       children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) => const LinearGradient(
-                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                          ).createShader(bounds),
-                          child: const Text(
-                            'Chào Mừng Trở Lại!',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                        const Text(
+                          'Chào Mừng Trở Lại!',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'Đăng nhập vào tài khoản của bạn',
+                        const Text(
+                          'Đăng nhập vào',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey[400],
+                            color: Color(0xFF888888),
                             fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        RichText(
+                          text: const TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'YouTube ',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFFFF0000),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              TextSpan(
+                                text: 'Shorts',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -384,12 +437,28 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       },
                     ),
                     
-                    const SizedBox(height: 8),
+                    // Forgot Password
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          // TODO: Implement forgot password
+                        },
+                        child: const Text(
+                          'Quên mật khẩu?',
+                          style: TextStyle(
+                            color: Color(0xFFFF0000),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
                     
-                    
+                    const SizedBox(height: 20),
                     
                     // Login Button
-                    _buildGradientButton(
+                    _buildYouTubeButton(
                       text: 'Đăng Nhập',
                       onPressed: _isLoading ? null : _login,
                       isLoading: _isLoading,
@@ -403,15 +472,15 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         Expanded(
                           child: Container(
                             height: 1,
-                            color: Colors.grey[700],
+                            color: const Color(0xFF333333),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
                             'Hoặc tiếp tục với',
                             style: TextStyle(
-                              color: Colors.grey[500],
+                              color: Color(0xFF888888),
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -420,47 +489,49 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         Expanded(
                           child: Container(
                             height: 1,
-                            color: Colors.grey[700],
+                            color: const Color(0xFF333333),
                           ),
                         ),
                       ],
                     ),
                     
                     const SizedBox(height: 24),
-
-                    // Forgot Password
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          // TODO: Implement forgot password
-                        },
-                        child: ShaderMask(
-                          shaderCallback: (bounds) => const LinearGradient(
-                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                          ).createShader(bounds),
-                          child: const Text(
-                            'Quên mật khẩu?',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
+                    
+                    // Social Login Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSocialButton(
+                            text: 'Google',
+                            icon: Icons.g_mobiledata,
+                            onPressed: () {
+                              // TODO: Implement Google login
+                            },
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildSocialButton(
+                            text: 'Facebook',
+                            icon: Icons.facebook,
+                            onPressed: () {
+                              // TODO: Implement Facebook login
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                     
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 40),
                     
                     // Register Link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
+                        const Text(
                           "Chưa có tài khoản? ",
                           style: TextStyle(
-                            color: Colors.grey[400],
+                            color: Color(0xFF888888),
                             fontSize: 16,
                           ),
                         ),
@@ -489,17 +560,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                               );
                             }
                           },
-                          child: ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'Đăng ký',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          child: const Text(
+                            'Đăng ký',
+                            style: TextStyle(
+                              color: Color(0xFFFF0000),
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),

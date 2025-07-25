@@ -319,21 +319,16 @@ class _SearchPageState extends State<SearchPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0F0F0F),
         elevation: 0,
-        title: ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-          ).createShader(bounds),
-          child: const Text(
-            'Search & Discover',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+        title: const Text(
+          'Search & Discover',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         bottom: _currentQuery.isNotEmpty
@@ -341,16 +336,16 @@ class _SearchPageState extends State<SearchPage>
                 preferredSize: const Size.fromHeight(50),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                    color: const Color(0xFF1F1F1F),
                     border: Border.all(
-                      color: Colors.grey[700]!.withOpacity(0.3),
+                      color: const Color(0xFF333333),
                     ),
                   ),
                   child: TabBar(
                     controller: _tabController,
-                    indicatorColor: const Color(0xFFFF0050),
-                    labelColor: const Color(0xFFFF0050),
-                    unselectedLabelColor: Colors.grey[400],
+                    indicatorColor: const Color(0xFFFF0000),
+                    labelColor: const Color(0xFFFF0000),
+                    unselectedLabelColor: const Color(0xFF888888),
                     tabs: [
                       Tab(
                         child: Row(
@@ -393,17 +388,17 @@ class _SearchPageState extends State<SearchPage>
           Container(
             margin: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16.r),
-              color: const Color(0xFF2A2A2A).withOpacity(0.8),
+              borderRadius: BorderRadius.circular(12.r),
+              color: const Color(0xFF1F1F1F),
               border: Border.all(
-                color: Colors.grey[700]!.withOpacity(0.3),
+                color: const Color(0xFF333333),
                 width: 1.w,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 15.r,
-                  offset: Offset(0, 5.h),
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8.r,
+                  offset: Offset(0, 2.h),
                 ),
               ],
             ),
@@ -412,7 +407,7 @@ class _SearchPageState extends State<SearchPage>
               style: TextStyle(color: Colors.white, fontSize: 16.sp),
               decoration: InputDecoration(
                 hintText: 'Search users, videos...',
-                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16.sp),
+                hintStyle: TextStyle(color: Color(0xFF888888), fontSize: 16.sp),
                 prefixIcon: _isSearching
                     ? Padding(
                         padding: EdgeInsets.all(12.w),
@@ -421,14 +416,14 @@ class _SearchPageState extends State<SearchPage>
                           height: 20.w,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.w,
-                            color: Color(0xFFFF0050),
+                            color: Color(0xFFFF0000),
                           ),
                         ),
                       )
-                    : Icon(Icons.search, color: Color(0xFFFF0050), size: 24.sp),
+                    : Icon(Icons.search, color: Color(0xFFFF0000), size: 24.sp),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear, color: Colors.grey, size: 20.sp),
+                        icon: Icon(Icons.clear, color: Color(0xFF888888), size: 20.sp),
                         onPressed: () {
                           _searchController.clear();
                           _performSearch('');
@@ -436,7 +431,7 @@ class _SearchPageState extends State<SearchPage>
                       )
                     : null,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.r),
+                  borderRadius: BorderRadius.circular(12.r),
                   borderSide: BorderSide.none,
                 ),
                 fillColor: Colors.transparent,
@@ -462,15 +457,15 @@ class _SearchPageState extends State<SearchPage>
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                color: const Color(0xFF1F1F1F),
                 border: Border.all(
                   color: Colors.red.withOpacity(0.3),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.red.withOpacity(0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -479,9 +474,7 @@ class _SearchPageState extends State<SearchPage>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.red.withOpacity(0.3), Colors.red.withOpacity(0.1)],
-                      ),
+                      color: Colors.red.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.warning_amber, color: Colors.red, size: 20),
@@ -490,7 +483,7 @@ class _SearchPageState extends State<SearchPage>
                   Expanded(
                     child: Text(
                       _errorMessage!,
-                      style: TextStyle(color: Colors.grey[300], fontSize: 14),
+                      style: TextStyle(color: Color(0xFF888888), fontSize: 14),
                     ),
                   ),
                 ],
@@ -513,16 +506,16 @@ class _SearchPageState extends State<SearchPage>
           margin: const EdgeInsets.all(16.0),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xFF1F1F1F),
             border: Border.all(
-              color: Colors.grey[700]!.withOpacity(0.3),
+              color: const Color(0xFF333333),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -531,13 +524,11 @@ class _SearchPageState extends State<SearchPage>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
-                  ),
+                  color: const Color(0xFFFF0000),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF25F4EE).withOpacity(0.3),
+                      color: const Color(0xFFFF0000).withOpacity(0.4),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -551,13 +542,13 @@ class _SearchPageState extends State<SearchPage>
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey[300],
+                  color: Colors.white,
                 ),
               ),
               const Spacer(),
               if (_isLoadingTrending)
                 const CircularProgressIndicator(
-                  color: Color(0xFFFF0050),
+                  color: Color(0xFFFF0000),
                   strokeWidth: 2,
                 ),
             ],
@@ -587,9 +578,15 @@ class _SearchPageState extends State<SearchPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(
+              color: Color(0xFFFF0000),
+              strokeWidth: 3,
+            ),
             SizedBox(height: 16),
-            Text('Loading...'),
+            Text(
+              'Loading...',
+              style: TextStyle(color: Colors.white),
+            ),
           ],
         ),
       );
@@ -624,6 +621,8 @@ class _SearchPageState extends State<SearchPage>
       onRefresh: _currentQuery.isEmpty
           ? _loadTrendingUsers
           : () => _performSearch(_currentQuery),
+      backgroundColor: const Color(0xFF1F1F1F),
+      color: const Color(0xFFFF0000),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: users.length,
@@ -638,21 +637,21 @@ class _SearchPageState extends State<SearchPage>
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: const Color(0xFF2A2A2A).withOpacity(0.8),
+              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFF1F1F1F),
               border: Border.all(
                 color: isTopUser
-                    ? const Color(0xFFFF0050).withOpacity(0.3)
-                    : Colors.grey[700]!.withOpacity(0.3),
+                    ? const Color(0xFFFF0000).withOpacity(0.5)
+                    : const Color(0xFF333333),
                 width: isTopUser ? 2 : 1,
               ),
               boxShadow: [
                 BoxShadow(
                   color: isTopUser
-                      ? const Color(0xFFFF0050).withOpacity(0.2)
-                      : Colors.black.withOpacity(0.3),
-                  blurRadius: isTopUser ? 20 : 15,
-                  offset: Offset(0, isTopUser ? 8 : 5),
+                      ? const Color(0xFFFF0000).withOpacity(0.2)
+                      : Colors.black.withOpacity(0.2),
+                  blurRadius: isTopUser ? 15 : 8,
+                  offset: Offset(0, isTopUser ? 6 : 2),
                 ),
               ],
             ),
@@ -661,12 +660,10 @@ class _SearchPageState extends State<SearchPage>
                 decoration: isTopUser
                     ? BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
-                        ),
+                        color: const Color(0xFFFF0000),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFF0050).withOpacity(0.3),
+                            color: const Color(0xFFFF0000).withOpacity(0.4),
                             blurRadius: 15,
                             offset: const Offset(0, 6),
                           ),
@@ -734,7 +731,7 @@ class _SearchPageState extends State<SearchPage>
                     Icon(
                       Icons.verified,
                       size: 16,
-                      color: const Color(0xFFFF0050),
+                      color: const Color(0xFFFF0000),
                     ),
                   ],
                 ],
@@ -753,25 +750,23 @@ class _SearchPageState extends State<SearchPage>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFF25F4EE).withOpacity(0.3),
-                              const Color(0xFF25F4EE).withOpacity(0.1),
-                            ],
-                          ),
+                          color: const Color(0xFFFF0000).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFFF0000).withOpacity(0.3),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.people,
-                                size: 12, color: Color(0xFF25F4EE)),
+                                size: 12, color: Color(0xFFFF0000)),
                             const SizedBox(width: 4),
                             Text(
                               '${_formatCount(user['followersCount'] ?? 0)} followers',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey[400],
+                                color: Color(0xFF888888),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -785,25 +780,23 @@ class _SearchPageState extends State<SearchPage>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFFFF0050).withOpacity(0.3),
-                                const Color(0xFFFF0050).withOpacity(0.1),
-                              ],
-                            ),
+                            color: const Color(0xFFFF0000).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFFFF0000).withOpacity(0.3),
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.video_library,
-                                  size: 12, color: Color(0xFFFF0050)),
+                                  size: 12, color: Color(0xFFFF0000)),
                               const SizedBox(width: 4),
                               Text(
                                 '${user['videosCount']} videos',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.grey[400],
+                                  color: Color(0xFF888888),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -817,19 +810,17 @@ class _SearchPageState extends State<SearchPage>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFFFF0050).withOpacity(0.3),
-                                const Color(0xFF25F4EE).withOpacity(0.3),
-                              ],
-                            ),
+                            color: const Color(0xFFFF0000).withOpacity(0.2),
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFFFF0000).withOpacity(0.3),
+                            ),
                           ),
                           child: Text(
                             'Trending',
                             style: TextStyle(
                               fontSize: 10,
-                              color: Colors.grey[200],
+                              color: Colors.white,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -873,9 +864,15 @@ class _SearchPageState extends State<SearchPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(
+              color: Color(0xFFFF0000),
+              strokeWidth: 3,
+            ),
             SizedBox(height: 16),
-            Text('Searching videos...'),
+            Text(
+              'Searching videos...',
+              style: TextStyle(color: Colors.white),
+            ),
           ],
         ),
       );
@@ -919,21 +916,21 @@ class _SearchPageState extends State<SearchPage>
 
         return Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xFF1F1F1F),
             border: Border.all(
-              color: Colors.grey[700]!.withOpacity(0.3),
+              color: const Color(0xFF333333),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             child: InkWell(
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1029,7 +1026,7 @@ class _SearchPageState extends State<SearchPage>
                           children: [
                             CircleAvatar(
                               radius: 8,
-                              backgroundColor: const Color(0xFFFF0050),
+                              backgroundColor: const Color(0xFFFF0000),
                               child: Text(
                                 (video['user']?['username']?[0] ?? '?').toUpperCase(),
                                 style: const TextStyle(

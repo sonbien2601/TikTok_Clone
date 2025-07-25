@@ -14,7 +14,7 @@ class SavedVideosPage extends StatefulWidget {
   State<SavedVideosPage> createState() => _SavedVideosPageState();
 }
 
-class _SavedVideosPageState extends State<SavedVideosPage> {
+class _SavedVideosPageState extends State<SavedVideosPage> with TickerProviderStateMixin {
   final ProfileService _profileService = ProfileService();
   final ScrollController _scrollController = ScrollController();
   
@@ -28,17 +28,55 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
   bool _hasNextPage = false;
   bool _isLoadingMore = false;
 
+  // Animation controllers
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late AnimationController _gridController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
   @override
   void initState() {
     super.initState();
+    
+    // Initialize animation controllers
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _gridController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
+
     _loadSavedVideos();
     
     // Listen for scroll to load more videos
     _scrollController.addListener(_onScroll);
+
+    // Start animations
+    _fadeController.forward();
+    _slideController.forward();
   }
 
   @override
   void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    _gridController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -79,6 +117,9 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
           _hasNextPage = response['hasNextPage'] as bool;
           _isLoading = false;
         });
+        
+        // Start grid animation after data loads
+        _gridController.forward();
       }
     } catch (e) {
       print('[SavedVideosPage] Error loading saved videos: $e');
@@ -126,12 +167,7 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
           _isLoadingMore = false;
         });
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi tải thêm video: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('Lỗi khi tải thêm video: ${e.toString()}', isError: true);
       }
     }
   }
@@ -142,6 +178,8 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
       _savedVideos.clear();
     });
     
+    // Reset animations
+    _gridController.reset();
     await _loadSavedVideos();
   }
 
@@ -156,27 +194,115 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
     );
   }
 
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+        ),
+        backgroundColor: isError ? Colors.red[600] : Colors.green[600],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Widget _buildGlassMorphicContainer({
+    required Widget child,
+    EdgeInsetsGeometry? margin,
+    EdgeInsetsGeometry? padding,
+    Color? color,
+  }) {
+    return Container(
+      margin: margin,
+      padding: padding,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: color ?? const Color(0xFF2A2A2A).withOpacity(0.8),
+        border: Border.all(
+          color: Colors.grey[700]!.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF121212),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Row(
           children: [
-            const Icon(Icons.bookmark, color: Colors.amber),
-            const SizedBox(width: 8),
-            const Text('Video đã lưu'),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFFB300).withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.bookmark, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [Color(0xFFFFB300), Color(0xFF25F4EE)],
+              ).createShader(bounds),
+              child: const Text(
+                'Video đã lưu',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
             if (_savedVideos.isNotEmpty) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFB300).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Text(
                   _savedVideos.length.toString(),
-                  style: TextStyle(
-                    color: Colors.amber.shade700,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -186,91 +312,224 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
           ],
         ),
         actions: [
-          IconButton(
-            onPressed: _refreshVideos,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Làm mới',
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF25F4EE).withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: IconButton(
+              onPressed: _refreshVideos,
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              tooltip: 'Làm mới',
+            ),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshVideos,
-        child: _buildBody(),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: RefreshIndicator(
+            onRefresh: _refreshVideos,
+            backgroundColor: const Color(0xFF2A2A2A),
+            color: const Color(0xFFFFB300),
+            child: _buildBody(),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading && _savedVideos.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFFFFB300),
+          strokeWidth: 3,
+        ),
+      );
     }
     
     if (_hasError && _savedVideos.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'Lỗi khi tải video đã lưu',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-            if (_errorMessage != null) 
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
+        child: _buildGlassMorphicContainer(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.red.withOpacity(0.3),
+                      Colors.red.withOpacity(0.1),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Lỗi khi tải video đã lưu',
+                style: TextStyle(
+                  color: Colors.grey[300],
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
                   _errorMessage!,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  style: TextStyle(
+                    color: Colors.grey[500], 
+                    fontSize: 14,
+                  ),
                   textAlign: TextAlign.center,
                 ),
+              ],
+              const SizedBox(height: 24),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(25),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFB300), Color(0xFF25F4EE)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFB300).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _loadSavedVideos,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  ),
+                  child: const Text(
+                    'Thử lại',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadSavedVideos,
-              child: const Text('Thử lại'),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
     
     if (_savedVideos.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.bookmark_border, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'Chưa có video nào được lưu',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
+        child: _buildGlassMorphicContainer(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFFFB300).withOpacity(0.3),
+                      const Color(0xFFFFB300).withOpacity(0.1),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [Color(0xFFFFB300), Color(0xFF25F4EE)],
+                  ).createShader(bounds),
+                  child: const Icon(
+                    Icons.bookmark_border, 
+                    size: 64, 
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Lưu những video hay để xem lại\nkhi bạn muốn!',
-              style: TextStyle(
-                color: Colors.grey.shade500, 
-                fontSize: 14,
+              const SizedBox(height: 24),
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFFFFB300), Color(0xFF25F4EE)],
+                ).createShader(bounds),
+                child: const Text(
+                  'Chưa có video nào được lưu',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.explore),
-              label: const Text('Khám phá video'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              const SizedBox(height: 12),
+              Text(
+                'Lưu những video hay để xem lại\nkhi bạn muốn!',
+                style: TextStyle(
+                  color: Colors.grey[400], 
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 32),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(25),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF25F4EE), Color(0xFFFFB300)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF25F4EE).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.explore, color: Colors.white),
+                  label: const Text(
+                    'Khám phá video',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -280,33 +539,68 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
       slivers: [
         // Header with stats
         SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
-              ),
-            ),
+          child: _buildGlassMorphicContainer(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                Icon(Icons.bookmark, color: Colors.amber.shade600),
-                const SizedBox(width: 8),
-                Text(
-                  '${_savedVideos.length} video đã lưu',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.amber.shade700,
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFB300).withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.bookmark, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_savedVideos.length} video đã lưu',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[300],
+                        ),
+                      ),
+                      Text(
+                        'Những video bạn đã bookmark',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const Spacer(),
                 if (_hasNextPage)
-                  Text(
-                    'Cuộn để xem thêm',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFB300).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFFFFB300).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      'Cuộn để xem thêm',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
               ],
@@ -316,25 +610,71 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
         
         // Video grid
         SliverPadding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverGrid(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 if (index == _savedVideos.length) {
                   // Loading more indicator
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: CircularProgressIndicator(),
+                  return Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.grey[700]!.withOpacity(0.3),
+                        ),
+                      ),
+                      child: const CircularProgressIndicator(
+                        color: Color(0xFFFFB300),
+                        strokeWidth: 3,
+                      ),
                     ),
                   );
                 }
                 
                 final video = _savedVideos[index];
-                return VideoGridItem(
-                  video: video,
-                  onTap: () => _navigateToVideo(video),
-                  showSaveIndicator: true,
+                return AnimatedBuilder(
+                  animation: _gridController,
+                  builder: (context, child) {
+                    final animationDelay = (index * 0.1).clamp(0.0, 1.0);
+                    final scaleAnimation = Tween<double>(
+                      begin: 0.0,
+                      end: 1.0,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: _gridController,
+                        curve: Interval(
+                          animationDelay,
+                          (animationDelay + 0.3).clamp(0.0, 1.0),
+                          curve: Curves.easeOutBack,
+                        ),
+                      ),
+                    );
+                    
+                    final fadeAnimation = Tween<double>(
+                      begin: 0.0,
+                      end: 1.0,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: _gridController,
+                        curve: Interval(
+                          animationDelay,
+                          (animationDelay + 0.5).clamp(0.0, 1.0),
+                          curve: Curves.easeOut,
+                        ),
+                      ),
+                    );
+                    
+                    return ScaleTransition(
+                      scale: scaleAnimation,
+                      child: FadeTransition(
+                        opacity: fadeAnimation,
+                        child: _buildVideoGridItem(video),
+                      ),
+                    );
+                  },
                 );
               },
               childCount: _savedVideos.length + (_isLoadingMore ? 1 : 0),
@@ -353,6 +693,108 @@ class _SavedVideosPageState extends State<SavedVideosPage> {
           child: SizedBox(height: 80),
         ),
       ],
+    );
+  }
+
+  Widget _buildVideoGridItem(VideoPost video) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF2A2A2A).withOpacity(0.8),
+        border: Border.all(
+          color: Colors.grey[700]!.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _navigateToVideo(video),
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              // Video thumbnail/content
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: VideoGridItem(
+                  video: video,
+                  onTap: () => _navigateToVideo(video),
+                  showSaveIndicator: true,
+                ),
+              ),
+              
+              // Gradient overlay for better text visibility
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 60,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.7),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Bookmark indicator
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFB300), Color(0xFFFFA000)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFB300).withOpacity(0.5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.bookmark,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              ),
+              
+              // Play button overlay
+              const Positioned.fill(
+                child: Center(
+                  child: Icon(
+                    Icons.play_circle_fill,
+                    color: Colors.white,
+                    size: 50,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

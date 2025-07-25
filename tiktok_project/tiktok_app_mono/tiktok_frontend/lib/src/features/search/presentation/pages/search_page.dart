@@ -1,4 +1,3 @@
-// tiktok_frontend/lib/src/features/search/presentation/pages/search_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
@@ -39,9 +38,7 @@ class _SearchPageState extends State<SearchPage>
     _tabController = TabController(length: 3, vsync: this);
     _followStateManager = FollowStateManager();
 
-    // Listen to follow state changes
     _followStateManager.addListener(_onFollowStateChanged);
-
     _loadTrendingUsers();
   }
 
@@ -56,14 +53,12 @@ class _SearchPageState extends State<SearchPage>
   void _onFollowStateChanged() {
     if (mounted) {
       setState(() {
-        // Update UI when follow states change
         _updateUserFollowStates();
       });
     }
   }
 
   void _updateUserFollowStates() {
-    // Update user results
     for (var user in _userResults) {
       final userId = user['id'] as String?;
       if (userId != null) {
@@ -75,7 +70,6 @@ class _SearchPageState extends State<SearchPage>
       }
     }
 
-    // Update trending users
     for (var user in _trendingUsers) {
       final userId = user['id'] as String?;
       if (userId != null) {
@@ -98,7 +92,6 @@ class _SearchPageState extends State<SearchPage>
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.id;
 
-      // Use NetworkConfig to get proper URL
       final baseUrl = await NetworkConfig.getBaseUrl('/api/search/trending');
       final uri = Uri.parse(baseUrl).replace(
         queryParameters: {
@@ -119,8 +112,6 @@ class _SearchPageState extends State<SearchPage>
             _isLoadingTrending = false;
             _errorMessage = null;
           });
-
-          // Initialize follow states
           _initializeFollowStates(_trendingUsers);
         }
         print('[SearchPage] ✅ Loaded ${_trendingUsers.length} trending users');
@@ -135,7 +126,6 @@ class _SearchPageState extends State<SearchPage>
 
   Future<void> _loadRealUsersFromDB() async {
     try {
-      // Use NetworkConfig for fallback URL too
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
       final uri = Uri.parse(baseUrl);
 
@@ -158,12 +148,9 @@ class _SearchPageState extends State<SearchPage>
             _isLoadingTrending = false;
             _errorMessage = null;
           });
-
-          // Initialize follow states
           _initializeFollowStates(_trendingUsers);
         }
-        print(
-            '[SearchPage] ✅ Loaded ${_trendingUsers.length} real users from DB');
+        print('[SearchPage] ✅ Loaded ${_trendingUsers.length} real users from DB');
       } else {
         throw Exception('Failed to load users');
       }
@@ -172,8 +159,7 @@ class _SearchPageState extends State<SearchPage>
       if (mounted) {
         setState(() {
           _isLoadingTrending = false;
-          _errorMessage =
-              'Failed to load users. Please check your backend connection.';
+          _errorMessage = 'Failed to load users. Please check your backend connection.';
         });
       }
     }
@@ -221,7 +207,6 @@ class _SearchPageState extends State<SearchPage>
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.id;
 
-      // Search both users and videos concurrently
       final futures = await Future.wait([
         _searchUsers(query.trim(), currentUserId),
         _searchVideos(query.trim(), currentUserId),
@@ -236,8 +221,6 @@ class _SearchPageState extends State<SearchPage>
           _isSearching = false;
           _errorMessage = null;
         });
-
-        // Initialize follow states for search results
         _initializeFollowStates(_userResults);
       }
     } catch (e) {
@@ -251,8 +234,7 @@ class _SearchPageState extends State<SearchPage>
     }
   }
 
-  Future<Map<String, dynamic>> _searchUsers(
-      String query, String? currentUserId) async {
+  Future<Map<String, dynamic>> _searchUsers(String query, String? currentUserId) async {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/search/users');
       final uri = Uri.parse(baseUrl).replace(
@@ -269,8 +251,7 @@ class _SearchPageState extends State<SearchPage>
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print(
-            '[SearchPage] ✅ Found ${(data['users'] as List?)?.length ?? 0} users for "$query"');
+        print('[SearchPage] ✅ Found ${(data['users'] as List?)?.length ?? 0} users for "$query"');
         return data;
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
@@ -281,8 +262,7 @@ class _SearchPageState extends State<SearchPage>
     }
   }
 
-  Future<Map<String, dynamic>> _searchVideos(
-      String query, String? currentUserId) async {
+  Future<Map<String, dynamic>> _searchVideos(String query, String? currentUserId) async {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/search/videos');
       final uri = Uri.parse(baseUrl).replace(
@@ -299,8 +279,7 @@ class _SearchPageState extends State<SearchPage>
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print(
-            '[SearchPage] ✅ Found ${(data['videos'] as List?)?.length ?? 0} videos for "$query"');
+        print('[SearchPage] ✅ Found ${(data['videos'] as List?)?.length ?? 0} videos for "$query"');
         return data;
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
@@ -323,95 +302,132 @@ class _SearchPageState extends State<SearchPage>
   String _getAvatarUrl(String? avatarUrl) {
     if (avatarUrl == null || avatarUrl.isEmpty) return '';
     if (avatarUrl.startsWith('http')) return avatarUrl;
-
-    // Use NetworkConfig for file URLs too
     return '${NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080'}$avatarUrl';
   }
 
   String _getVideoUrl(String? videoUrl) {
     if (videoUrl == null || videoUrl.isEmpty) return '';
     if (videoUrl.startsWith('http')) return videoUrl;
-
-    // Use NetworkConfig for file URLs too
     return '${NetworkConfig.getStatus()['cached_url'] ?? 'http://localhost:8080'}$videoUrl';
   }
 
   void _onFollowChanged() {
-    // This will be called when follow state changes
-    // The FollowStateManager will handle the UI updates automatically
     print('[SearchPage] Follow state changed - UI will update automatically');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text('Search & Discover'),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        backgroundColor: const Color(0xFF121212),
         elevation: 0,
+        title: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+          ).createShader(bounds),
+          child: const Text(
+            'Search & Discover',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
         bottom: _currentQuery.isNotEmpty
             ? PreferredSize(
                 preferredSize: const Size.fromHeight(50),
-                child: TabBar(
-                  controller: _tabController,
-                  tabs: [
-                    Tab(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.people, size: 16),
-                          const SizedBox(width: 4),
-                          Text('Users ($_userCount)'),
-                        ],
-                      ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                    border: Border.all(
+                      color: Colors.grey[700]!.withOpacity(0.3),
                     ),
-                    Tab(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.video_library, size: 16),
-                          const SizedBox(width: 4),
-                          Text('Videos ($_videoCount)'),
-                        ],
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorColor: const Color(0xFFFF0050),
+                    labelColor: const Color(0xFFFF0050),
+                    unselectedLabelColor: Colors.grey[400],
+                    tabs: [
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.people, size: 16),
+                            const SizedBox(width: 4),
+                            Text('Users ($_userCount)'),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Tab(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.trending_up, size: 16),
-                          SizedBox(width: 4),
-                          Text('Trending'),
-                        ],
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.video_library, size: 16),
+                            const SizedBox(width: 4),
+                            Text('Videos ($_videoCount)'),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.trending_up, size: 16),
+                            SizedBox(width: 4),
+                            Text('Trending'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               )
             : null,
       ),
       body: Column(
         children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          Container(
+            margin: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFF2A2A2A).withOpacity(0.8),
+              border: Border.all(
+                color: Colors.grey[700]!.withOpacity(0.3),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
             child: TextField(
               controller: _searchController,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
               decoration: InputDecoration(
                 hintText: 'Search users, videos...',
+                hintStyle: TextStyle(color: Colors.grey[500]),
                 prefixIcon: _isSearching
-                    ? const Padding(
-                        padding: EdgeInsets.all(12.0),
+                    ? Padding(
+                        padding: const EdgeInsets.all(12.0),
                         child: SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFFFF0050),
+                          ),
                         ),
                       )
-                    : const Icon(Icons.search),
+                    : const Icon(Icons.search, color: Color(0xFFFF0050)),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
+                        icon: const Icon(Icons.clear, color: Colors.grey),
                         onPressed: () {
                           _searchController.clear();
                           _performSearch('');
@@ -419,19 +435,19 @@ class _SearchPageState extends State<SearchPage>
                       )
                     : null,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
                 ),
+                fillColor: Colors.transparent,
                 filled: true,
-                fillColor: Theme.of(context).cardColor,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               ),
               onChanged: (value) {
-                // Debounce search - chỉ search khi dừng gõ 500ms
                 Future.delayed(const Duration(milliseconds: 500), () {
                   if (_searchController.text == value && value.length >= 2) {
                     _performSearch(value);
                   } else if (value.length < 2) {
-                    _performSearch(
-                        ''); // Clear results if less than 2 characters
+                    _performSearch('');
                   }
                 });
               },
@@ -439,33 +455,46 @@ class _SearchPageState extends State<SearchPage>
               onSubmitted: _performSearch,
             ),
           ),
-
-          // Error message
           if (_errorMessage != null)
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                border: Border.all(
+                  color: Colors.red.withOpacity(0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber,
-                      color: Colors.orange[700], size: 20),
-                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.red.withOpacity(0.3), Colors.red.withOpacity(0.1)],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.warning_amber, color: Colors.red, size: 20),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _errorMessage!,
-                      style: TextStyle(color: Colors.orange[700], fontSize: 12),
+                      style: TextStyle(color: Colors.grey[300], fontSize: 14),
                     ),
                   ),
                 ],
               ),
             ),
-
-          // Content
           Expanded(
             child: _currentQuery.isEmpty
                 ? _buildTrendingContent()
@@ -479,31 +508,60 @@ class _SearchPageState extends State<SearchPage>
   Widget _buildTrendingContent() {
     return Column(
       children: [
-        // Header
-        Padding(
-          padding: const EdgeInsets.all(16.0),
+        Container(
+          margin: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+            border: Border.all(
+              color: Colors.grey[700]!.withOpacity(0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
           child: Row(
             children: [
-              Icon(Icons.trending_up, color: Theme.of(context).primaryColor),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF25F4EE).withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.trending_up, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 16),
               Text(
                 'Trending Users',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[300],
+                ),
               ),
               const Spacer(),
               if (_isLoadingTrending)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                const CircularProgressIndicator(
+                  color: Color(0xFFFF0050),
+                  strokeWidth: 2,
                 ),
             ],
           ),
         ),
-
-        // Trending Users List
         Expanded(
           child: _buildUsersList(_trendingUsers, showTrendingBadges: true),
         ),
@@ -522,8 +580,7 @@ class _SearchPageState extends State<SearchPage>
     );
   }
 
-  Widget _buildUsersList(List<dynamic> users,
-      {bool showTrendingBadges = false}) {
+  Widget _buildUsersList(List<dynamic> users, {bool showTrendingBadges = false}) {
     if (_isSearching || _isLoadingTrending) {
       return const Center(
         child: Column(
@@ -577,49 +634,86 @@ class _SearchPageState extends State<SearchPage>
 
           if (userId == null) return const SizedBox.shrink();
 
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            elevation: isTopUser ? 4 : 1,
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFF2A2A2A).withOpacity(0.8),
+              border: Border.all(
+                color: isTopUser
+                    ? const Color(0xFFFF0050).withOpacity(0.3)
+                    : Colors.grey[700]!.withOpacity(0.3),
+                width: isTopUser ? 2 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isTopUser
+                      ? const Color(0xFFFF0050).withOpacity(0.2)
+                      : Colors.black.withOpacity(0.3),
+                  blurRadius: isTopUser ? 20 : 15,
+                  offset: Offset(0, isTopUser ? 8 : 5),
+                ),
+              ],
+            ),
             child: ListTile(
-              leading: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Theme.of(context).primaryColor,
-                    backgroundImage:
-                        avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                    child: avatarUrl.isEmpty
-                        ? Text(
-                            (user['username']?[0] ?? '?').toUpperCase(),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          )
-                        : null,
-                  ),
-                  if (isTopUser)
-                    Positioned(
-                      bottom: -2,
-                      right: -2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: index == 0
-                              ? Colors.amber
-                              : index == 1
-                                  ? Colors.grey[400]
-                                  : Colors.brown[300],
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1),
+              leading: Container(
+                decoration: isTopUser
+                    ? BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
                         ),
-                        child: const Icon(
-                          Icons.emoji_events,
-                          size: 12,
-                          color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF0050).withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      )
+                    : null,
+                padding: isTopUser ? const EdgeInsets.all(3) : null,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: const Color(0xFF404040),
+                      backgroundImage:
+                          avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                      child: avatarUrl.isEmpty
+                          ? Text(
+                              (user['username']?[0] ?? '?').toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                    if (isTopUser)
+                      Positioned(
+                        bottom: -2,
+                        right: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: index == 0
+                                ? Colors.amber
+                                : index == 1
+                                    ? Colors.grey[400]
+                                    : Colors.brown[300],
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: const Icon(
+                            Icons.emoji_events,
+                            size: 12,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
               title: Row(
                 children: [
@@ -628,7 +722,9 @@ class _SearchPageState extends State<SearchPage>
                       user['displayName'] ?? user['username'] ?? 'Unknown User',
                       style: TextStyle(
                         fontWeight:
-                            isTopUser ? FontWeight.bold : FontWeight.normal,
+                            isTopUser ? FontWeight.bold : FontWeight.w600,
+                        color: Colors.grey[200],
+                        fontSize: 16,
                       ),
                     ),
                   ),
@@ -637,7 +733,7 @@ class _SearchPageState extends State<SearchPage>
                     Icon(
                       Icons.verified,
                       size: 16,
-                      color: Theme.of(context).primaryColor,
+                      color: const Color(0xFFFF0050),
                     ),
                   ],
                 ],
@@ -645,31 +741,73 @@ class _SearchPageState extends State<SearchPage>
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('@${user['username'] ?? 'unknown'}'),
-                  const SizedBox(height: 4),
+                  Text(
+                    '@${user['username'] ?? 'unknown'}',
+                    style: TextStyle(color: Colors.grey[400]),
+                  ),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.people, size: 14, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_formatCount(user['followersCount'] ?? 0)} followers',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontWeight:
-                              isTopUser ? FontWeight.w500 : FontWeight.normal,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF25F4EE).withOpacity(0.3),
+                              const Color(0xFF25F4EE).withOpacity(0.1),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.people,
+                                size: 12, color: Color(0xFF25F4EE)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${_formatCount(user['followersCount'] ?? 0)} followers',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[400],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       if (user['videosCount'] != null &&
                           user['videosCount'] > 0) ...[
                         const SizedBox(width: 12),
-                        Icon(Icons.video_library,
-                            size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${user['videosCount']} videos',
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFFFF0050).withOpacity(0.3),
+                                const Color(0xFFFF0050).withOpacity(0.1),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.video_library,
+                                  size: 12, color: Color(0xFFFF0050)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${user['videosCount']} videos',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[400],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                       if (isTopUser) ...[
@@ -678,15 +816,19 @@ class _SearchPageState extends State<SearchPage>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).primaryColor.withOpacity(0.1),
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFFFF0050).withOpacity(0.3),
+                                const Color(0xFF25F4EE).withOpacity(0.3),
+                              ],
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             'Trending',
                             style: TextStyle(
                               fontSize: 10,
-                              color: Theme.of(context).primaryColor,
+                              color: Colors.grey[200],
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -774,157 +916,165 @@ class _SearchPageState extends State<SearchPage>
         final videoUrl = _getVideoUrl(video['videoUrl']);
         final thumbnailUrl = _getVideoUrl(video['thumbnailUrl']);
 
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content:
-                      Text('Play video: ${video['description'] ?? 'Untitled'}'),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Video thumbnail
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      image: thumbnailUrl.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(thumbnailUrl),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: Stack(
-                      children: [
-                        if (thumbnailUrl.isEmpty)
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+            border: Border.all(
+              color: Colors.grey[700]!.withOpacity(0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Play video: ${video['description'] ?? 'Untitled'}'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        image: thumbnailUrl.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(thumbnailUrl),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: Stack(
+                        children: [
+                          if (thumbnailUrl.isEmpty)
+                            const Center(
+                              child: Icon(
+                                Icons.play_circle_outline,
+                                size: 48,
+                                color: Colors.white,
+                              ),
+                            ),
                           const Center(
                             child: Icon(
-                              Icons.play_circle_outline,
+                              Icons.play_circle_filled,
                               size: 48,
                               color: Colors.white,
                             ),
                           ),
-
-                        // Play overlay
-                        const Center(
-                          child: Icon(
-                            Icons.play_circle_filled,
-                            size: 48,
+                          Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.play_arrow,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    _formatCount(video['viewsCount'] ?? 0),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          video['description'] ?? 'No description',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                             color: Colors.white,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-
-                        // Stats overlay
-                        Positioned(
-                          bottom: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.play_arrow,
-                                  size: 12,
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 8,
+                              backgroundColor: const Color(0xFFFF0050),
+                              child: Text(
+                                (video['user']?['username']?[0] ?? '?').toUpperCase(),
+                                style: const TextStyle(
                                   color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  _formatCount(video['viewsCount'] ?? 0),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                '@${video['user']?['username'] ?? 'unknown'}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[400],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.favorite, size: 12, color: Colors.red),
+                            const SizedBox(width: 2),
+                            Text(
+                              _formatCount(video['likesCount'] ?? 0),
+                              style: TextStyle(fontSize: 10, color: Colors.grey[400]),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(Icons.comment, size: 12, color: Colors.blue),
+                            const SizedBox(width: 2),
+                            Text(
+                              _formatCount(video['commentsCount'] ?? 0),
+                              style: TextStyle(fontSize: 10, color: Colors.grey[400]),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ),
-
-                // Video info
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        video['description'] ?? 'No description',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 8,
-                            backgroundColor: Theme.of(context).primaryColor,
-                            child: Text(
-                              (video['user']?['username']?[0] ?? '?')
-                                  .toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              '@${video['user']?['username'] ?? 'unknown'}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[600],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.favorite, size: 12, color: Colors.red),
-                          const SizedBox(width: 2),
-                          Text(
-                            _formatCount(video['likesCount'] ?? 0),
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(Icons.comment, size: 12, color: Colors.blue),
-                          const SizedBox(width: 2),
-                          Text(
-                            _formatCount(video['commentsCount'] ?? 0),
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

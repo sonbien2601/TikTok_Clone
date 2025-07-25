@@ -15,6 +15,7 @@ class DonatePage extends StatefulWidget {
   final String toUsername;
   const DonatePage({Key? key, required this.toUserId, required this.toUsername})
       : super(key: key);
+
   @override
   State<DonatePage> createState() => _DonatePageState();
 }
@@ -57,8 +58,17 @@ class _DonatePageState extends State<DonatePage> {
       try {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
-            backgroundColor: backgroundColor,
+            content: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            backgroundColor: backgroundColor ?? const Color(0xFF2A2A2A),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -81,7 +91,6 @@ class _DonatePageState extends State<DonatePage> {
               'Cache Valid: ${status['cache_valid']}';
         });
       }
-
     } catch (e) {
       print('[DonatePage] Error initializing upload URL: $e');
       if (mounted) {
@@ -106,7 +115,6 @@ class _DonatePageState extends State<DonatePage> {
     return 'Unknown';
   }
 
-// Trong DonatePage, sửa method _loadRecipientBankInfo()
   Future<void> _loadRecipientBankInfo() async {
     try {
       final baseUrl = await NetworkConfig.getBaseUrl('/api/users');
@@ -119,7 +127,7 @@ class _DonatePageState extends State<DonatePage> {
             _recipientBankInfo = {
               'bankAccountNumber': data['bankAccountNumber'],
               'bankName': data['bankName'],
-              'bankQrImageUrl': data['bankQrImageUrl'], // Chỉ lấy QR image
+              'bankQrImageUrl': data['bankQrImageUrl'],
             };
             _isLoadingBankInfo = false;
           });
@@ -192,9 +200,6 @@ class _DonatePageState extends State<DonatePage> {
             _imageFileName = file.name;
             _proofImageUrl = null;
             _error = null;
-            if (!kIsWeb && file.path != null) {
-            } else if (kIsWeb && file.bytes != null) {
-            }
           });
         }
 
@@ -533,31 +538,51 @@ class _DonatePageState extends State<DonatePage> {
     required String label,
     required String value,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Colors.blue.shade600,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.grey[700]!.withOpacity(0.3),
         ),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
+              ),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: Colors.white,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[400],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[200],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -580,8 +605,15 @@ class _DonatePageState extends State<DonatePage> {
                     maxHeight: MediaQuery.of(context).size.height * 0.8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: const Color(0xFF2A2A2A),
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -589,7 +621,9 @@ class _DonatePageState extends State<DonatePage> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
+                          ),
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(12),
                             topRight: Radius.circular(12),
@@ -597,20 +631,20 @@ class _DonatePageState extends State<DonatePage> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.qr_code, color: Colors.blue.shade700),
+                            const Icon(Icons.qr_code, color: Colors.white),
                             const SizedBox(width: 8),
                             Text(
                               'Mã QR thanh toán',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: Colors.blue.shade700,
+                                color: Colors.grey[200],
                               ),
                             ),
                             const Spacer(),
                             IconButton(
                               onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.close),
+                              icon: const Icon(Icons.close, color: Colors.white),
                             ),
                           ],
                         ),
@@ -626,7 +660,9 @@ class _DonatePageState extends State<DonatePage> {
                               return Container(
                                 height: 300,
                                 child: const Center(
-                                  child: CircularProgressIndicator(),
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFFFF0050),
+                                  ),
                                 ),
                               );
                             },
@@ -645,7 +681,7 @@ class _DonatePageState extends State<DonatePage> {
                                     Text(
                                       'Không thể tải ảnh QR',
                                       style: TextStyle(
-                                        color: Colors.grey[600],
+                                        color: Colors.grey[400],
                                         fontSize: 16,
                                       ),
                                     ),
@@ -670,7 +706,6 @@ class _DonatePageState extends State<DonatePage> {
   String fixImageUrl(String url) {
     if (url.isEmpty) return url;
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    // Nếu là đường dẫn tương đối, nối domain phù hợp
     String base;
     if (kIsWeb) {
       base = 'http://localhost:8080';
@@ -686,15 +721,57 @@ class _DonatePageState extends State<DonatePage> {
   @override
   Widget build(BuildContext context) {
     String qrUrl = '';
-    if (_recipientBankInfo != null && _recipientBankInfo!['bankQrImageUrl'] != null) {
+    if (_recipientBankInfo != null &&
+        _recipientBankInfo!['bankQrImageUrl'] != null) {
       qrUrl = _recipientBankInfo!['bankQrImageUrl'];
       if (!qrUrl.startsWith('http')) {
         qrUrl = 'http://localhost:8080$qrUrl';
       }
     }
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: Text('Donate cho ${widget.toUsername}'),
+        backgroundColor: const Color(0xFF121212),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF0050).withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.favorite, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+              ).createShader(bounds),
+              child: Text(
+                'Donate cho ${widget.toUsername}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       body: Center(
         child: Container(
@@ -707,86 +784,162 @@ class _DonatePageState extends State<DonatePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Card(
-                        color: _uploadUrl != null
-                            ? Colors.green.shade50
-                            : Colors.orange.shade50,
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                          border: Border.all(
+                            color: _uploadUrl != null
+                                ? const Color(0xFF25F4EE).withOpacity(0.3)
+                                : Colors.orange.withOpacity(0.3),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _uploadUrl != null
+                                  ? const Color(0xFF25F4EE).withOpacity(0.2)
+                                  : Colors.orange.withOpacity(0.2),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
                         child: Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  Icon(
-                                    _uploadUrl != null
-                                        ? Icons.check_circle
-                                        : Icons.warning,
-                                    color: _uploadUrl != null
-                                        ? Colors.green
-                                        : Colors.orange,
-                                    size: 20,
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: _uploadUrl != null
+                                            ? [
+                                                const Color(0xFF25F4EE),
+                                                const Color(0xFF00D4FF)
+                                              ]
+                                            : [
+                                                Colors.orange,
+                                                Colors.orangeAccent
+                                              ],
+                                      ),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      _uploadUrl != null
+                                          ? Icons.check_circle
+                                          : Icons.warning,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 12),
                                   Text(
                                     'Connection Status',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: _uploadUrl != null
-                                          ? Colors.green.shade700
-                                          : Colors.orange.shade700,
+                                      color: Colors.grey[300],
+                                      fontSize: 16,
                                     ),
                                   ),
                                   const Spacer(),
-                                  IconButton(
-                                    icon: const Icon(Icons.refresh, size: 20),
-                                    onPressed: _refreshConnection,
-                                    tooltip: 'Refresh Connection',
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF25F4EE),
+                                          Color(0xFFFF0050)
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: IconButton(
+                                      icon: const Icon(
+                                          Icons.refresh,
+                                          size: 20,
+                                          color: Colors.white),
+                                      onPressed: _refreshConnection,
+                                      tooltip: 'Refresh Connection',
+                                    ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              if (_debugInfo != null)
+                              if (_debugInfo != null) ...[
+                                const SizedBox(height: 12),
                                 Text(
                                   _debugInfo!,
                                   style: TextStyle(
-                                    fontSize: 11,
-                                    color: _uploadUrl != null
-                                        ? Colors.green.shade600
-                                        : Colors.orange.shade600,
+                                    fontSize: 12,
+                                    color: Colors.grey[500],
                                     fontFamily: 'monospace',
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       if (_isLoadingBankInfo) ...[
-                        const Center(child: CircularProgressIndicator()),
+                        const Center(
+                            child: CircularProgressIndicator(
+                          color: Color(0xFFFF0050),
+                        )),
                       ] else if (_recipientBankInfo != null) ...[
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(16),
+                            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                            border: Border.all(
+                              color: const Color(0xFF25F4EE).withOpacity(0.3),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF25F4EE)
+                                    .withOpacity(0.2),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  Icon(Icons.account_balance,
-                                      color: Colors.blue.shade700),
-                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF25F4EE),
+                                          Color(0xFF00D4FF)
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF25F4EE)
+                                              .withOpacity(0.3),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(Icons.account_balance,
+                                        color: Colors.white, size: 20),
+                                  ),
+                                  const SizedBox(width: 12),
                                   Text(
                                     'Thông tin ngân hàng',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.blue.shade700,
+                                      fontSize: 18,
+                                      color: Colors.grey[300],
                                     ),
                                   ),
                                 ],
@@ -816,75 +969,121 @@ class _DonatePageState extends State<DonatePage> {
                                 value: widget.toUsername,
                               ),
                               const SizedBox(height: 20),
-                              // CHỈ GIỮ phần QR - BỎ TOÀN BỘ phần bankImageUrl
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.blue.shade200),
+                                  color: const Color(0xFF1A1A1A),
+                                  border: Border.all(
+                                    color:
+                                        const Color(0xFF25F4EE).withOpacity(0.3),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF25F4EE)
+                                          .withOpacity(0.1),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
                                 child: Column(
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.qr_code, color: Colors.blue.shade700),
-                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFFFFB300),
+                                                Color(0xFFFFA000)
+                                              ],
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(Icons.qr_code,
+                                              color: Colors.white, size: 20),
+                                        ),
+                                        const SizedBox(width: 12),
                                         Text(
                                           'Mã QR thanh toán',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            color: Colors.blue.shade700,
+                                            color: Colors.grey[300],
+                                            fontSize: 16,
                                           ),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 12),
-                                    if (_recipientBankInfo!['bankQrImageUrl'] != null &&
-                                        _recipientBankInfo!['bankQrImageUrl'].toString().isNotEmpty) ...[
+                                    if (_recipientBankInfo![
+                                                'bankQrImageUrl'] !=
+                                            null &&
+                                        _recipientBankInfo!['bankQrImageUrl']
+                                            .toString()
+                                            .isNotEmpty) ...[
                                       GestureDetector(
-                                        onTap: () => _showQrImageDialog(_recipientBankInfo!['bankQrImageUrl']),
+                                        onTap: () => _showQrImageDialog(
+                                            _recipientBankInfo!['bankQrImageUrl']),
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(0.1),
+                                                color: Colors.black
+                                                    .withOpacity(0.1),
                                                 blurRadius: 8,
                                                 offset: const Offset(0, 4),
                                               ),
                                             ],
                                           ),
                                           child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
                                             child: Image.network(
-                                              fixImageUrl(_recipientBankInfo!['bankQrImageUrl']),
+                                              fixImageUrl(_recipientBankInfo![
+                                                  'bankQrImageUrl']),
                                               height: 200,
                                               width: 200,
                                               fit: BoxFit.contain,
-                                              loadingBuilder: (context, child, loadingProgress) {
-                                                if (loadingProgress == null) return child;
+                                              loadingBuilder: (context, child,
+                                                  loadingProgress) {
+                                                if (loadingProgress == null)
+                                                  return child;
                                                 return Container(
                                                   height: 200,
                                                   width: 200,
-                                                  color: Colors.grey[100],
+                                                  color: const Color(0xFF1A1A1A),
                                                   child: const Center(
-                                                    child: CircularProgressIndicator(),
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      color:
+                                                          Color(0xFFFF0050),
+                                                    ),
                                                   ),
                                                 );
                                               },
-                                              errorBuilder: (context, error, stackTrace) {
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
                                                 return Container(
                                                   height: 200,
                                                   width: 200,
                                                   decoration: BoxDecoration(
-                                                    color: Colors.grey[100],
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    border: Border.all(color: Colors.grey[300]!),
+                                                    color:
+                                                        const Color(0xFF1A1A1A),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                        color: Colors.grey[700]!
+                                                            .withOpacity(0.3)),
                                                   ),
                                                   child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment.center,
                                                     children: [
                                                       Icon(
                                                         Icons.broken_image,
@@ -895,10 +1094,12 @@ class _DonatePageState extends State<DonatePage> {
                                                       Text(
                                                         'Không thể tải ảnh QR',
                                                         style: TextStyle(
-                                                          color: Colors.grey[600],
+                                                          color:
+                                                              Colors.grey[400],
                                                           fontSize: 12,
                                                         ),
-                                                        textAlign: TextAlign.center,
+                                                        textAlign:
+                                                            TextAlign.center,
                                                       ),
                                                     ],
                                                   ),
@@ -913,7 +1114,7 @@ class _DonatePageState extends State<DonatePage> {
                                         'Nhấn để xem ảnh QR phóng to',
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey[600],
+                                          color: Colors.grey[400],
                                           fontStyle: FontStyle.italic,
                                         ),
                                       ),
@@ -922,15 +1123,17 @@ class _DonatePageState extends State<DonatePage> {
                                         height: 150,
                                         width: double.infinity,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey[100],
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: const Color(0xFF1A1A1A),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                           border: Border.all(
-                                            color: Colors.grey[300]!,
-                                            style: BorderStyle.solid,
+                                            color: Colors.grey[700]!
+                                                .withOpacity(0.3),
                                           ),
                                         ),
                                         child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Icon(
                                               Icons.qr_code_scanner,
@@ -941,7 +1144,7 @@ class _DonatePageState extends State<DonatePage> {
                                             Text(
                                               'Chưa có ảnh QR ngân hàng',
                                               style: TextStyle(
-                                                color: Colors.grey[600],
+                                                color: Colors.grey[400],
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w500,
                                               ),
@@ -951,7 +1154,7 @@ class _DonatePageState extends State<DonatePage> {
                                             Text(
                                               'Vui lòng chuyển khoản theo thông tin trên',
                                               style: TextStyle(
-                                                color: Colors.grey[500],
+                                                color: Colors.grey[400],
                                                 fontSize: 12,
                                               ),
                                               textAlign: TextAlign.center,
@@ -963,35 +1166,60 @@ class _DonatePageState extends State<DonatePage> {
                                   ],
                                 ),
                               ),
-                              // Lưu ý quan trọng 
                               if (_recipientBankInfo!['bankName'] != null ||
-                                  _recipientBankInfo!['bankAccountNumber'] != null) ...[
+                                  _recipientBankInfo!['bankAccountNumber'] !=
+                                      null) ...[
                                 const SizedBox(height: 16),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.shade50,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.amber.shade200),
+                                    color: const Color(0xFF2A2A2A)
+                                        .withOpacity(0.8),
+                                    border: Border.all(
+                                      color: Colors.amber.withOpacity(0.3),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            Colors.amber.withOpacity(0.2),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
                                   ),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Icon(
-                                        Icons.info_outline,
-                                        color: Colors.amber.shade700,
-                                        size: 20,
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Colors.amber.withOpacity(0.3),
+                                              Colors.amber.withOpacity(0.1)
+                                            ],
+                                          ),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.info_outline,
+                                          color: Colors.amber,
+                                          size: 20,
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               'Lưu ý quan trọng:',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
-                                                color: Colors.amber.shade700,
+                                                color: Colors.grey[300],
                                                 fontSize: 13,
                                               ),
                                             ),
@@ -1002,7 +1230,7 @@ class _DonatePageState extends State<DonatePage> {
                                               '• Sau khi chuyển, hãy chụp ảnh màn hình xác nhận\n'
                                               '• Upload ảnh xác nhận để hoàn tất donate',
                                               style: TextStyle(
-                                                color: Colors.amber.shade700,
+                                                color: Colors.grey[400],
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -1022,16 +1250,25 @@ class _DonatePageState extends State<DonatePage> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.shade200),
+                            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                            border: Border.all(
+                              color: Colors.orange.withOpacity(0.3),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Column(
                             children: [
                               Icon(
                                 Icons.warning_amber,
                                 size: 48,
-                                color: Colors.orange.shade600,
+                                color: Colors.orange,
                               ),
                               const SizedBox(height: 12),
                               Text(
@@ -1039,7 +1276,7 @@ class _DonatePageState extends State<DonatePage> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: Colors.orange.shade700,
+                                  color: Colors.grey[300],
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1047,7 +1284,7 @@ class _DonatePageState extends State<DonatePage> {
                                 'Người dùng này chưa cập nhật thông tin ngân hàng.\n'
                                 'Vui lòng liên hệ trực tiếp để donate.',
                                 style: TextStyle(
-                                  color: Colors.orange.shade600,
+                                  color: Colors.grey[400],
                                   fontSize: 14,
                                 ),
                                 textAlign: TextAlign.center,
@@ -1057,143 +1294,242 @@ class _DonatePageState extends State<DonatePage> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      TextField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Số tiền (VND)',
-                          prefixIcon: Icon(Icons.monetization_on),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                          border: Border.all(
+                            color: Colors.grey[700]!.withOpacity(0.3),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _amountController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 16),
+                          decoration: InputDecoration(
+                            labelText: 'Số tiền (VND)',
+                            labelStyle: TextStyle(color: Colors.grey[400]),
+                            prefixIcon: const Icon(Icons.monetization_on,
+                                color: Color(0xFFFFB300)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            fillColor: Colors.transparent,
+                            filled: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 18),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       const Text('Ảnh xác nhận chuyển khoản:',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
                       const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: _isUploading ? null : _pickProofImage,
-                        icon: const Icon(Icons.add_photo_alternate),
-                        label: const Text('Chọn ảnh'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          textStyle: const TextStyle(fontSize: 16),
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF25F4EE), Color(0xFFFF0050)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  const Color(0xFF25F4EE).withOpacity(0.3),
+                              blurRadius: 15,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: _isUploading ? null : _pickProofImage,
+                          icon: const Icon(Icons.add_photo_alternate,
+                              color: Colors.white),
+                          label: const Text(
+                            'Chọn ảnh xác nhận',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       if (_selectedImageFile != null || _proofImageUrl != null)
-                        Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Selected QR Image:',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0xFF2A2A2A).withOpacity(0.8),
+                            border: Border.all(
+                              color: Colors.grey[700]!.withOpacity(0.3),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Selected QR Image:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[300],
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildImagePreview(),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          if (_imageFileName != null) ...[
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.image,
-                                                  color: Theme.of(context)
-                                                      .hintColor,
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text(
-                                                    _imageFileName!,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      fontSize: 15,
-                                                    ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 8),
-                                          ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildImagePreview(),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (_imageFileName != null) ...[
                                           Row(
                                             children: [
+                                              Icon(
+                                                Icons.image,
+                                                color: Colors.grey[400],
+                                              ),
+                                              const SizedBox(width: 8),
                                               Expanded(
+                                                child: Text(
+                                                  _imageFileName!,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 15,
+                                                    color: Colors.grey[200],
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                        ],
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  gradient:
+                                                      const LinearGradient(
+                                                    colors: [
+                                                      Color(0xFF25F4EE),
+                                                      Color(0xFFFF0050)
+                                                    ],
+                                                  ),
+                                                ),
                                                 child: ElevatedButton.icon(
                                                   icon: const Icon(
                                                       Icons.cloud_upload,
-                                                      size: 18),
+                                                      size: 18,
+                                                      color: Colors.white),
                                                   label: Text(
-                                                      _proofImageUrl != null
-                                                          ? 'Re-upload'
-                                                          : 'Upload'),
-                                                  onPressed:
-                                                      (_selectedImageFile !=
-                                                                  null &&
-                                                              !_isUploading &&
-                                                              _uploadUrl !=
-                                                                  null)
-                                                          ? _uploadProofImage
-                                                          : null,
-                                                  style:
-                                                      ElevatedButton.styleFrom(
+                                                    _proofImageUrl != null
+                                                        ? 'Re-upload'
+                                                        : 'Upload',
+                                                    style: const TextStyle(
+                                                        color: Colors.white),
+                                                  ),
+                                                  onPressed: (_selectedImageFile !=
+                                                              null &&
+                                                          !_isUploading &&
+                                                          _uploadUrl != null)
+                                                      ? _uploadProofImage
+                                                      : null,
+                                                  style: ElevatedButton.styleFrom(
                                                     backgroundColor:
-                                                        Theme.of(context)
-                                                            .primaryColor,
-                                                    foregroundColor:
-                                                        Colors.white,
+                                                        Colors.transparent,
+                                                    shadowColor:
+                                                        Colors.transparent,
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12)),
                                                     padding: const EdgeInsets
                                                         .symmetric(vertical: 8),
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 8),
-                                              IconButton(
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color: Colors.grey[600]!),
+                                              ),
+                                              child: IconButton(
                                                 icon: const Icon(Icons.close,
-                                                    size: 18),
+                                                    size: 18,
+                                                    color: Colors.white),
                                                 onPressed: _clearSelectedImage,
                                                 tooltip: 'Clear Image',
                                               ),
-                                            ],
-                                          ),
-                                          if (_isUploading) ...[
-                                            const SizedBox(height: 8),
-                                            const LinearProgressIndicator(),
-                                            const SizedBox(height: 4),
-                                            const Text('Uploading image...',
-                                                style: TextStyle(fontSize: 12)),
+                                            ),
                                           ],
+                                        ),
+                                        if (_isUploading) ...[
+                                          const SizedBox(height: 8),
+                                          const LinearProgressIndicator(
+                                            color: Color(0xFFFF0050),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Uploading image...',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[400]),
+                                          ),
                                         ],
-                                      ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       const SizedBox(height: 8),
                       Text(
                         'Supported formats: JPG, JPEG, PNG, GIF, WEBP\nMax size: 5MB',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey[400]),
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 8),
@@ -1206,20 +1542,77 @@ class _DonatePageState extends State<DonatePage> {
               ),
               Container(
                 padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A2A2A),
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.grey[700]!.withOpacity(0.3),
+                    ),
+                  ),
+                ),
                 child: Row(
                   children: [
                     Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[600]!),
+                        ),
                         child: TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Hủy'))),
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Hủy',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       flex: 2,
-                      child: ElevatedButton(
-                        onPressed: _isUploading ? null : _submitDonate,
-                        child: _isUploading
-                            ? const CircularProgressIndicator(strokeWidth: 2)
-                            : const Text('Xác nhận'),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  const Color(0xFFFF0050).withOpacity(0.3),
+                              blurRadius: 15,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton(
+                          onPressed: _isUploading ? null : _submitDonate,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: _isUploading
+                              ? const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                )
+                              : const Text(
+                                  'Xác nhận Donate',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
                       ),
                     ),
                   ],

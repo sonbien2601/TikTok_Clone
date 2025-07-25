@@ -20,7 +20,7 @@ class EditProfilePage extends StatefulWidget {
   State<EditProfilePage> createState() => _EditProfilePageState();
 }
 
-class _EditProfilePageState extends State<EditProfilePage> {
+class _EditProfilePageState extends State<EditProfilePage> with TickerProviderStateMixin {
   final ProfileService _profileService = ProfileService();
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
@@ -43,7 +43,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // Common upload URL
   String? _uploadUrl;
-  String? _debugInfo;
   
   bool _isLoading = false;
   bool _isSaving = false;
@@ -52,29 +51,98 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   final int _maxFileSize = 5 * 1024 * 1024; // 5MB
 
+  // Animation controllers
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late AnimationController _textFieldController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  List<Animation<Offset>> _textFieldAnimations = [];
+
+  // Focus nodes for smooth transitions
+  final List<FocusNode> _focusNodes = [];
+
   final Map<String, bool> _interests = {
-    'Âm nhạc': false,
-    'Thể thao': false, 
-    'Du lịch': false,
-    'Game': false,
-    'Ẩm thực': false,
-    'Công nghệ': false,
-    'Thời trang': false,
-    'Phim ảnh': false,
+    '🎵 Âm nhạc': false,
+    '⚽ Thể thao': false, 
+    '✈️ Du lịch': false,
+    '🎮 Game': false,
+    '🍔 Ẩm thực': false,
+    '💻 Công nghệ': false,
+    '👗 Thời trang': false,
+    '🎬 Phim ảnh': false,
   };
 
   @override
   void initState() {
     super.initState();
+    
+    // Initialize focus nodes
+    for (int i = 0; i < 4; i++) {
+      _focusNodes.add(FocusNode());
+    }
+    
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _textFieldController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
+
+    // Create staggered animations for text fields
+    for (int i = 0; i < 4; i++) {
+      _textFieldAnimations.add(
+        Tween<Offset>(
+          begin: const Offset(-1.0, 0),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _textFieldController,
+            curve: Interval(i * 0.1, 0.8 + (i * 0.05), curve: Curves.easeOutBack),
+          ),
+        ),
+      );
+    }
+
     _initializeUploadUrl();
     _loadUserProfile();
-    // Nếu có avatarUrl, gán vào _avatarUrl
+    
+    // Start animations
+    _fadeController.forward();
+    _slideController.forward();
+    
+    // Delay text field animations
+    Future.delayed(const Duration(milliseconds: 400), () {
+      _textFieldController.forward();
+    });
+    
     final authService = Provider.of<AuthService>(context, listen: false);
     _avatarUrl = authService.currentUser?.avatarUrl;
   }
 
   @override
   void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    _textFieldController.dispose();
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
     _usernameController.dispose();
     _emailController.dispose();
     _dobController.dispose();
@@ -86,34 +154,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Future<void> _initializeUploadUrl() async {
     try {
       _uploadUrl = await NetworkConfig.getBaseUrl('/api/users/upload-image');
-      final status = NetworkConfig.getStatus();
-      
-      setState(() {
-        _debugInfo = 'Platform: ${_getPlatformName()}\n'
-                   'Upload URL: $_uploadUrl\n'
-                   'Cached URL: ${status['cached_url']}\n'
-                   'Cache Valid: ${status['cache_valid']}';
-      });
-      
     } catch (e) {
-      setState(() {
-        _debugInfo = 'Error: Could not initialize upload URL\n$e';
-      });
+      _showSnackBar('Lỗi kết nối: $e', isError: true);
     }
-  }
-
-  String _getPlatformName() {
-    if (kIsWeb) return 'Web';
-    if (!kIsWeb) {
-      try {
-        if (Platform.isAndroid) return 'Android';
-        if (Platform.isIOS) return 'iOS';
-        return Platform.operatingSystem;
-      } catch (e) {
-        return 'Unknown';
-      }
-    }
-    return 'Unknown';
   }
 
   Future<void> _loadUserProfile() async {
@@ -164,10 +207,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
           }
         }
         
+        // Reset interests và load từ user
         _interests.updateAll((key, value) => false);
         for (String interest in user.interests) {
-          if (_interests.containsKey(interest)) {
-            _interests[interest] = true;
+          // Kiểm tra với emoji hoặc không có emoji
+          String keyWithEmoji = _interests.keys.firstWhere(
+            (k) => k.contains(interest) || interest.contains(k.split(' ').last), 
+            orElse: () => '',
+          );
+          if (keyWithEmoji.isNotEmpty) {
+            _interests[keyWithEmoji] = true;
           }
         }
         
@@ -179,12 +228,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _isLoading = false;
         });
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi tải thông tin: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('Lỗi khi tải thông tin: ${e.toString()}', isError: true);
       }
     }
   }
@@ -196,6 +240,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
       helpText: 'Chọn ngày sinh của bạn',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: const Color(0xFFFF0050),
+              surface: const Color(0xFF1A1A1A),
+              onSurface: Colors.white,
+            ),
+            dialogBackgroundColor: const Color(0xFF1A1A1A),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != _selectedDateOfBirth) {
       setState(() {
@@ -205,34 +262,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // 1. Thêm kiểm tra định dạng/kích thước file khi chọn ảnh QR
   bool _isValidQrImageFile(PlatformFile file) {
     final String fileName = file.name.toLowerCase();
     final List<String> validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     bool hasValidExtension = validExtensions.any((ext) => fileName.endsWith('.$ext'));
     if (!hasValidExtension) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chỉ hỗ trợ file ảnh: ${validExtensions.join(', ')}'), backgroundColor: Colors.red),
-      );
+      _showSnackBar('Chỉ hỗ trợ file ảnh: ${validExtensions.join(', ')}', isError: true);
       return false;
     }
     int fileSize = kIsWeb ? (file.bytes?.length ?? 0) : (file.size);
     if (fileSize > _maxFileSize) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('File quá lớn. Giới hạn: ${_maxFileSize ~/ (1024 * 1024)}MB'), backgroundColor: Colors.red),
-      );
+      _showSnackBar('File quá lớn. Giới hạn: ${_maxFileSize ~/ (1024 * 1024)}MB', isError: true);
       return false;
     }
     if (fileSize == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File rỗng hoặc không hợp lệ'), backgroundColor: Colors.red),
-      );
+      _showSnackBar('File rỗng hoặc không hợp lệ', isError: true);
       return false;
     }
     return true;
   }
 
-  // 2. Sửa _pickQrImage chỉ chọn file, kiểm tra hợp lệ, preview, KHÔNG upload ngay
   Future<void> _pickQrImage() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -248,7 +297,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         setState(() {
           _selectedQrImageFile = file;
           _qrImageFileName = file.name;
-          // Không upload ngay, chỉ preview
         });
       } else {
         setState(() {
@@ -257,26 +305,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi khi chọn ảnh: $e'), backgroundColor: Colors.red),
-      );
+      _showSnackBar('Lỗi khi chọn ảnh: $e', isError: true);
     }
   }
 
-  // 3. Sửa _uploadQrImage: chỉ upload khi ấn nút, hiển thị tiến trình, báo lỗi rõ ràng
   Future<void> _uploadQrImage() async {
     if (_selectedQrImageFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn ảnh QR để tải lên.')),
-      );
+      _showSnackBar('Vui lòng chọn ảnh QR để tải lên.', isError: true);
       return;
     }
     if (_uploadUrl == null) {
       await _initializeUploadUrl();
       if (_uploadUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không xác định được URL tải lên. Vui lòng thử lại.')),
-        );
+        _showSnackBar('Không xác định được URL tải lên. Vui lòng thử lại.', isError: true);
         return;
       }
     }
@@ -304,9 +345,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không tìm thấy file ảnh QR hợp lệ để tải lên.')),
-      );
+      _showSnackBar('Không tìm thấy file ảnh QR hợp lệ để tải lên.', isError: true);
       setState(() => _isUploadingQr = false);
       return;
     }
@@ -322,13 +361,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
             _selectedQrImageFile = null;
             _qrImageFileName = null;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Ảnh QR tải lên thành công!'), backgroundColor: Colors.green),
-          );
+          _showSnackBar('Ảnh QR tải lên thành công!', isError: false);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Server không trả về URL ảnh QR'), backgroundColor: Colors.red),
-          );
+          _showSnackBar('Server không trả về URL ảnh QR', isError: true);
         }
       } else {
         String errorMessage = 'Tải ảnh QR thất bại. Status: ${response.statusCode}';
@@ -336,9 +371,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error'] ?? errorMessage;
         } catch (_) {}
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
+        _showSnackBar(errorMessage, isError: true);
       }
     } catch (e) {
       String errorMessage = 'Lỗi tải ảnh QR: $e';
@@ -348,9 +381,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
         NetworkConfig.clearCache();
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-      );
+      _showSnackBar(errorMessage, isError: true);
     } finally {
       if (mounted) {
         setState(() => _isUploadingQr = false);
@@ -372,8 +403,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             return Container(
               width: 80,
               height: 80,
-              color: Colors.grey[200],
-              child: const Center(child: CircularProgressIndicator()),
+              color: const Color(0xFF2A2A2A),
+              child: const Center(child: CircularProgressIndicator(color: Color(0xFFFF0050))),
             );
           },
           errorBuilder: (context, error, stackTrace) {
@@ -425,16 +456,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: const Color(0xFF2A2A2A),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: Colors.grey[600]!),
       ),
-      child: Column(
+      child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.error, color: Colors.red),
+        children: [
+          Icon(Icons.error, color: Colors.red, size: 24),
           SizedBox(height: 4),
-          Text('Không xem được ảnh', style: TextStyle(fontSize: 10, color: Colors.red)),
+          Text('Lỗi ảnh', style: TextStyle(fontSize: 10, color: Colors.red)),
         ],
       ),
     );
@@ -448,54 +479,189 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
   }
 
-  Future<void> _refreshConnection() async {
-    setState(() {
-      _debugInfo = 'Refreshing connection...';
-    });
-    
-    NetworkConfig.clearCache();
-    await _initializeUploadUrl();
-    
-  }
-
   Future<void> _pickAvatarImage() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result != null && result.files.isNotEmpty) {
-      setState(() {
-        _selectedAvatarFile = result.files.first;
-        _avatarFileName = _selectedAvatarFile!.name;
-      });
-      await _uploadAvatarImage();
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+        allowMultiple: false,
+      );
+      if (result != null) {
+        final file = result.files.single;
+        setState(() {
+          _selectedAvatarFile = file;
+          _avatarFileName = file.name;
+        });
+      } else {
+        setState(() {
+          _selectedAvatarFile = null;
+          _avatarFileName = null;
+        });
+      }
+    } catch (e) {
+      _showSnackBar('Lỗi khi chọn ảnh avatar: $e', isError: true);
     }
   }
 
   Future<void> _uploadAvatarImage() async {
-    if (_selectedAvatarFile == null) return;
-    setState(() { _isUploadingAvatar = true; });
-    try {
-      final uri = Uri.parse(_uploadUrl ?? await NetworkConfig.getBaseUrl('/api/users/upload-image'));
-      final request = http.MultipartRequest('POST', uri);
-      final authService = Provider.of<AuthService>(context, listen: false);
-      request.fields['userId'] = authService.currentUser?.id ?? '';
+    if (_selectedAvatarFile == null) {
+      _showSnackBar('Vui lòng chọn ảnh avatar để tải lên.', isError: true);
+      return;
+    }
+    
+    final uploadUrl = await NetworkConfig.getBaseUrl('/api/users/upload-image');
+    setState(() => _isUploadingAvatar = true);
+    
+    var request = http.MultipartRequest('POST', Uri.parse(uploadUrl));
+    
+    if (kIsWeb && _selectedAvatarFile!.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
         'imageFile',
         _selectedAvatarFile!.bytes!,
-        filename: _selectedAvatarFile!.name,
-        contentType: MediaType('image', _selectedAvatarFile!.extension ?? 'png'),
+        filename: _avatarFileName ?? 'avatar_from_web.png',
+        contentType: MediaType('image', _avatarFileName?.split('.').last ?? 'png'),
       ));
-      final streamedResponse = await request.send();
+    } else if (!kIsWeb && _selectedAvatarFile!.path != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'imageFile',
+          _selectedAvatarFile!.path!,
+          filename: _avatarFileName ?? _selectedAvatarFile!.path!.split(Platform.pathSeparator).last,
+          contentType: MediaType('image', _selectedAvatarFile!.path!.split('.').last),
+        ),
+      );
+    } else {
+      _showSnackBar('Không tìm thấy file ảnh avatar hợp lệ để tải lên.', isError: true);
+      setState(() => _isUploadingAvatar = false);
+      return;
+    }
+    
+    try {
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
+      
+      if (!mounted) return;
+      
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() { _avatarUrl = data['imageUrl']; });
+        if (data['imageUrl'] != null) {
+          setState(() {
+            _avatarUrl = data['imageUrl'];
+            _selectedAvatarFile = null;
+            _avatarFileName = null;
+          });
+          _showSnackBar('Avatar tải lên thành công!', isError: false);
+        } else {
+          _showSnackBar('Server không trả về URL avatar', isError: true);
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi upload avatar: ${response.body}')));
+        String errorMessage = 'Tải avatar thất bại. Status: ${response.statusCode}';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['error'] ?? errorMessage;
+        } catch (_) {}
+        _showSnackBar(errorMessage, isError: true);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi upload avatar: $e')));
+      String errorMessage = 'Lỗi tải avatar: $e';
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('No address associated with hostname')) {
+        errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
+        NetworkConfig.clearCache();
+      }
+      _showSnackBar(errorMessage, isError: true);
     } finally {
-      setState(() { _isUploadingAvatar = false; });
+      if (mounted) {
+        setState(() => _isUploadingAvatar = false);
+      }
     }
+  }
+
+  Widget _buildAvatarPreview() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF0050).withOpacity(0.3),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: const Color(0xFF25F4EE).withOpacity(0.2),
+            blurRadius: 15,
+            spreadRadius: 1,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Container(
+        width: 120,
+        height: 120,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color(0xFF2A2A2A),
+        ),
+        child: ClipOval(
+          child: _getAvatarWidget(),
+        ),
+      ),
+    );
+  }
+
+  Widget _getAvatarWidget() {
+    if (_avatarUrl != null) {
+      return Image.network(
+        _avatarUrl!,
+        width: 120,
+        height: 120,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
+      );
+    } else if (kIsWeb && _selectedAvatarFile?.bytes != null) {
+      return Image.memory(
+        _selectedAvatarFile!.bytes!,
+        width: 120,
+        height: 120,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
+      );
+    } else if (!kIsWeb && _selectedAvatarFile?.path != null) {
+      return Image.file(
+        File(_selectedAvatarFile!.path!),
+        width: 120,
+        height: 120,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
+      );
+    } else {
+      return _defaultAvatar();
+    }
+  }
+
+  Widget _defaultAvatar() {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [const Color(0xFF404040), const Color(0xFF2A2A2A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Icon(Icons.person, size: 60, color: Colors.grey),
+    );
   }
 
   Future<void> _saveProfile() async {
@@ -509,10 +675,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() {
       _isSaving = true;
     });
+    
     List<String> selectedInterestsList = [];
     _interests.forEach((interest, isSelected) {
       if (isSelected) selectedInterestsList.add(interest);
     });
+    
     try {
       final success = await _profileService.updateProfileWithBankAndImage(
         userId: authService.currentUser!.id,
@@ -530,31 +698,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (mounted) {
         if (success) {
           await authService.refreshUserData();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Hồ sơ đã được cập nhật thành công!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-          Navigator.pop(context, authService.currentUser?.avatarUrl); // Trả về avatar mới
+          _showSnackBar('Hồ sơ đã được cập nhật thành công!', isError: false);
+          Navigator.pop(context, authService.currentUser?.avatarUrl);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cập nhật hồ sơ thất bại'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showSnackBar('Cập nhật hồ sơ thất bại', isError: true);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi lưu: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('Lỗi khi lưu: ${e.toString()}', isError: true);
       }
     } finally {
       if (mounted) {
@@ -565,439 +717,849 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+        ),
+        backgroundColor: isError ? Colors.red[600] : Colors.green[600],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Widget _buildCustomTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    required int index,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    bool enabled = true,
+  }) {
+    return SlideTransition(
+      position: _textFieldAnimations[index],
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: enabled ? const Color(0xFF2A2A2A) : const Color(0xFF1A1A1A),
+          border: Border.all(
+            color: _focusNodes[index].hasFocus 
+                ? const Color(0xFFFF0050) 
+                : Colors.grey[700]!,
+            width: _focusNodes[index].hasFocus ? 2 : 1,
+          ),
+          boxShadow: [
+            if (_focusNodes[index].hasFocus)
+              BoxShadow(
+                color: const Color(0xFFFF0050).withOpacity(0.2),
+                blurRadius: 10,
+                spreadRadius: 1,
+                offset: const Offset(0, 4),
+              ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: TextFormField(
+          controller: controller,
+          focusNode: _focusNodes[index],
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          validator: validator,
+          readOnly: readOnly,
+          enabled: enabled,
+          onTap: onTap,
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w500, 
+            color: enabled ? Colors.white : Colors.grey[500],
+          ),
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: TextStyle(
+              color: Colors.grey[500], 
+              fontWeight: FontWeight.w400,
+            ),
+            prefixIcon: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                icon, 
+                color: _focusNodes[index].hasFocus 
+                    ? const Color(0xFFFF0050) 
+                    : Colors.grey[500],
+              ),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            fillColor: Colors.transparent,
+            filled: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradientButton({
+    required String text,
+    required VoidCallback? onPressed,
+    bool isLoading = false,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      height: 58,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(29),
+        gradient: onPressed != null 
+            ? const LinearGradient(
+                colors: [Color(0xFFFF0050), Color(0xFFFF4081), Color(0xFF25F4EE)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              )
+            : LinearGradient(
+                colors: [Colors.grey[600]!, Colors.grey[500]!],
+              ),
+        boxShadow: onPressed != null ? [
+          BoxShadow(
+            color: const Color(0xFFFF0050).withOpacity(0.4),
+            blurRadius: 20,
+            spreadRadius: 1,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: const Color(0xFF25F4EE).withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ] : null,
+      ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(29)),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                height: 26,
+                width: 26,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildGlassMorphicContainer({
+    required Widget child,
+    EdgeInsetsGeometry? margin,
+    EdgeInsetsGeometry? padding,
+  }) {
+    return Container(
+      margin: margin ?? const EdgeInsets.only(bottom: 20),
+      padding: padding ?? const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF2A2A2A).withOpacity(0.8),
+        border: Border.all(
+          color: Colors.grey[700]!.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text('Chỉnh sửa hồ sơ'),
-        actions: [
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: _saveProfile,
-              child: const Text(
-                'Lưu',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+        backgroundColor: const Color(0xFF121212),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+          ).createShader(bounds),
+          child: const Text(
+            'Chỉnh Sửa Hồ Sơ',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
-        ],
+          ),
+        ),
+        centerTitle: true,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Card(
-                      color: _uploadUrl != null ? Colors.green.shade50 : Colors.orange.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  _uploadUrl != null ? Icons.check_circle : Icons.warning,
-                                  color: _uploadUrl != null ? Colors.green : Colors.orange,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Connection Status',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: _uploadUrl != null ? Colors.green.shade700 : Colors.orange.shade700,
-                                  ),
-                                ),
-                                const Spacer(),
-                                IconButton(
-                                  icon: const Icon(Icons.refresh, size: 20),
-                                  onPressed: _refreshConnection,
-                                  tooltip: 'Refresh Connection',
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            if (_debugInfo != null)
-                              Text(
-                                _debugInfo!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _uploadUrl != null ? Colors.green.shade600 : Colors.orange.shade600,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFFFF0050),
                     ),
-                    const SizedBox(height: 16),
-                    // Avatar UI
-                    FutureBuilder<String>(
-                      future: NetworkConfig.getFileBaseUrl(),
-                      builder: (context, snapshot) {
-                        final fileBaseUrl = snapshot.data ?? '';
-                        return Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CircleAvatar(
-                              radius: 48,
-                              backgroundImage: _avatarUrl != null
-                                  ? NetworkImage(fileBaseUrl + _avatarUrl!)
-                                  : null,
-                              child: _avatarUrl == null ? Icon(Icons.person, size: 48) : null,
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: IconButton(
-                                icon: Icon(Icons.camera_alt),
-                                onPressed: _isUploadingAvatar ? null : _pickAvatarImage,
-                              ),
-                            ),
-                            if (_isUploadingAvatar)
-                              Positioned.fill(
-                                child: Container(
-                                  color: Colors.black26,
-                                  child: Center(child: CircularProgressIndicator()),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _usernameController,
-                      decoration: InputDecoration(
-                        labelText: 'Tên người dùng',
-                        prefixIcon: const Icon(Icons.person_outline),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Vui lòng nhập tên người dùng';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emailController,
-                      enabled: false,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: const Icon(Icons.email_outlined),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[100],
-                        helperText: 'Email không thể thay đổi',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _dobController,
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: 'Ngày sinh',
-                        prefixIcon: const Icon(Icons.calendar_today_outlined),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                      ),
-                      onTap: () => _selectDate(context),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Giới tính:',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Column(
-                      children: Gender.values.map((gender) {
-                        String genderText = '';
-                        switch (gender) {
-                          case Gender.male:
-                            genderText = 'Nam';
-                            break;
-                          case Gender.female:
-                            genderText = 'Nữ';
-                            break;
-                          case Gender.other:
-                            genderText = 'Khác';
-                            break;
-                        }
-                        return RadioListTile<Gender>(
-                          title: Text(genderText),
-                          value: gender,
-                          groupValue: _selectedGender,
-                          onChanged: (Gender? value) {
-                            setState(() {
-                              _selectedGender = value;
-                            });
-                          },
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Sở thích:',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8.0,
-                      runSpacing: 4.0,
-                      children: _interests.keys.map((String key) {
-                        return FilterChip(
-                          label: Text(key),
-                          selected: _interests[key]!,
-                          onSelected: (bool selected) {
-                            setState(() {
-                              _interests[key] = selected;
-                            });
-                          },
-                          selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                          checkmarkColor: Theme.of(context).primaryColor,
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Form(
+                      key: _formKey,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            'Thông tin ngân hàng (tùy chọn)', 
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _bankNameController,
-                            decoration: InputDecoration(
-                              labelText: 'Tên ngân hàng',
-                              prefixIcon: const Icon(Icons.account_balance_wallet),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                            validator: (value) { return null; },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _bankAccountController,
-                            decoration: InputDecoration(
-                              labelText: 'Số tài khoản ngân hàng',
-                              prefixIcon: const Icon(Icons.credit_card),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                            validator: (value) { return null; },
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue.shade200),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          const SizedBox(height: 20),
+                          
+                          // Avatar Section
+                          Center(
+                            child: Stack(
                               children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.qr_code, color: Colors.blue.shade700),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Mã QR thanh toán',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue.shade700,
+                                _buildAvatarPreview(),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
                                       ),
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black26,
+                                          blurRadius: 8,
+                                          offset: Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                ElevatedButton.icon(
-                                  onPressed: _pickQrImage,
-                                  icon: const Icon(Icons.qr_code_scanner),
-                                  label: const Text('Chọn ảnh QR'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue.shade600,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    textStyle: const TextStyle(fontSize: 16)
+                                    child: IconButton(
+                                      icon: const Icon(Icons.camera_alt, color: Colors.white, size: 22),
+                                      onPressed: _pickAvatarImage,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-                                if (_selectedQrImageFile != null || _bankQrImageUrl != null)
-                                  Card(
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12.0),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Ảnh QR đã chọn:',
-                                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                              fontWeight: FontWeight.bold
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              _buildQrImagePreview(),
-                                              const SizedBox(width: 16),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    if (_qrImageFileName != null) ...[
-                                                      Row(
-                                                        children: [
-                                                          Icon(Icons.image, color: Theme.of(context).hintColor),
-                                                          const SizedBox(width: 8),
-                                                          Expanded(
-                                                            child: Text(
-                                                              _qrImageFileName!,
-                                                              style: const TextStyle(
-                                                                fontWeight: FontWeight.w500, 
-                                                                fontSize: 15
-                                                              ),
-                                                              overflow: TextOverflow.ellipsis,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                    ],
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: ElevatedButton.icon(
-                                                            icon: const Icon(Icons.cloud_upload, size: 18),
-                                                            label: Text(_bankQrImageUrl != null ? 'Tải lên' : 'Tải lên'),
-                                                            onPressed: (_selectedQrImageFile != null && !_isUploadingQr && _uploadUrl != null) ? _uploadQrImage : null,
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor: Theme.of(context).primaryColor,
-                                                              foregroundColor: Colors.white,
-                                                              padding: const EdgeInsets.symmetric(vertical: 8),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 8),
-                                                        IconButton(
-                                                          icon: const Icon(Icons.close, size: 18),
-                                                          onPressed: _clearQrImage,
-                                                          tooltip: 'Xóa ảnh',
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    if (_isUploadingQr) ...[
-                                                      const SizedBox(height: 8),
-                                                      const LinearProgressIndicator(),
-                                                      const SizedBox(height: 4),
-                                                      const Text('Đang tải ảnh lên...', style: TextStyle(fontSize: 12)),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
+                                if (_selectedAvatarFile != null)
+                                  Positioned(
+                                    top: 0,
+                                    right: 0,
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: Colors.green,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black26,
+                                            blurRadius: 8,
+                                            offset: Offset(0, 4),
                                           ),
                                         ],
                                       ),
+                                      child: IconButton(
+                                        icon: const Icon(Icons.cloud_upload, color: Colors.white, size: 20),
+                                        onPressed: _isUploadingAvatar ? null : _uploadAvatarImage,
+                                      ),
+                                    ),
+                                  ),
+                                if (_avatarUrl != null)
+                                  Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black26,
+                                            blurRadius: 8,
+                                            offset: Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: IconButton(
+                                        icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                                        onPressed: () => setState(() { _avatarUrl = null; }),
+                                      ),
                                     ),
                                   ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Hỗ trợ: JPG, JPEG, PNG, GIF, WEBP\nKích thước tối đa: 5MB',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          
+                          const SizedBox(height: 32),
+                          
+                          // Form Fields
+                          _buildCustomTextField(
+                            controller: _usernameController,
+                            hintText: 'Tên người dùng',
+                            icon: Icons.person_outline,
+                            index: 0,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Vui lòng nhập tên người dùng';
+                              }
+                              return null;
+                            },
                           ),
+                          
+                          _buildCustomTextField(
+                            controller: _emailController,
+                            hintText: 'Email (không thể thay đổi)',
+                            icon: Icons.email_outlined,
+                            index: 1,
+                            keyboardType: TextInputType.emailAddress,
+                            enabled: false,
+                          ),
+                          
+                          _buildCustomTextField(
+                            controller: _dobController,
+                            hintText: 'Ngày sinh (dd/mm/yyyy)',
+                            icon: Icons.calendar_today_outlined,
+                            index: 2,
+                            readOnly: true,
+                            onTap: () => _selectDate(context),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return 'Vui lòng chọn ngày sinh';
+                              return null;
+                            },
+                          ),
+                          
+                          // Gender Selection
+                          _buildGlassMorphicContainer(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Giới tính",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    color: Colors.grey[300],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: Gender.values.map((gender) {
+                                    String genderText = '';
+                                    IconData genderIcon = Icons.person;
+                                    switch (gender) {
+                                      case Gender.male:
+                                        genderText = 'Nam';
+                                        genderIcon = Icons.male;
+                                        break;
+                                      case Gender.female:
+                                        genderText = 'Nữ';
+                                        genderIcon = Icons.female;
+                                        break;
+                                      case Gender.other:
+                                        genderText = 'Khác';
+                                        genderIcon = Icons.transgender;
+                                        break;
+                                    }
+                                    return Expanded(
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 200),
+                                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(16),
+                                          color: _selectedGender == gender 
+                                              ? const Color(0xFFFF0050) 
+                                              : const Color(0xFF1A1A1A),
+                                          border: Border.all(
+                                            color: _selectedGender == gender 
+                                                ? const Color(0xFFFF0050) 
+                                                : Colors.grey[600]!,
+                                            width: _selectedGender == gender ? 2 : 1,
+                                          ),
+                                          boxShadow: _selectedGender == gender ? [
+                                            BoxShadow(
+                                              color: const Color(0xFFFF0050).withOpacity(0.3),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ] : null,
+                                        ),
+                                        child: InkWell(
+                                          onTap: () => setState(() => _selectedGender = gender),
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 16),
+                                            child: Column(
+                                              children: [
+                                                Icon(
+                                                  genderIcon,
+                                                  color: _selectedGender == gender 
+                                                      ? Colors.white 
+                                                      : Colors.grey[500],
+                                                  size: 28,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  genderText,
+                                                  style: TextStyle(
+                                                    color: _selectedGender == gender 
+                                                        ? Colors.white 
+                                                        : Colors.grey[400],
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          // Interests Section
+                          _buildGlassMorphicContainer(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Sở thích của bạn",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    color: Colors.grey[300],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                GridView.count(
+                                  crossAxisCount: 2,
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 2.5,
+                                  children: _interests.keys.map((String key) {
+                                    bool isSelected = _interests[key]!;
+                                    return InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _interests[key] = !isSelected;
+                                        });
+                                      },
+                                      borderRadius: BorderRadius.circular(25),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 250),
+                                        curve: Curves.easeInOut,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(25),
+                                          gradient: isSelected ? const LinearGradient(
+                                            colors: [Color(0xFFFF0050), Color(0xFF25F4EE)],
+                                            begin: Alignment.centerLeft,
+                                            end: Alignment.centerRight,
+                                          ) : null,
+                                          color: isSelected ? null : const Color(0xFF1A1A1A),
+                                          border: Border.all(
+                                            color: isSelected 
+                                                ? Colors.transparent 
+                                                : Colors.grey[600]!,
+                                            width: 1,
+                                          ),
+                                          boxShadow: isSelected ? [
+                                            BoxShadow(
+                                              color: const Color(0xFFFF0050).withOpacity(0.3),
+                                              blurRadius: 10,
+                                              spreadRadius: 1,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ] : [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.2),
+                                              blurRadius: 5,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            key,
+                                            style: TextStyle(
+                                              color: isSelected ? Colors.white : Colors.grey[400],
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          // Bank Information Section
+                          _buildGlassMorphicContainer(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Thông tin ngân hàng (tùy chọn)', 
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    color: Colors.grey[300],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                
+                                // Bank Name Field
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    color: const Color(0xFF1A1A1A),
+                                    border: Border.all(color: Colors.grey[700]!),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextFormField(
+                                    controller: _bankNameController,
+                                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                                    decoration: InputDecoration(
+                                      hintText: 'Tên ngân hàng',
+                                      hintStyle: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w400),
+                                      prefixIcon: const Icon(Icons.account_balance, color: Color(0xFFFF0050)),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      fillColor: Colors.transparent,
+                                      filled: true,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                                    ),
+                                  ),
+                                ),
+                                
+                                // Bank Account Field
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    color: const Color(0xFF1A1A1A),
+                                    border: Border.all(color: Colors.grey[700]!),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextFormField(
+                                    controller: _bankAccountController,
+                                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                                    decoration: InputDecoration(
+                                      hintText: 'Số tài khoản ngân hàng',
+                                      hintStyle: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w400),
+                                      prefixIcon: const Icon(Icons.credit_card, color: Color(0xFFFF0050)),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      fillColor: Colors.transparent,
+                                      filled: true,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                                    ),
+                                  ),
+                                ),
+                                
+                                // QR Code Section
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1A1A1A),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: const Color(0xFF25F4EE).withOpacity(0.3)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF25F4EE).withOpacity(0.1),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
+                                              ),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: const Icon(Icons.qr_code, color: Colors.white, size: 20),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            'Mã QR thanh toán',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.grey[300],
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      
+                                      // Pick QR Button
+                                      Container(
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(12),
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFF25F4EE), Color(0xFF00D4FF)],
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(0xFF25F4EE).withOpacity(0.3),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: ElevatedButton.icon(
+                                          onPressed: _pickQrImage,
+                                          icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+                                          label: const Text('Chọn ảnh QR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.transparent,
+                                            shadowColor: Colors.transparent,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            padding: const EdgeInsets.symmetric(vertical: 14),
+                                          ),
+                                        ),
+                                      ),
+                                      
+                                      const SizedBox(height: 16),
+                                      
+                                      // QR Preview and Upload
+                                      if (_selectedQrImageFile != null || _bankQrImageUrl != null)
+                                        Container(
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF2A2A2A),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: Colors.grey[700]!),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Ảnh QR đã chọn:',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.grey[300],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Row(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  _buildQrImagePreview(),
+                                                  const SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        if (_qrImageFileName != null) ...[
+                                                          Row(
+                                                            children: [
+                                                              const Icon(Icons.image, color: Color(0xFF25F4EE), size: 16),
+                                                              const SizedBox(width: 8),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  _qrImageFileName!,
+                                                                  style: TextStyle(
+                                                                    fontWeight: FontWeight.w500, 
+                                                                    fontSize: 14,
+                                                                    color: Colors.grey[300],
+                                                                  ),
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(height: 12),
+                                                        ],
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Container(
+                                                                decoration: BoxDecoration(
+                                                                  borderRadius: BorderRadius.circular(8),
+                                                                  gradient: const LinearGradient(
+                                                                    colors: [Color(0xFFFF0050), Color(0xFFFF4081)],
+                                                                  ),
+                                                                ),
+                                                                child: ElevatedButton.icon(
+                                                                  icon: const Icon(Icons.cloud_upload, size: 16, color: Colors.white),
+                                                                  label: const Text('Tải lên', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                                                  onPressed: (_selectedQrImageFile != null && !_isUploadingQr && _uploadUrl != null) ? _uploadQrImage : null,
+                                                                  style: ElevatedButton.styleFrom(
+                                                                    backgroundColor: Colors.transparent,
+                                                                    shadowColor: Colors.transparent,
+                                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 8),
+                                                            Container(
+                                                              decoration: BoxDecoration(
+                                                                color: Colors.red.withOpacity(0.8),
+                                                                borderRadius: BorderRadius.circular(8),
+                                                              ),
+                                                              child: IconButton(
+                                                                icon: const Icon(Icons.close, size: 16, color: Colors.white),
+                                                                onPressed: _clearQrImage,
+                                                                tooltip: 'Xóa ảnh',
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        if (_isUploadingQr) ...[
+                                                          const SizedBox(height: 12),
+                                                          Container(
+                                                            decoration: BoxDecoration(
+                                                              borderRadius: BorderRadius.circular(4),
+                                                              color: const Color(0xFF1A1A1A),
+                                                            ),
+                                                            child: const LinearProgressIndicator(
+                                                              backgroundColor: Color(0xFF1A1A1A),
+                                                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF0050)),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(height: 4),
+                                                          Text(
+                                                            'Đang tải ảnh lên...',
+                                                            style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Hỗ trợ: JPG, JPEG, PNG, GIF, WEBP\nKích thước tối đa: 5MB',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 32),
+                          
+                          // Save Button
+                          _buildGradientButton(
+                            text: 'Lưu Thay Đổi',
+                            onPressed: _isSaving ? null : _saveProfile,
+                            isLoading: _isSaving,
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Cancel Button
+                          Container(
+                            height: 58,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(29),
+                              border: Border.all(color: Colors.grey[600]!, width: 2),
+                            ),
+                            child: TextButton(
+                              onPressed: _isSaving ? null : () => Navigator.pop(context),
+                              style: TextButton.styleFrom(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(29)),
+                              ),
+                              child: Text(
+                                'Hủy',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 40),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16.0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Text(
-                              'Lưu thay đổi',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: _isSaving ? null : () => Navigator.pop(context),
-                      child: const Text(
-                        'Hủy',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 }

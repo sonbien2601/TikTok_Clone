@@ -6,6 +6,7 @@ import 'package:tiktok_frontend/src/features/feed/domain/models/video_post_model
 import 'package:tiktok_frontend/src/features/feed/domain/services/video_service.dart';
 import 'package:tiktok_frontend/src/features/feed/presentation/widgets/full_screen_video_item.dart';
 import 'package:tiktok_frontend/src/features/feed/presentation/widgets/comment_bottom_sheet.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class VideoDetailPage extends StatefulWidget {
   final String videoId;
@@ -225,10 +226,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
         ),
-        title: const Text(
-          'Video',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: Text('Chi tiết video', style: TextStyle(fontSize: 20.sp)),
         actions: [
           if (_video != null)
             IconButton(
@@ -237,167 +235,162 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
             ),
         ],
       ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      );
-    }
-
-    if (_isVideoNotFound) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.video_library_outlined,
-              size: 80,
-              color: Colors.white.withOpacity(0.7),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Video không tồn tại',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                'Video này có thể đã bị xóa hoặc không tồn tại. Vui lòng kiểm tra lại.',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _loadVideo,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Thử lại'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Quay lại'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_hasError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.white.withOpacity(0.7),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Lỗi khi tải video',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  _errorMessage!,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _loadVideo,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Thử lại'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Quay lại'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_video == null) {
-      return Center(
-        child: Text(
-          'Không có dữ liệu video',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 16,
-          ),
-        ),
-      );
-    }
-
-    // Show video
-    return FullScreenVideoItem(
-      key: ValueKey(_video!.id),
-      videoPost: _video!,
-      isActive: true,
-      onVideoInitialized: (controller) {
-        // Video controller initialized
-      },
-      onDispose: () {
-        // Video disposed
-      },
-      onLikeButtonPressed: _handleLikeVideo,
-      onSaveButtonPressed: _handleSaveVideo,
+      body: Padding(
+        padding: EdgeInsets.all(16.w),
+        child: _isLoading
+            ? Center(child: CircularProgressIndicator(color: Colors.white))
+            : _isVideoNotFound
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.video_library_outlined,
+                          size: 80.sp,
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                        SizedBox(height: 20.h),
+                        Text(
+                          'Video không tồn tại',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 40.w),
+                          child: Text(
+                            'Video này có thể đã bị xóa hoặc không tồn tại. Vui lòng kiểm tra lại.',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 14.sp,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        SizedBox(height: 32.h),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _loadVideo,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Thử lại'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                              ),
+                            ),
+                            SizedBox(width: 16.w),
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.arrow_back),
+                              label: const Text('Quay lại'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white),
+                                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )
+                : _hasError
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64.sp,
+                              color: Colors.white.withOpacity(0.7),
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'Lỗi khi tải video',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            if (_errorMessage != null)
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 32.w),
+                                child: Text(
+                                  _errorMessage!,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontSize: 14.sp,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            SizedBox(height: 24.h),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: _loadVideo,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Thử lại'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                  ),
+                                ),
+                                SizedBox(width: 16.w),
+                                OutlinedButton.icon(
+                                  onPressed: () => Navigator.pop(context),
+                                  icon: const Icon(Icons.arrow_back),
+                                  label: const Text('Quay lại'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      )
+                    : _video == null
+                        ? Center(
+                            child: Text(
+                              'Không có dữ liệu video',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 16.sp,
+                              ),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_video!.description ?? '', style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
+                              SizedBox(height: 16.h),
+                              FullScreenVideoItem(
+                                key: ValueKey(_video!.id),
+                                videoPost: _video!,
+                                isActive: true,
+                                onVideoInitialized: (controller) {
+                                  // Video controller initialized
+                                },
+                                onDispose: () {
+                                  // Video disposed
+                                },
+                                onLikeButtonPressed: _handleLikeVideo,
+                                onSaveButtonPressed: _handleSaveVideo,
+                              ),
+                            ],
+                          ),
+      ),
     );
   }
 }

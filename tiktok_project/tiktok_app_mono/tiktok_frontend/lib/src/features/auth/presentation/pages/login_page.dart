@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/auth/presentation/pages/register_page.dart';
 import 'package:tiktok_frontend/src/features/auth/presentation/widgets/auth_text_field.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

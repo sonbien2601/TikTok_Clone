@@ -18,6 +18,7 @@ import 'package:intl/intl.dart';
 import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_page.dart';
 import 'package:tiktok_frontend/src/features/donate/presentation/pages/donate_history_page.dart';
 import 'package:tiktok_frontend/src/features/feed/presentation/views/video_feed_view.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});

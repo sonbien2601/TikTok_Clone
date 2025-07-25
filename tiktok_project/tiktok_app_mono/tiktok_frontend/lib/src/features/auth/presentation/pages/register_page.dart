@@ -17,6 +17,7 @@ import 'package:path/path.dart' as path;
 import 'package:http_parser/http_parser.dart';
 import 'package:tiktok_frontend/src/core/navigation/main_tab_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 enum Gender { male, female, other }
 

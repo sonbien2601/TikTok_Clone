@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../auth/domain/services/auth_service.dart';
 import '../../../notifications/presentation/widgets/notification_popup_settings.dart';
 import '../../../notifications/domain/models/notification_model.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class InboxPage extends StatefulWidget {
   const InboxPage({super.key});
@@ -22,14 +23,14 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Inbox'),
+        title: Text('Inbox', style: TextStyle(fontSize: 20.sp)),
         centerTitle: true,
         elevation: 1,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: Icon(Icons.settings, size: 24.sp),
             onPressed: () {
               _showNotificationSettings();
             },
@@ -40,20 +41,20 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
       body: Consumer<AuthService>(
         builder: (context, authService, child) {
           if (!authService.isAuthenticated) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.login,
-                    size: 64,
+                    size: 64.sp,
                     color: Colors.grey,
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(height: 16.h),
                   Text(
                     'Vui lòng đăng nhập để xem inbox',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 16.sp,
                       color: Colors.grey,
                     ),
                   ),
@@ -63,46 +64,46 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Welcome message
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16.w),
                     child: Row(
                       children: [
                         CircleAvatar(
-                          radius: 24,
+                          radius: 24.r,
                           backgroundColor: Theme.of(context).primaryColor,
                           child: Text(
                             authService.currentUser!.username[0].toUpperCase(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
+                              fontSize: 20.sp,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(width: 16.w),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Xin chào, ${authService.currentUser!.username}!',
-                                style: const TextStyle(
-                                  fontSize: 18,
+                                style: TextStyle(
+                                  fontSize: 18.sp,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              const Text(
+                              SizedBox(height: 4.h),
+                              Text(
                                 'Quản lý thông báo và tin nhắn của bạn',
                                 style: TextStyle(
                                   color: Colors.grey,
-                                  fontSize: 14,
+                                  fontSize: 14.sp,
                                 ),
                               ),
                             ],
@@ -113,17 +114,17 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
 
                 // Enhanced Notification Test Demo
                 _buildNotificationTestDemo(),
 
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
 
                 // Notification Popup Settings
                 const NotificationPopupSettings(),
 
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
 
                 // Inbox sections
                 _buildInboxSection(
@@ -133,7 +134,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                   () => _navigateToNotifications(),
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: 12.h),
 
                 _buildInboxSection(
                   'Tin nhắn',
@@ -142,7 +143,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                   () => _navigateToMessages(),
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: 12.h),
 
                 _buildInboxSection(
                   'Yêu cầu kết bạn',
@@ -151,7 +152,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                   () => _navigateToFollowRequests(),
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: 12.h),
 
                 _buildInboxSection(
                   'Video được chia sẻ',
@@ -160,23 +161,23 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                   () => _navigateToSharedVideos(),
                 ),
 
-                const SizedBox(height: 24),
+                SizedBox(height: 24.h),
 
                 // Statistics
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16.w),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Thống kê tài khoản',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 18.sp,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16.h),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
@@ -212,47 +213,48 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
   Widget _buildNotificationTestDemo() {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(8.w),
                   decoration: BoxDecoration(
                     color: Colors.purple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(8.r),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.science,
                     color: Colors.purple,
+                    size: 24.sp,
                   ),
                 ),
-                const SizedBox(width: 12),
-                const Text(
+                SizedBox(width: 12.w),
+                Text(
                   '🔔 Test Notification Popup',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
             
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             
-            const Text(
+            Text(
               'Test các loại thông báo popup đẹp với animation:',
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(fontSize: 16.sp),
             ),
             
-            const SizedBox(height: 20),
+            SizedBox(height: 20.h),
             
             // Test buttons
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 12.w,
+              runSpacing: 12.h,
               children: [
                 _buildTestButton(
                   'Follow Popup',
@@ -281,13 +283,13 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
               ],
             ),
             
-            const SizedBox(height: 20),
+            SizedBox(height: 20.h),
             
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.w),
               decoration: BoxDecoration(
                 color: Colors.blue.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(color: Colors.blue.withOpacity(0.2)),
               ),
               child: Column(
@@ -295,12 +297,12 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.info_outline,
                         color: Colors.blue,
-                        size: 20,
+                        size: 20.sp,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.w),
                       Text(
                         'Hướng dẫn test',
                         style: TextStyle(
@@ -310,7 +312,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.h),
                   Text(
                     '• Nhấn các nút trên để xem popup demo\n'
                     '• Popup sẽ tự động ẩn sau 6 giây\n'
@@ -319,7 +321,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                     '• Animation mượt mà với shimmer effect',
                     style: TextStyle(
                       color: Colors.blue[600],
-                      fontSize: 14,
+                      fontSize: 14.sp,
                       height: 1.4,
                     ),
                   ),
@@ -335,14 +337,14 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
   Widget _buildTestButton(String label, IconData icon, Color color, VoidCallback onPressed) {
     return ElevatedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 18),
+      icon: Icon(icon, size: 18.sp),
       label: Text(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12.r),
         ),
       ),
     );
@@ -353,7 +355,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
     
     if (!authService.isAuthenticated || authService.currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Vui lòng đăng nhập để test notification'),
           backgroundColor: Colors.orange,
         ),
@@ -383,7 +385,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
     
     if (!authService.isAuthenticated || authService.currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Vui lòng đăng nhập để test notification'),
           backgroundColor: Colors.orange,
         ),
@@ -393,18 +395,18 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
 
     // Show loading message
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Row(
           children: [
             SizedBox(
-              width: 20,
-              height: 20,
+              width: 20.w,
+              height: 20.h,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
+                strokeWidth: 2.sp,
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
-            SizedBox(width: 12),
+            SizedBox(width: 12.w),
             Text('Đang test notification popup...'),
           ],
         ),
@@ -423,25 +425,26 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
     return Card(
       child: ListTile(
         leading: Container(
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(8.w),
           decoration: BoxDecoration(
             color: Theme.of(context).primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.r),
           ),
           child: Icon(
             icon,
             color: Theme.of(context).primaryColor,
+            size: 24.sp,
           ),
         ),
         title: Text(
           title,
-          style: const TextStyle(
-            fontSize: 16,
+          style: TextStyle(
+            fontSize: 16.sp,
             fontWeight: FontWeight.w600,
           ),
         ),
         subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        trailing: Icon(Icons.arrow_forward_ios, size: 16.sp),
         onTap: onTap,
       ),
     );
@@ -453,21 +456,21 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
         Icon(
           icon,
           color: Theme.of(context).primaryColor,
-          size: 24,
+          size: 24.sp,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 20,
+          style: TextStyle(
+            fontSize: 20.sp,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4.h),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 12.sp,
             color: Colors.grey[600],
           ),
         ),
@@ -479,11 +482,11 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
     // Navigate to notifications page
     print('[InboxPage] Navigating to notifications');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Row(
           children: [
-            Icon(Icons.notifications, color: Colors.white),
-            SizedBox(width: 8),
+            Icon(Icons.notifications, color: Colors.white, size: 20.sp),
+            SizedBox(width: 8.w),
             Text('Trang thông báo đang được phát triển'),
           ],
         ),
@@ -495,7 +498,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
   void _navigateToMessages() {
     print('[InboxPage] Navigating to messages');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text('Chức năng tin nhắn đang được phát triển'),
         backgroundColor: Colors.orange,
       ),
@@ -505,7 +508,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
   void _navigateToFollowRequests() {
     print('[InboxPage] Navigating to follow requests');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text('Chức năng yêu cầu follow đang được phát triển'),
         backgroundColor: Colors.orange,
       ),
@@ -515,7 +518,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
   void _navigateToSharedVideos() {
     print('[InboxPage] Navigating to shared videos');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text('Chức năng video chia sẻ đang được phát triển'),
         backgroundColor: Colors.orange,
       ),
@@ -528,50 +531,50 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
+            topLeft: Radius.circular(20.r),
+            topRight: Radius.circular(20.r),
           ),
         ),
         child: Padding(
           padding: EdgeInsets.only(
-            top: 20,
-            left: 20,
-            right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            top: 20.h,
+            left: 20.w,
+            right: 20.w,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20.h,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Handle bar
               Container(
-                width: 40,
-                height: 4,
+                width: 40.w,
+                height: 4.h,
                 decoration: BoxDecoration(
                   color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(2.r),
                 ),
               ),
               
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               
               // Title
-              const Text(
+              Text(
                 '🔔 Cài đặt thông báo popup',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 20.sp,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               
               // Settings content
               const NotificationPopupSettings(),
               
-              const SizedBox(height: 16),
+              SizedBox(height: 16.h),
               
               // Close button
               SizedBox(
@@ -582,7 +585,7 @@ class _InboxPageState extends State<InboxPage> with AutomaticKeepAliveClientMixi
                     backgroundColor: Colors.grey[200],
                     foregroundColor: Colors.black,
                   ),
-                  child: const Text('Đóng'),
+                  child: Text('Đóng'),
                 ),
               ),
             ],

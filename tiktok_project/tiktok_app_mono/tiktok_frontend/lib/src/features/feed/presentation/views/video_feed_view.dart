@@ -7,6 +7,7 @@ import 'package:tiktok_frontend/src/features/feed/domain/models/video_post_model
 import 'package:tiktok_frontend/src/features/feed/domain/services/video_service.dart';
 import 'package:tiktok_frontend/src/features/feed/presentation/widgets/full_screen_video_item.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class VideoFeedView extends StatefulWidget {
   const VideoFeedView({super.key});

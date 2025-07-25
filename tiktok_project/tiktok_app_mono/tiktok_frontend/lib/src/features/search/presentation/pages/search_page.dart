@@ -7,6 +7,7 @@ import 'package:tiktok_frontend/src/features/follow/domain/services/follow_servi
 import 'package:tiktok_frontend/src/features/follow/domain/services/follow_state_manager.dart';
 import 'package:tiktok_frontend/src/features/follow/presentation/widgets/follow_button_widget.dart';
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -390,44 +391,44 @@ class _SearchPageState extends State<SearchPage>
       body: Column(
         children: [
           Container(
-            margin: const EdgeInsets.all(16.0),
+            margin: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(16.r),
               color: const Color(0xFF2A2A2A).withOpacity(0.8),
               border: Border.all(
                 color: Colors.grey[700]!.withOpacity(0.3),
-                width: 1,
+                width: 1.w,
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
+                  blurRadius: 15.r,
+                  offset: Offset(0, 5.h),
                 ),
               ],
             ),
             child: TextField(
               controller: _searchController,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(color: Colors.white, fontSize: 16.sp),
               decoration: InputDecoration(
                 hintText: 'Search users, videos...',
-                hintStyle: TextStyle(color: Colors.grey[500]),
+                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16.sp),
                 prefixIcon: _isSearching
                     ? Padding(
-                        padding: const EdgeInsets.all(12.0),
+                        padding: EdgeInsets.all(12.w),
                         child: SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 20.w,
+                          height: 20.w,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
+                            strokeWidth: 2.w,
                             color: Color(0xFFFF0050),
                           ),
                         ),
                       )
-                    : const Icon(Icons.search, color: Color(0xFFFF0050)),
+                    : Icon(Icons.search, color: Color(0xFFFF0050), size: 24.sp),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.grey),
+                        icon: Icon(Icons.clear, color: Colors.grey, size: 20.sp),
                         onPressed: () {
                           _searchController.clear();
                           _performSearch('');
@@ -435,12 +436,12 @@ class _SearchPageState extends State<SearchPage>
                       )
                     : null,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16.r),
                   borderSide: BorderSide.none,
                 ),
                 fillColor: Colors.transparent,
                 filled: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                contentPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 18.h),
               ),
               onChanged: (value) {
                 Future.delayed(const Duration(milliseconds: 500), () {

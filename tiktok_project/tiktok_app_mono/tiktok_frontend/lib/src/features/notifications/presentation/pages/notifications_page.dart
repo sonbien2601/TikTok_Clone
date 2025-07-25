@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/features/notifications/domain/models/notification_model.dart';
 import 'package:tiktok_frontend/src/features/notifications/domain/services/notification_service.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../widgets/notification_item_widget.dart';
 
@@ -305,20 +306,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
       appBar: AppBar(
         title: Row(
           children: [
-            const Text('Thông báo'),
+            Text('Thông báo', style: TextStyle(fontSize: 20.sp)),
             if (_unreadCount > 0) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: 8.w),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
                 decoration: BoxDecoration(
                   color: Colors.red,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Text(
                   _unreadCount.toString(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 12.sp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -357,25 +358,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
+            Icon(Icons.error_outline, size: 48.sp, color: Colors.grey.shade400),
+            SizedBox(height: 16.h),
             Text(
               'Lỗi khi tải thông báo',
               style: TextStyle(color: Colors.grey.shade600),
             ),
             if (_errorMessage != null) 
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: EdgeInsets.all(8.w),
                 child: Text(
                   _errorMessage!,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12.sp),
                   textAlign: TextAlign.center,
                 ),
               ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             ElevatedButton(
               onPressed: _loadNotifications,
-              child: const Text('Thử lại'),
+              child: Text('Thử lại'),
             ),
           ],
         ),
@@ -387,16 +388,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_none, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
+            Icon(Icons.notifications_none, size: 48.sp, color: Colors.grey.shade400),
+            SizedBox(height: 16.h),
             Text(
               'Chưa có thông báo nào',
               style: TextStyle(color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.h),
             Text(
               'Các thông báo mới sẽ xuất hiện ở đây',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 14.sp),
             ),
           ],
         ),
@@ -405,15 +406,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
     
     return ListView.separated(
       controller: _scrollController,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.w),
       itemCount: _notifications.length + (_isLoadingMore ? 1 : 0),
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
         if (index == _notifications.length) {
           // Loading more indicator
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.w),
               child: CircularProgressIndicator(),
             ),
           );
@@ -441,16 +442,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                          SizedBox(
+                            width: 20.w,
+                            height: 20.h,
+                            child: CircularProgressIndicator(strokeWidth: 2.sp),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4.h),
                           Text(
                             isMarkingAsRead ? 'Đang đánh dấu...' : 'Đang xóa...',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 12.sp,
                               color: Colors.grey.shade600,
                             ),
                           ),

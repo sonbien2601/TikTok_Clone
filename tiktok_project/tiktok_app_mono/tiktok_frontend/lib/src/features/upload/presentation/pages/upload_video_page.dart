@@ -9,6 +9,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:provider/provider.dart';
 import 'package:tiktok_frontend/src/features/auth/domain/services/auth_service.dart';
 import 'package:tiktok_frontend/src/core/config/network_config.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class UploadVideoPage extends StatefulWidget {
   const UploadVideoPage({super.key});
@@ -276,7 +277,7 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upload New Video'),
+        title: Text('Upload Video', style: TextStyle(fontSize: 20.sp)),
         actions: [
           if (!_isLoading)
             IconButton(
@@ -301,7 +302,7 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -309,7 +310,7 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
             Card(
               color: _uploadUrl != null ? Colors.green.shade50 : Colors.orange.shade50,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(12.w),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -318,9 +319,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                         Icon(
                           _uploadUrl != null ? Icons.check_circle : Icons.warning,
                           color: _uploadUrl != null ? Colors.green : Colors.orange,
-                          size: 20,
+                          size: 20.sp,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.w),
                         Text(
                           'Connection Status',
                           style: TextStyle(
@@ -336,12 +337,12 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4.h),
                     if (_debugInfo != null)
                       Text(
                         _debugInfo!,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.sp,
                           color: _uploadUrl != null ? Colors.green.shade600 : Colors.orange.shade600,
                           fontFamily: 'monospace',
                         ),
@@ -351,69 +352,72 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
               ),
             ),
             
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             
             // Video Selection
             ElevatedButton.icon(
               onPressed: _pickVideo,
-              icon: const Icon(Icons.video_library_outlined),
-              label: const Text('Select Video from Device'),
+              icon: Icon(Icons.video_library_outlined, size: 24.sp),
+              label: Text('Chọn video từ thiết bị', style: TextStyle(fontSize: 16.sp)),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                textStyle: const TextStyle(fontSize: 16)
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
               ),
             ),
             
-            const SizedBox(height: 20),
+            SizedBox(height: 20.h),
             
             // Selected Video Display
             if (_selectedPlatformFile != null)
               Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 2.0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
+                  padding: EdgeInsets.all(12.w),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Selected Video:',
+                        'Video đã chọn:',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       Row(
                         children: [
                           Icon(
                             Icons.movie_creation_outlined, 
-                            color: Theme.of(context).hintColor
+                            color: Theme.of(context).hintColor,
+                            size: 24.sp,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.w),
                           Expanded(
                             child: Text(
-                              _videoFileName ?? 'No filename',
-                              style: const TextStyle(
+                              _videoFileName ?? 'Không có tên file',
+                              style: TextStyle(
                                 fontWeight: FontWeight.w500, 
-                                fontSize: 15
+                                fontSize: 15.sp
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.h),
                       Container(
-                        height: 200,
+                        height: 200.h,
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.black12,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12.r),
                         ),
                         child: Center(
                           child: Icon(
                             Icons.play_circle_fill_rounded, 
-                            size: 60, 
+                            size: 60.sp, 
                             color: Colors.grey[400]
                           )
                         ),
@@ -423,25 +427,27 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                 ),
               ),
              
-            if (_selectedPlatformFile != null) const SizedBox(height: 20),
+            if (_selectedPlatformFile != null) SizedBox(height: 20.h),
             
             // Description Input
             TextFormField(
               controller: _descriptionController,
               decoration: InputDecoration(
-                labelText: 'Video Description',
-                hintText: 'Add description, #hashtags...',
+                labelText: 'Mô tả video',
+                hintText: 'Thêm mô tả, #hashtags...',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
-                prefixIcon: const Icon(Icons.notes_outlined),
+                prefixIcon: Icon(Icons.notes_outlined, size: 24.sp),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               ),
               maxLines: 4,
               maxLength: 250,
               onChanged: (_) => setState(() {}), // Update upload button state
+              style: TextStyle(fontSize: 16.sp),
             ),
             
-            const SizedBox(height: 30),
+            SizedBox(height: 30.h),
             
             // Upload Button or Loading
             if (_isLoading)
@@ -452,23 +458,26 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 8),
-                      Text('Uploading video...'),
+                      Text('Đang tải lên video...'),
                     ],
                   ),
                 )
               )
             else 
               ElevatedButton.icon(
-                icon: const Icon(Icons.cloud_upload_rounded),
-                label: const Text('Upload Video'),
+                icon: Icon(Icons.cloud_upload_rounded, size: 24.sp),
+                label: Text('Tải lên video', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  textStyle: const TextStyle(
-                    fontSize: 16, 
+                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                  textStyle: TextStyle(
+                    fontSize: 16.sp, 
                     fontWeight: FontWeight.bold
-                  )
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
                 ),
                 onPressed: (_selectedPlatformFile != null && 
                           _descriptionController.text.isNotEmpty &&
